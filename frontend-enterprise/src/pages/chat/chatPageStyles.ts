@@ -17,6 +17,18 @@ import { cn } from '@/lib/utils';
 export const CHAT_ICON_BUTTON_CLASS =
   'inline-grid size-[30px] shrink-0 place-items-center rounded-[8px] border-0 bg-transparent p-0 text-[#6d6d72] transition-colors hover:bg-[#f0efec] hover:text-[#18181a]';
 
+/**
+ * 对话端唯一的一种「实体卡」语言，消息窗口 / 输入框 / 右栏小卡全都复用它：
+ *   白面 + 18px 圆角 + 0.5px 墨色描边（ring，不占盒模型）+ 一层极浅的浮起阴影。
+ *
+ * 为什么一条 token 而不是各写各的：这几张卡在屏幕上是上下叠着的，圆角差 2px、
+ * 描边一个暖米一个冷灰，第一眼就会读成「两套组件」。环状描边用 ring 而不是
+ * border，是为了让卡内内容宽度 = 卡宽 − padding（border 会再吃掉 1px×2，
+ * 消息卡与输入框的文字左右缘就会各错 1px）。
+ */
+export const CHAT_SURFACE_CARD_CLASS =
+  'rounded-[18px] bg-white ring-[0.5px] ring-[rgba(24,24,26,0.16)] shadow-[0_1px_2px_rgba(24,24,26,0.05),0_8px_24px_-14px_rgba(24,24,26,0.18)]';
+
 // ---------------------------------------------------------------------------
 // Main column + header
 // ---------------------------------------------------------------------------
@@ -308,13 +320,15 @@ export const CHAT_COMPOSER_STAGE_CLASS = 'relative w-full min-w-0';
 // 在 Composer 内拼：关 = 浅墨底灰字，开 = 品牌青绿底深青字（高对比）。
 export const CHAT_COMPOSER_WEB_SEARCH_CLASS =
   'inline-flex h-[27px] shrink-0 cursor-pointer items-center gap-[6px] rounded-full border px-[9px] text-[12px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/30';
-// 外壳去掉后，这张白框是输入区唯一的实体，直接浮在纸背景上：
-// 描边从 14% 提到 16%，阴影补一层很浅的浮起感，否则白底/纸白差 2% 会糊掉边界。
-export const CHAT_COMPOSER_FORM_CLASS =
-  'relative flex min-w-0 flex-1 flex-col gap-[8px] rounded-[18px] bg-white p-[10px] shadow-[0_1px_2px_rgba(24,24,26,0.05),0_8px_24px_-14px_rgba(24,24,26,0.18)] ring-[0.5px] ring-[rgba(24,24,26,0.16)] transition-colors';
+// 外壳去掉后，这张白框是输入区唯一的实体，直接浮在纸背景上：卡面、圆角、
+// 描边、阴影全部来自 CHAT_SURFACE_CARD_CLASS —— 和上方消息窗口逐像素同款。
+export const CHAT_COMPOSER_FORM_CLASS = cn(
+  'relative flex min-w-0 flex-1 flex-col gap-[8px] p-[10px] transition-colors',
+  CHAT_SURFACE_CARD_CLASS,
+);
 export const CHAT_COMPOSER_FORM_DRAG_CLASS = 'bg-[rgba(15,118,110,0.05)] ring-[1px] ring-[#0f766e]';
 export const CHAT_COMPOSER_DROP_HINT_CLASS =
-  'pointer-events-none absolute inset-0 z-[2] grid place-items-center rounded-[20px] bg-white/85 text-[14px] font-medium text-[#18181a] backdrop-blur-sm';
+  'pointer-events-none absolute inset-0 z-[2] grid place-items-center rounded-[18px] bg-white/85 text-[14px] font-medium text-[#18181a] backdrop-blur-sm';
 // 卡内水平内边距 10（form）+ 10（textarea）= 20，正好等于消息列的 px-20：
 // 输入的文字与上方消息正文、头像落在同一条竖线上。
 export const CHAT_COMPOSER_TEXTAREA_CLASS =
@@ -483,17 +497,21 @@ export const CHAT_BODY_CLASS = 'flex min-h-0 min-w-0 flex-1 gap-[12px] px-[12px]
  * 所以不只外框同宽，文字左右缘也对齐。别再给任一侧单独写 808/816。
  */
 export const CHAT_COLUMN_CLASS = 'flex min-h-0 min-w-0 flex-1 flex-col gap-[10px]';
-/** 上卡：消息窗口。白底 + 发丝线 + 16px 圆角，和右栏卡片同一套语言。
- *  宽度与下方输入框一致（max-w-768），而不是撑满整列。 */
-export const CHAT_MESSAGE_SHELL_CLASS =
-  'mx-auto flex min-h-0 w-full max-w-[768px] flex-1 flex-col overflow-hidden rounded-[16px] border border-[#e6e2da] bg-white shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
+/** 上卡：消息窗口。与下方输入框**同一张卡**（CHAT_SURFACE_CARD_CLASS）：
+ *  同圆角 18px、同 0.5px 描边、同浮起阴影，宽度也同为 max-w-768。 */
+export const CHAT_MESSAGE_SHELL_CLASS = cn(
+  'mx-auto flex min-h-0 w-full max-w-[768px] flex-1 flex-col overflow-hidden',
+  CHAT_SURFACE_CARD_CLASS,
+);
 // 右栏 = 一列**独立小卡**（参考 handoff 面板的右列：卡片之间留缝，各自圆角，
 // 卡内再嵌一块更浅的内容块）。之前是一整张卡靠发丝线分段，四段读起来像一个
 // 长列表；拆开之后每一段都能单独被看到，高度也随内容走。
 export const CHAT_RAIL_CLASS =
   'hidden w-[288px] shrink-0 flex-col gap-[10px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(24,24,26,0.12)_transparent] xl:flex';
-export const CHAT_RAIL_CARD_CLASS =
-  'flex shrink-0 flex-col overflow-hidden rounded-[16px] border border-[#e6e2da] bg-white shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
+export const CHAT_RAIL_CARD_CLASS = cn(
+  'flex shrink-0 flex-col overflow-hidden',
+  CHAT_SURFACE_CARD_CLASS,
+);
 // 卡头：小图标方块 + 标题 + 右上角计数/耗时，和参考图的卡头同构。
 export const CHAT_RAIL_CARD_HEAD_CLASS = 'flex shrink-0 items-center gap-[8px] px-[11px] pt-[10px] pb-[7px]';
 export const CHAT_RAIL_CARD_ICON_CLASS =
