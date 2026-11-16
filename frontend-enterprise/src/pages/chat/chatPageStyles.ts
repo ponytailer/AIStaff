@@ -35,17 +35,13 @@ export const CHAT_HEADER_ACTIONS_CLASS = 'flex shrink-0 items-center gap-[6px]';
 // ---------------------------------------------------------------------------
 export const CHAT_MESSAGES_CLASS =
   'min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-[20px] pb-[22px] [scrollbar-width:thin] [scrollbar-color:rgba(24,24,26,0.16)_transparent]';
-// 808 = 768 阅读列 + 左右各 20 内边距。
-//
-// 关键：输入区外壳本身有 px-[20px]，所以它的内容区宽度是 C-40，居中放一张
-// max-w-[808px] 的卡后，卡左缘正好等于 (C-808)/2 —— 与这里的消息列左缘
-// 同一条竖线。之前给输入卡写 816（以为是「768 + 24×2」），外壳的 20px 是
-// 叠加在居中之后的，结果卡片比消息列左偏 24px、右偏 36px，上面文字和下面
-// 输入框明显错位。
+// 消息列不再自带宽度约束（原先 max-w-808）：它的父级就是那张 768 宽的消息卡，
+// 这里只需要左右各 20 内边距 —— 卡宽 768 − 40 = 内容 728，与下方输入框里
+// 「form p-10 + textarea px-10 = 左右各 20」得到的 728 完全一致，文字左右缘对齐。
 // 间距交给「组」控制：默认 4px（同一轮的连续消息贴紧），换组时由
 // CHAT_TURN_SPACED_CLASS 的 mt-[18px] 拉开。整列不再一条一个 18px 的沟。
 export const CHAT_MESSAGE_STACK_CLASS =
-  'mx-auto flex min-w-0 w-full max-w-[808px] flex-col gap-[4px] px-[20px]';
+  'mx-auto flex min-w-0 w-full flex-col gap-[4px] px-[20px]';
 
 export const CHAT_MESSAGE_ITEM_CLASS = 'group flex min-w-0 w-full flex-col';
 export const CHAT_QUEUED_MESSAGE_ITEM_CLASS = 'order-last';
@@ -281,26 +277,24 @@ export const CHAT_EMPTY_STAT_CELL_CLASS =
 // ---------------------------------------------------------------------------
 // Composer
 // ---------------------------------------------------------------------------
-// 原来是上卡的页脚（border-t 分段）。改成上下两张独立卡后，它自己就是一张
-// 完整的卡：同宽、同圆角、同描边，只靠 10px 间隙和底色区分层级。
-// 下卡：输入坞。和上卡同宽同圆角同描边，但底色用暖白 —— 里面还要放一张纯白
-// 输入框，三层（纸背景 → 暖白坞 → 白输入框）才不会糊成一片白。
-export const CHAT_INPUT_SHELL_CLASS =
-  'relative shrink-0 overflow-hidden rounded-[16px] border border-[#e6e2da] bg-[#faf9f6] px-[20px] pb-[14px] pt-[13px] shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
-// 768 = 消息列 808 - 左右各 20 内边距。
-//
-// 外壳已经有 px-[20px]，这里只要再对齐消息列的**内容列**（808 减去自身 20 内边距），
-// 输入卡的左右边框就分别落在头像左缘、用户气泡右缘上：
-//   窄屏（C-40 <= 768）：卡片 = 外壳内容区，左缘 = C 内 20，与消息列 px-20 同一条线；
-//   宽屏：卡片居中于 C-40，左缘 = 20 + (C-40-768)/2 = 消息内容左缘。
-// 写 808 会让宽屏下卡片比头像多出 20px（写 816 则是 24px + 右侧还多 36px）。
-export const CHAT_COMPOSER_STAGE_CLASS = 'relative mx-auto w-full max-w-[768px]';
+// 输入坞**不再是一张带边框的卡**：外壳退成纯留白容器，没有任何底色/描边/圆角。
+// 屏幕上唯一的实体就是那张纯白输入框，层级从三层（纸 → 暖白坞 → 白框）收成两层。
+// 宽度必须与上方消息卡**用同一个表达式**（mx-auto w-full max-w-768），两卡才会
+// 在任何视口都同宽同位；这里千万别再写 px-20 —— 那是「先缩进再居中」，在
+// 744 < 列宽 < 808 的中间区间会与消息卡错开 4px（窄屏实测就是错的）。
+export const CHAT_INPUT_SHELL_CLASS = 'relative mx-auto flex w-full max-w-[768px] shrink-0 flex-col';
+// 768 = 消息卡宽度（CHAT_MESSAGE_SHELL_CLASS 的 max-w）。输入框与消息卡同宽，
+// 且 form p-10 + textarea px-10 = 左右各 20，与消息卡 px-20 的内边距同档，
+// 所以外框、文字左缘、文字右缘三层全部对齐。
+export const CHAT_COMPOSER_STAGE_CLASS = 'relative w-full min-w-0';
 // 「互联网检索」开关胶囊：坐在输入卡的工具行里（加号右侧）。开/关两态的配色
 // 在 Composer 内拼：关 = 浅墨底灰字，开 = 品牌青绿底深青字（高对比）。
 export const CHAT_COMPOSER_WEB_SEARCH_CLASS =
   'inline-flex h-[27px] shrink-0 cursor-pointer items-center gap-[6px] rounded-full border px-[9px] text-[12px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/30';
+// 外壳去掉后，这张白框是输入区唯一的实体，直接浮在纸背景上：
+// 描边从 14% 提到 16%，阴影补一层很浅的浮起感，否则白底/纸白差 2% 会糊掉边界。
 export const CHAT_COMPOSER_FORM_CLASS =
-  'relative flex min-w-0 flex-1 flex-col gap-[8px] rounded-[18px] bg-white p-[10px] shadow-[0_1px_3px_rgba(24,24,26,0.06)] ring-[0.5px] ring-[rgba(24,24,26,0.14)] transition-colors';
+  'relative flex min-w-0 flex-1 flex-col gap-[8px] rounded-[18px] bg-white p-[10px] shadow-[0_1px_2px_rgba(24,24,26,0.05),0_8px_24px_-14px_rgba(24,24,26,0.18)] ring-[0.5px] ring-[rgba(24,24,26,0.16)] transition-colors';
 export const CHAT_COMPOSER_FORM_DRAG_CLASS = 'bg-[rgba(15,118,110,0.05)] ring-[1px] ring-[#0f766e]';
 export const CHAT_COMPOSER_DROP_HINT_CLASS =
   'pointer-events-none absolute inset-0 z-[2] grid place-items-center rounded-[20px] bg-white/85 text-[14px] font-medium text-[#18181a] backdrop-blur-sm';
@@ -455,19 +449,19 @@ export const CHAT_SLOT_FORM_SUBMITTED_CLASS =
 /** 12px 外边距：中间窗口与右栏卡片共用一条上/下基线，四周都留出纸背景。 */
 export const CHAT_BODY_CLASS = 'flex min-h-0 min-w-0 flex-1 gap-[12px] px-[12px] pb-[12px] pt-[2px]';
 /**
- * 中间列：上下两张**独立**卡片（消息窗口 / 输入坞），不是一张大卡切两段。
+ * 中间列：上卡是消息窗口（白卡），下卡退化成**只有输入框本身**（无外壳），
+ * 两块共用同一条宽度与同一条中线。
  *
- * 两张卡必须是同一个宽度来源（都 w-full 撑满这一列），且各自的**内容列**都
- * 收在同一档（808 / 768）上，左右两缘才会落在同一对竖线上：
- *   消息列 = mx-auto max-w-[808px] px-[20px]，内容宽 768；
- *   输入卡 = px-[20px] + 内部 mx-auto max-w-[768px]。
- * 两者内容左缘都等于 (W-808)/2 + 20，W 是卡宽 —— 与卡内边距无关，所以只要
- * 两卡同宽就永远对齐（窄屏下都退化为 20）。
+ * 宽度来源：两处都用 `mx-auto w-full max-w-[768px]` ——
+ *   消息卡  = max-w-768（卡内 px-20，内容 728）
+ *   输入框  = max-w-768（form p-10 + textarea px-10，内容 728）
+ * 所以不只外框同宽，文字左右缘也对齐。别再给任一侧单独写 808/816。
  */
 export const CHAT_COLUMN_CLASS = 'flex min-h-0 min-w-0 flex-1 flex-col gap-[10px]';
-/** 上卡：消息窗口。白底 + 发丝线 + 16px 圆角，和右栏卡片同一套语言。 */
+/** 上卡：消息窗口。白底 + 发丝线 + 16px 圆角，和右栏卡片同一套语言。
+ *  宽度与下方输入框一致（max-w-768），而不是撑满整列。 */
 export const CHAT_MESSAGE_SHELL_CLASS =
-  'flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-[#e6e2da] bg-white shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
+  'mx-auto flex min-h-0 w-full max-w-[768px] flex-1 flex-col overflow-hidden rounded-[16px] border border-[#e6e2da] bg-white shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
 // 右栏 = 一列**独立小卡**（参考 handoff 面板的右列：卡片之间留缝，各自圆角，
 // 卡内再嵌一块更浅的内容块）。之前是一整张卡靠发丝线分段，四段读起来像一个
 // 长列表；拆开之后每一段都能单独被看到，高度也随内容走。
