@@ -16,6 +16,7 @@ import {
   CHAT_RAIL_CARD_HEAD_CLASS,
   CHAT_RAIL_CARD_ICON_CLASS,
   CHAT_RAIL_CARD_META_CLASS,
+  CHAT_RAIL_CARD_TONE_CLASS,
   CHAT_RAIL_CARD_TITLE_CLASS,
   CHAT_RAIL_CLASS,
   CHAT_RAIL_EMPTY_CLASS,
@@ -48,6 +49,7 @@ function RailCard({
   icon,
   meta,
   grow = false,
+  tone = 'teal',
   children,
 }: {
   title: string;
@@ -55,12 +57,14 @@ function RailCard({
   meta?: ReactNode;
   /** 最后一张传 true：吃掉剩余高度，右栏底部与左侧输入卡齐平。 */
   grow?: boolean;
+  /** 卡头图标色相：动作=琥珀、环境=靛蓝、知识/能力=青绿。 */
+  tone?: 'teal' | 'indigo' | 'amber';
   children: ReactNode;
 }) {
   return (
     <section className={cn(CHAT_RAIL_CARD_CLASS, grow && CHAT_RAIL_CARD_GROW_CLASS)}>
       <div className={CHAT_RAIL_CARD_HEAD_CLASS}>
-        <span className={CHAT_RAIL_CARD_ICON_CLASS}>{icon}</span>
+        <span className={cn(CHAT_RAIL_CARD_ICON_CLASS, CHAT_RAIL_CARD_TONE_CLASS[tone])}>{icon}</span>
         <span className={CHAT_RAIL_CARD_TITLE_CLASS}>{title}</span>
         {meta}
       </div>
@@ -258,10 +262,11 @@ export default function ChatContextRail({ chat }: { chat: UseChatSession }) {
 
       <RailCard
         title="本轮执行"
+        tone="amber"
         icon={<StaffdeckIcon name="tool" size={12} />}
         meta={
           trace ? (
-            <span className={CHAT_RAIL_CARD_META_CLASS}>
+            <span className={cn(CHAT_RAIL_CARD_META_CLASS, running && 'text-[#0f766e]')}>
               {running ? '进行中' : (totalDuration > 0 ? formatTraceDuration(totalDuration) : '')}
             </span>
           ) : undefined
@@ -290,6 +295,7 @@ export default function ChatContextRail({ chat }: { chat: UseChatSession }) {
 
       <RailCard
         title="会话"
+        tone="indigo"
         icon={<StaffdeckIcon name="chat" size={12} />}
         meta={<span className={CHAT_RAIL_CARD_META_CLASS}>{displayedMessages.length} 条</span>}
       >
@@ -328,7 +334,8 @@ export default function ChatContextRail({ chat }: { chat: UseChatSession }) {
         ) : (
           shownCitations.map((item) => (
             <div className={CHAT_RAIL_ROW_CLASS} key={item.key} title={item.title}>
-              <span className={CHAT_RAIL_ICON_CLASS}>
+              {/* 与消息里的引用标签同色：企业知识青绿、互联网靛蓝，右栏和正文对得上号 */}
+              <span className={cn(CHAT_RAIL_ICON_CLASS, item.web ? 'text-[#4453c4]' : 'text-[#0f766e]')}>
                 <StaffdeckIcon name={item.web ? 'globe' : 'file'} size={12} />
               </span>
               <span className={CHAT_RAIL_ROW_TEXT_CLASS}>{item.title}</span>

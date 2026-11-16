@@ -1,7 +1,9 @@
+import { cn } from '@/lib/utils';
 import StaffdeckIcon from '@/components/StaffdeckIcon';
 import type { ChatSlashCommand } from '@/types';
 
 import {
+  CHAT_COMMAND_KIND_TONE_CLASS,
   CHAT_COMPOSER_COMMAND_CHIP_CLASS,
   CHAT_COMPOSER_COMMAND_ICON_CLASS,
   CHAT_COMPOSER_COMMAND_KIND_CLASS,
@@ -36,7 +38,9 @@ export default function SlashCommandChip({
         />
       </span>
       <span className={CHAT_COMPOSER_COMMAND_LABEL_CLASS}>{command.label}</span>
-      <span className={CHAT_COMPOSER_COMMAND_KIND_CLASS}>{slashCommandKindLabel(command.kind)}</span>
+      <span className={cn(CHAT_COMPOSER_COMMAND_KIND_CLASS, CHAT_COMMAND_KIND_TONE_CLASS[command.kind])}>
+        {slashCommandKindLabel(command.kind)}
+      </span>
       {onRemove && (
         <button
           type="button"

@@ -112,8 +112,10 @@ export const CHAT_SLASH_COMMAND_MESSAGE_CLASS =
   'flex-row flex-wrap items-center justify-end gap-x-[9px] gap-y-[6px] whitespace-normal';
 export const CHAT_SLASH_COMMAND_REQUEST_CLASS =
   'min-w-0 whitespace-pre-wrap text-[14px] leading-[1.7] text-[#18181a]';
+// 定时任务标记：琥珀色 —— 对话里唯一和时间/计划有关的糖，用暖色与青绿的
+// 「知识/成功」区分开。图标走 currentColor，跟着一起变色。
 export const CHAT_MESSAGE_MODE_CHIP_CLASS =
-  'inline-flex items-center gap-[4px] rounded-full bg-[#eeece9] px-[9px] py-[2px] text-[11px] font-medium text-[rgba(24,24,26,0.8)]';
+  'inline-flex items-center gap-[4px] rounded-full border border-[rgba(180,110,10,0.22)] bg-[rgba(180,110,10,0.09)] px-[9px] py-[2px] text-[11px] font-medium text-[#8a5606]';
 // 排队态只靠虚线边框 + 删除按钮表达，不再有「排队中」文案行
 // （用户明确要求；原 CHAT_QUEUED_STATUS_* 两个常量已随文案一起下线）。
 
@@ -191,17 +193,32 @@ export const CHAT_TRACE_CODE_BLOCK_CLASS =
 // ---------------------------------------------------------------------------
 // Citations
 // ---------------------------------------------------------------------------
+// 引用标签按**来源类型**分色，而不是一律灰底 —— 语义色板统一在对话端里就是这三档：
+//   企业知识 = 青绿（品牌色，内部可信来源）
+//   互联网   = 靛蓝（外部来源，与内部知识一眼区分）
+//   定时任务 = 琥珀（时间/计划相关，见 CHAT_MESSAGE_MODE_CHIP_CLASS）
+// 都是「8% 淡底 + 20% 同色描边 + 中深同色字」，色相区分但明度统一，不会花。
 export const CHAT_CITATIONS_CLASS =
   'mt-[12px] grid min-w-0 max-w-full gap-[8px] overflow-hidden border-t border-[#f0efec] pt-[10px]';
 export const CHAT_CITATION_HEADING_CLASS =
-  'inline-flex items-center gap-[6px] text-[12px] font-semibold text-[#6d6d72]';
+  'inline-flex items-center gap-[6px] text-[12px] font-semibold';
+// 纯企业知识 → 青绿；混合来源 → 退回中性灰。混合时若跟着网页走靛蓝，
+// 标题一片靛蓝、下面多数 chip 却是青绿，反而像配色出错。
+export const CHAT_CITATION_HEADING_KNOWLEDGE_CLASS = 'text-[#0d6b63]';
+export const CHAT_CITATION_HEADING_WEB_CLASS = 'text-[#6d6d72]';
 export const CHAT_CITATION_LIST_CLASS = 'flex min-w-0 max-w-full flex-wrap gap-[6px] overflow-hidden';
 export const CHAT_CITATION_CHIP_CLASS =
-  'inline-flex min-w-0 max-w-full items-center gap-[6px] overflow-hidden rounded-[8px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] px-[9px] py-[5px] text-left text-[12px] text-[rgba(24,24,26,0.8)] transition-colors hover:border-[rgba(24,24,26,0.12)] hover:bg-white';
-export const CHAT_CITATION_INDEX_CLASS = 'shrink-0 font-semibold text-[#18181a]';
+  'inline-flex min-w-0 max-w-full items-center gap-[6px] overflow-hidden rounded-[8px] border px-[9px] py-[5px] text-left text-[12px] transition-colors';
+export const CHAT_CITATION_CHIP_KNOWLEDGE_CLASS =
+  'border-[rgba(15,118,110,0.20)] bg-[rgba(15,118,110,0.07)] text-[#2b524e] hover:border-[rgba(15,118,110,0.36)] hover:bg-[rgba(15,118,110,0.12)]';
+export const CHAT_CITATION_CHIP_WEB_CLASS =
+  'border-[rgba(79,95,208,0.22)] bg-[rgba(79,95,208,0.07)] text-[#3a4590] hover:border-[rgba(79,95,208,0.38)] hover:bg-[rgba(79,95,208,0.12)]';
+// 序号直接继承 chip 的文字色、只加粗：在淡彩底上再垫一块白，会像打了个补丁。
+export const CHAT_CITATION_INDEX_CLASS = 'shrink-0 font-semibold';
 export const CHAT_CITATION_TITLE_CLASS = 'min-w-0 truncate';
+// 右侧小标（网页站点名 / 合并次数）继承 chip 的色相，只压低透明度。
 export const CHAT_CITATION_COUNT_CLASS =
-  'shrink-0 rounded-full bg-[#eeece9] px-[6px] py-[1px] text-[10px] font-semibold text-[#6d6d72]';
+  'shrink-0 rounded-full bg-white/70 px-[6px] py-[1px] text-[10px] font-semibold text-current opacity-80';
 
 // ---------------------------------------------------------------------------
 // Message attachments (in-bubble)
@@ -311,8 +328,16 @@ export const CHAT_COMPOSER_COMMAND_ICON_CLASS =
   'inline-grid size-[22px] shrink-0 place-items-center rounded-[6px] bg-white text-[#4b4b50] shadow-[inset_0_0_0_1px_rgba(227,231,241,0.92)]';
 export const CHAT_COMPOSER_COMMAND_LABEL_CLASS =
   'min-w-0 truncate text-[12px] font-medium text-[#3a3a3e]';
+// 命令类型标签：SOP = 青绿（内部流程）、技能 = 靛蓝（模型能力）、工具 = 琥珀（外部动作）。
+// 和引用来源共用同一套色相 —— 全站只有「青绿 / 靛蓝 / 琥珀 + 失败红」四档，
+// 每个色相都有固定语义，不会变成随机彩虹。
 export const CHAT_COMPOSER_COMMAND_KIND_CLASS =
-  'shrink-0 rounded-full bg-[rgba(24,24,26,0.08)] px-[6px] py-px text-[9px] font-medium leading-[1.4] text-[#8f8f93]';
+  'shrink-0 rounded-full px-[6px] py-px text-[9px] font-medium leading-[1.4]';
+export const CHAT_COMMAND_KIND_TONE_CLASS: Record<'sop' | 'skill' | 'tool', string> = {
+  sop: 'bg-[rgba(15,118,110,0.10)] text-[#0d6b63]',
+  skill: 'bg-[rgba(79,95,208,0.10)] text-[#3b47a8]',
+  tool: 'bg-[rgba(180,110,10,0.10)] text-[#8a5606]',
+};
 export const CHAT_COMPOSER_COMMAND_REMOVE_CLASS =
   'inline-grid size-[18px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[15px] leading-none text-[#9a9a9f] transition-colors hover:bg-[#18181a] hover:text-white focus-visible:bg-[#18181a] focus-visible:text-white focus-visible:outline-none';
 export const CHAT_COMPOSER_ATTACHMENTS_CLASS = 'flex flex-wrap gap-[8px]';
@@ -473,6 +498,14 @@ export const CHAT_RAIL_CARD_CLASS =
 export const CHAT_RAIL_CARD_HEAD_CLASS = 'flex shrink-0 items-center gap-[8px] px-[11px] pt-[10px] pb-[7px]';
 export const CHAT_RAIL_CARD_ICON_CLASS =
   'grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-[#f2f1ee] text-[#6d6d72] [&>svg]:size-[12px]';
+// 卡头图标按卡片语义分色（同一套三色，不额外引入色相）：
+//   本轮执行 = 琥珀（动作/耗时）、会话 = 靛蓝（配置/环境）、引用与能力 = 青绿（知识）。
+// 只是 9% 淡底 + 同色图标，比满栏灰更像「有信息层级」，也不会抢内容。
+export const CHAT_RAIL_CARD_TONE_CLASS: Record<'teal' | 'indigo' | 'amber', string> = {
+  teal: 'bg-[rgba(15,118,110,0.09)] text-[#0f766e]',
+  indigo: 'bg-[rgba(79,95,208,0.09)] text-[#4453c4]',
+  amber: 'bg-[rgba(180,110,10,0.10)] text-[#8a5606]',
+};
 export const CHAT_RAIL_CARD_TITLE_CLASS = 'truncate text-[12.5px] font-medium leading-[1.4] text-[#3d3d3f]';
 export const CHAT_RAIL_CARD_META_CLASS = 'ml-auto shrink-0 text-[11px] leading-none tabular-nums text-[#9a9a9f]';
 // 卡内内容块：比卡面再浅一档，和输入坞里「暖白底 + 白输入框」同一套层次。

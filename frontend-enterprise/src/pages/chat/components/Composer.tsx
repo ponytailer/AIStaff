@@ -14,6 +14,7 @@ import { useI18n } from '@/i18n';
 import type { ChatSlashCommand } from '@/types';
 
 import {
+  CHAT_COMMAND_KIND_TONE_CLASS,
   CHAT_COMPOSER_ACTIONS_ROW_CLASS,
   CHAT_COMPOSER_ATTACHMENT_CHIP_CLASS,
   CHAT_COMPOSER_ATTACHMENT_COPY_CLASS,
@@ -23,6 +24,7 @@ import {
   CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS,
   CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS,
   CHAT_COMPOSER_ATTACHMENTS_CLASS,
+  CHAT_COMPOSER_COMMAND_KIND_CLASS,
   CHAT_COMPOSER_CONTEXT_ROW_CLASS,
   CHAT_COMPOSER_DROP_HINT_CLASS,
   CHAT_COMPOSER_FORM_CLASS,
@@ -306,7 +308,14 @@ export default function Composer({
                   <span className="grid min-w-0 flex-1 gap-[2px]">
                     <span className="flex min-w-0 items-center gap-[7px]">
                       <strong className="truncate text-[13px] font-medium text-[#18181a]">{command.label}</strong>
-                      <span className="shrink-0 rounded-full bg-[#edf0f4] px-[7px] py-[2px] text-[10px] text-[#8f8f93]">
+                      <span
+                        className={cn(
+                          CHAT_COMPOSER_COMMAND_KIND_CLASS,
+                          // 菜单里比已选命令条窄一档，字号也略大（9px 在列表里偏小）
+                          'px-[7px] py-[2px] text-[10px]',
+                          CHAT_COMMAND_KIND_TONE_CLASS[command.kind],
+                        )}
+                      >
                         {slashCommandKindLabel(command.kind)}
                       </span>
                     </span>

@@ -1,10 +1,15 @@
+import { cn } from '@/lib/utils';
 import StaffdeckIcon from '@/components/StaffdeckIcon';
 import type { KnowledgeCitation } from '@/types';
 
 import {
   CHAT_CITATION_CHIP_CLASS,
+  CHAT_CITATION_CHIP_KNOWLEDGE_CLASS,
+  CHAT_CITATION_CHIP_WEB_CLASS,
   CHAT_CITATION_COUNT_CLASS,
   CHAT_CITATION_HEADING_CLASS,
+  CHAT_CITATION_HEADING_KNOWLEDGE_CLASS,
+  CHAT_CITATION_HEADING_WEB_CLASS,
   CHAT_CITATION_INDEX_CLASS,
   CHAT_CITATION_LIST_CLASS,
   CHAT_CITATION_TITLE_CLASS,
@@ -27,7 +32,12 @@ export default function KnowledgeCitationList({
 
   return (
     <div className={CHAT_CITATIONS_CLASS} aria-label={hasWeb ? '知识来源与互联网来源' : '知识引用'}>
-      <div className={CHAT_CITATION_HEADING_CLASS}>
+      <div
+        className={cn(
+          CHAT_CITATION_HEADING_CLASS,
+          hasWeb ? CHAT_CITATION_HEADING_WEB_CLASS : CHAT_CITATION_HEADING_KNOWLEDGE_CLASS,
+        )}
+      >
         <StaffdeckIcon name={hasWeb ? 'globe' : 'file'} size={14} />
         <span>{hasWeb ? '来源' : '知识来源'}</span>
       </div>
@@ -38,7 +48,10 @@ export default function KnowledgeCitationList({
             <button
               key={citation.id}
               type="button"
-              className={CHAT_CITATION_CHIP_CLASS}
+              className={cn(
+                CHAT_CITATION_CHIP_CLASS,
+                isWeb ? CHAT_CITATION_CHIP_WEB_CLASS : CHAT_CITATION_CHIP_KNOWLEDGE_CLASS,
+              )}
               onClick={() => {
                 // 互联网来源直接开原文；企业知识仍走引用详情（本地分块没有网页可跳）
                 if (isWeb && citation.url) {
