@@ -277,8 +277,34 @@ def _compact_knowledge_result(item: dict[str, Any]) -> dict[str, Any]:
         {
             "query": _short_text(query, 500),
             "retrieved_knowledge": _compact_retrieved_knowledge(item),
+            # 原文档配图图例：只给编号与图题，**不给 URL**（链接由服务端在落地
+            # 时拼，模型自己写的 URL 全是裂图）。没有图例键模型就看不到图的存在，
+            # 正文里的 {{img:N}} 变成无人解释的乱码 → 从不引用 → 回答侧只能靠
+            # appendix 兜底补前 2 张（2026-11-16 重庆 Outlook 手册 22 图只出 2 图）。
+            "image_refs": _compact_image_refs(item.get("image_refs")),
         }
     )
+
+
+def _compact_image_refs(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    refs: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        ref = str(item.get("ref") or "").strip()
+        if not ref:
+            continue
+        entry: dict[str, Any] = {"ref": ref}
+        caption = _short_text(item.get("caption"), 80)
+        source = _short_text(item.get("source"), 80)
+        if caption:
+            entry["caption"] = caption
+        if source:
+            entry["source"] = source
+        refs.append(entry)
+    return refs
 
 
 def _compact_retrieved_knowledge(item: dict[str, Any]) -> list[dict[str, Any]]:
