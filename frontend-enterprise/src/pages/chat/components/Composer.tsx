@@ -270,7 +270,7 @@ export default function Composer({
                     onClick={() => removeComposerAttachment(attachment.uploadKey)}
                     aria-label="移除附件"
                   >
-                    ×
+                    <StaffdeckIcon name="close" size={12} />
                   </button>
                 </div>
               ))}

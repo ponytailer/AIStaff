@@ -247,17 +247,43 @@ export const CHAT_CITATION_COUNT_CLASS =
   'shrink-0 rounded-full bg-white/70 px-[6px] py-[1px] text-[10px] font-semibold text-current opacity-80';
 
 // ---------------------------------------------------------------------------
-// Message attachments (in-bubble)
+// Attachments — 参考 Tuff 的 TxAttachmentTray / TxAttachmentChip：
+//   图片 → 72px 圆角瓷砖（--tx-attachment-tray-thumb-size）
+//   文件 → 胶囊 chip：999px 圆角、1px 描边、12px 字、图标 14px、
+//          名称 220px 截断、体积 tabular-nums、右侧 20px 圆形动作位
+// 已发送的消息只读（Tuff best practice：keep sent messages read-only）。
 // ---------------------------------------------------------------------------
-export const CHAT_ATTACHMENT_LIST_CLASS = 'mt-[10px] grid gap-[8px]';
-export const CHAT_ATTACHMENT_CARD_CLASS =
-  'grid min-h-[46px] w-[min(280px,100%)] grid-cols-[36px_minmax(0,1fr)] items-center gap-[10px] rounded-[10px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] p-[7px]';
-export const CHAT_ATTACHMENT_IMG_CLASS = 'size-[36px] rounded-[8px] object-cover';
-export const CHAT_ATTACHMENT_FILE_ICON_CLASS =
-  'inline-grid size-[36px] place-items-center rounded-[8px] bg-[#eeece9] text-[rgba(24,24,26,0.8)]';
-export const CHAT_ATTACHMENT_COPY_CLASS = 'grid min-w-0 gap-px';
-export const CHAT_ATTACHMENT_NAME_CLASS = 'truncate text-[12px] font-medium text-[#18181a]';
-export const CHAT_ATTACHMENT_META_CLASS = 'truncate text-[11px] text-[#6d6d72]';
+export const CHAT_ATTACHMENT_LIST_CLASS = 'mt-[10px] grid min-w-0 gap-[8px] justify-items-start';
+export const CHAT_ATTACHMENT_GRID_CLASS = 'flex flex-wrap gap-[8px]';
+export const CHAT_ATTACHMENT_TILE_CLASS =
+  'relative grid size-[72px] shrink-0 place-items-center overflow-hidden rounded-[12px] border border-[rgba(24,24,26,0.10)] bg-[#f2f1ee] text-[#6d6d72] transition-colors hover:border-[rgba(24,24,26,0.18)]';
+export const CHAT_ATTACHMENT_TILE_IMG_CLASS = 'size-full object-cover';
+export const CHAT_ATTACHMENT_TILE_ERROR_CLASS = 'border-[#f0b4b4] bg-[#fdf4f4] text-[#a81b1b]';
+
+/** 文件胶囊：外壳只管圆角与描边，内容全在 body 里，动作位单独一颗圆钮。
+ *  min-w-0 必须给：文件名单行 nowrap 后 min-content 就是整串文件名，
+ *  没有它胶囊会撑破气泡内边距（窄屏尤其明显）。 */
+export const CHAT_FILE_CHIP_CLASS =
+  'inline-flex min-w-0 max-w-full items-center gap-[2px] rounded-full border border-[rgba(24,24,26,0.10)] bg-white text-[12px] leading-none text-[#18181a]';
+export const CHAT_FILE_CHIP_ERROR_CLASS = 'border-[#f0b4b4] bg-[#fdf4f4] text-[#a81b1b]';
+export const CHAT_FILE_CHIP_BODY_CLASS =
+  'inline-flex min-w-0 items-center gap-[6px] rounded-full py-[6px] pl-[10px] pr-[10px] text-left';
+/** 带动作位时右侧只留 4px，动作按钮自己带 mr-3px，正好与胶囊圆端同心。 */
+export const CHAT_FILE_CHIP_BODY_WITH_ACTION_CLASS = 'pr-[4px]';
+export const CHAT_FILE_CHIP_ICON_CLASS = 'inline-flex shrink-0 text-[#6d6d72]';
+export const CHAT_FILE_CHIP_NAME_CLASS = 'min-w-0 max-w-[220px] truncate';
+export const CHAT_FILE_CHIP_META_CLASS =
+  'shrink-0 text-[#9a9a9f] [font-variant-numeric:tabular-nums]';
+/** 20px 圆形动作位：下载走品牌青绿，移除走红；禁用时不做 hover 反馈。 */
+export const CHAT_FILE_CHIP_ACTION_CLASS =
+  'mr-[3px] inline-grid size-[20px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[#6d6d72] transition-colors hover:bg-[#f0efec] hover:text-[#0f766e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e] disabled:cursor-wait disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-[#6d6d72]';
+export const CHAT_FILE_CHIP_ACTION_REMOVE_CLASS = 'hover:bg-[#fdecec] hover:text-[#d11a1a]';
+/** 整颗胶囊就是下载按钮时：body 的 padding 让给右侧那枚 20px 圆钮。 */
+export const CHAT_FILE_CHIP_BUTTON_CLASS =
+  'group cursor-pointer py-[6px] pl-[10px] pr-[6px] transition-colors hover:border-[rgba(24,24,26,0.18)] hover:bg-[#f6f7fa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e] disabled:cursor-wait disabled:opacity-60 disabled:hover:bg-white';
+/** 胶囊内右侧的 20px 圆形图标位：hover 时浮出青绿圆底，就是 tuff 的那枚 action。 */
+export const CHAT_FILE_CHIP_GLYPH_CLASS =
+  'ml-[2px] inline-grid size-[20px] shrink-0 place-items-center rounded-full text-[#9a9a9f] transition-colors group-hover:bg-[rgba(15,118,110,0.10)] group-hover:text-[#0f766e]';
 
 // ---------------------------------------------------------------------------
 // Harness-generated artifacts
@@ -266,16 +292,10 @@ export const CHAT_ARTIFACTS_CLASS =
   'mt-[12px] grid min-w-0 max-w-full gap-[8px] border-t border-[#f0efec] pt-[10px]';
 export const CHAT_ARTIFACT_HEADING_CLASS =
   'inline-flex items-center gap-[6px] text-[12px] font-semibold text-[#6d6d72]';
-export const CHAT_ARTIFACT_LIST_CLASS = 'grid min-w-0 max-w-[560px] gap-[6px]';
-export const CHAT_ARTIFACT_BUTTON_CLASS =
-  'grid min-h-[46px] w-full max-w-[320px] grid-cols-[32px_minmax(0,1fr)_24px] items-center gap-[9px] rounded-[10px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] px-[8px] py-[6px] text-left text-[rgba(24,24,26,0.8)] transition-colors hover:border-[rgba(24,24,26,0.12)] hover:bg-white disabled:cursor-wait disabled:opacity-60';
-export const CHAT_ARTIFACT_ICON_CLASS =
-  'inline-grid size-[32px] place-items-center rounded-[8px] bg-[#eeece9] text-[rgba(24,24,26,0.8)]';
-export const CHAT_ARTIFACT_COPY_CLASS = 'grid min-w-0 gap-px';
-export const CHAT_ARTIFACT_NAME_CLASS = 'truncate text-[12px] font-medium text-[#18181a]';
-export const CHAT_ARTIFACT_META_CLASS = 'truncate text-[11px] text-[#6d6d72]';
+export const CHAT_ARTIFACT_LIST_CLASS = 'flex min-w-0 max-w-[560px] flex-wrap items-start gap-[8px]';
+/** 图片产物仍给大图（生成图表要看内容），但外壳、footer、下载钮都换成同一套 chip/瓷砖语汇。 */
 export const CHAT_ARTIFACT_IMAGE_CARD_CLASS =
-  'grid w-[min(560px,100%)] min-w-0 overflow-hidden rounded-[12px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] shadow-[0_8px_24px_rgba(30,45,70,0.06)]';
+  'grid w-full min-w-0 overflow-hidden rounded-[12px] border border-[rgba(24,24,26,0.10)] bg-[#f2f1ee] shadow-[0_8px_24px_rgba(30,45,70,0.06)]';
 export const CHAT_ARTIFACT_IMAGE_LINK_CLASS =
   'group relative grid min-h-[120px] max-h-[420px] place-items-center overflow-hidden bg-[linear-gradient(45deg,#f0efec_25%,transparent_25%),linear-gradient(-45deg,#f0efec_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f0efec_75%),linear-gradient(-45deg,transparent_75%,#f0efec_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0]';
 export const CHAT_ARTIFACT_IMAGE_CLASS =
@@ -283,9 +303,19 @@ export const CHAT_ARTIFACT_IMAGE_CLASS =
 export const CHAT_ARTIFACT_IMAGE_PLACEHOLDER_CLASS =
   'grid min-h-[140px] w-full place-items-center px-[20px] text-center text-[12px] text-[#6d6d72]';
 export const CHAT_ARTIFACT_IMAGE_FOOTER_CLASS =
-  'grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-[10px] border-t border-[#eeece9] bg-white px-[10px] py-[8px]';
+  'grid min-w-0 grid-cols-[minmax(0,1fr)_24px] items-center gap-[8px] border-t border-[#f0efec] bg-white px-[10px] py-[7px]';
 export const CHAT_ARTIFACT_IMAGE_DOWNLOAD_CLASS =
-  'inline-grid size-[32px] place-items-center rounded-[8px] border border-[rgba(24,24,26,0.08)] bg-white text-[rgba(24,24,26,0.8)] transition hover:border-[rgba(24,24,26,0.12)] hover:bg-[#f2f1ee] disabled:cursor-wait disabled:opacity-60';
+  'inline-grid size-[24px] place-items-center rounded-full border-0 bg-transparent p-0 text-[#6d6d72] transition-colors hover:bg-[#f0efec] hover:text-[#0f766e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e] disabled:cursor-wait disabled:opacity-60';
+/** 打包下载：同一枚胶囊，只是文案带数量，靠 ml-auto 贴右。 */
+export const CHAT_ARTIFACT_ZIP_CLASS =
+  'ml-auto inline-flex items-center gap-[5px] rounded-full border border-[rgba(24,24,26,0.10)] bg-white px-[9px] py-[4px] text-[11px] leading-none text-[#4b4b50] transition-colors hover:border-[rgba(24,24,26,0.18)] hover:text-[#18181a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e] disabled:cursor-wait disabled:opacity-60';
+/** 进度：2px 发丝线 + 品牌青绿，和上面胶囊一样细。 */
+export const CHAT_ARTIFACT_PROGRESS_TRACK_CLASS =
+  'h-[2px] w-full overflow-hidden rounded-full bg-[rgba(24,24,26,0.08)]';
+export const CHAT_ARTIFACT_PROGRESS_BAR_CLASS =
+  'h-full rounded-full bg-[#0f766e] transition-[width] duration-150';
+export const CHAT_ARTIFACT_PROGRESS_PENDING_CLASS =
+  'h-full w-1/3 animate-pulse rounded-full bg-[#0f766e]';
 
 // ---------------------------------------------------------------------------
 // Feedback actions
@@ -368,16 +398,18 @@ export const CHAT_COMMAND_KIND_TONE_CLASS: Record<'sop' | 'skill' | 'tool', stri
 };
 export const CHAT_COMPOSER_COMMAND_REMOVE_CLASS =
   'inline-grid size-[18px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[15px] leading-none text-[#9a9a9f] transition-colors hover:bg-[#18181a] hover:text-white focus-visible:bg-[#18181a] focus-visible:text-white focus-visible:outline-none';
-export const CHAT_COMPOSER_ATTACHMENTS_CLASS = 'flex flex-wrap gap-[8px]';
+export const CHAT_COMPOSER_ATTACHMENTS_CLASS = 'flex flex-wrap gap-[6px]';
+/** 输入区附件：与消息里的文件胶囊同一套（999px 圆角 + 白底 + 1px 描边），
+ *  只是多一行状态、右侧换成 20px 圆形移除钮。 */
 export const CHAT_COMPOSER_ATTACHMENT_CHIP_CLASS =
-  'inline-flex max-w-[240px] items-center gap-[7px] rounded-[9px] border-0 bg-[rgba(24,24,26,0.05)] py-[5px] pl-[7px] pr-[6px] text-[12px] text-[rgba(24,24,26,0.8)]';
-export const CHAT_COMPOSER_ATTACHMENT_ERROR_CLASS = 'border-[#f38989] bg-[#fce7e7] text-[#d20b0b]';
-export const CHAT_COMPOSER_ATTACHMENT_IMG_CLASS = 'size-[24px] rounded-[6px] object-cover';
-export const CHAT_COMPOSER_ATTACHMENT_COPY_CLASS = 'grid min-w-0 gap-px';
-export const CHAT_COMPOSER_ATTACHMENT_NAME_CLASS = 'truncate text-[12px] font-medium text-[#18181a]';
-export const CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS = 'truncate text-[11px] text-[#6d6d72]';
-export const CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS =
-  'inline-grid size-[18px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[15px] leading-none text-[#9a9a9f] hover:text-[#18181a]';
+  'inline-flex max-w-[240px] items-center gap-[7px] rounded-full border border-[rgba(24,24,26,0.10)] bg-white py-[4px] pl-[6px] pr-[4px] text-[12px] text-[#18181a]';
+export const CHAT_COMPOSER_ATTACHMENT_ERROR_CLASS = 'border-[#f0b4b4] bg-[#fdf4f4] text-[#a81b1b]';
+export const CHAT_COMPOSER_ATTACHMENT_IMG_CLASS = 'size-[26px] shrink-0 rounded-[7px] object-cover';
+export const CHAT_COMPOSER_ATTACHMENT_COPY_CLASS = 'grid min-w-0 gap-[1px]';
+export const CHAT_COMPOSER_ATTACHMENT_NAME_CLASS = 'min-w-0 truncate text-[12px] font-medium leading-[1.25]';
+export const CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS =
+  'min-w-0 truncate text-[11px] leading-[1.25] text-[#9a9a9f] [font-variant-numeric:tabular-nums]';
+export const CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS = CHAT_FILE_CHIP_ACTION_CLASS + ' ' + CHAT_FILE_CHIP_ACTION_REMOVE_CLASS;
 
 export const CHAT_COMPOSER_TOOLBAR_CLASS = 'flex items-center justify-between gap-[10px]';
 export const CHAT_COMPOSER_CONTEXT_ROW_CLASS = 'flex min-w-0 items-center gap-[8px]';

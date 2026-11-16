@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import EmployeeAvatar from '@/components/EmployeeAvatar';
 import StaffdeckIcon from '@/components/StaffdeckIcon';
+import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import IconThumbUp from '@/assets/icons/thumb-up.svg?react';
 import IconThumbDown from '@/assets/icons/thumb-down.svg?react';
 import { employeeDisplayName } from '@/employee';
@@ -16,13 +17,18 @@ import type {
 } from '@/types';
 
 import {
-  CHAT_ATTACHMENT_CARD_CLASS,
-  CHAT_ATTACHMENT_COPY_CLASS,
-  CHAT_ATTACHMENT_FILE_ICON_CLASS,
-  CHAT_ATTACHMENT_IMG_CLASS,
+  CHAT_ARTIFACT_ZIP_CLASS,
+  CHAT_ATTACHMENT_GRID_CLASS,
   CHAT_ATTACHMENT_LIST_CLASS,
-  CHAT_ATTACHMENT_META_CLASS,
-  CHAT_ATTACHMENT_NAME_CLASS,
+  CHAT_ATTACHMENT_TILE_CLASS,
+  CHAT_ATTACHMENT_TILE_ERROR_CLASS,
+  CHAT_ATTACHMENT_TILE_IMG_CLASS,
+  CHAT_FILE_CHIP_BODY_CLASS,
+  CHAT_FILE_CHIP_CLASS,
+  CHAT_FILE_CHIP_ERROR_CLASS,
+  CHAT_FILE_CHIP_ICON_CLASS,
+  CHAT_FILE_CHIP_META_CLASS,
+  CHAT_FILE_CHIP_NAME_CLASS,
   CHAT_DISPATCH_NOTICE_CLASS,
   CHAT_DISPATCH_NOTICE_INTENT_CLASS,
   CHAT_DISPATCH_NOTICE_ROUTE_BADGE_CLASS,
@@ -154,6 +160,16 @@ function messageClock(iso: string | undefined): string {
   });
 }
 
+/**
+ * 图片附件：有 data_url 才进瓷砖网格，否则回落到文件胶囊（tuff 的 tray 也是
+ * image 进网格、file 进胶囊，两类不混排）。
+ */
+function hasImagePreview(
+  attachment: ChatAttachmentRead,
+): attachment is ChatAttachmentRead & { data_url: string } {
+  return attachment.kind === 'image' && Boolean(attachment.data_url);
+}
+
 function activeTeamProgress(item: ChatMessage): { phase: string; statusText: string } | null {
   const progress = item.metadata?.team_progress;
   if (!progress || typeof progress !== 'object' || Array.isArray(progress)) return null;
@@ -250,6 +266,9 @@ export default function MessageBubble({
     dispatchInfo,
   } = render;
   const queuedMessage = item.role === 'user' && item.metadata?.queued === true;
+  // 附件图片点开看大图。data: URL 不能新标签打开（浏览器禁止顶层导航到 data URL），
+  // 所以走弹窗而不是 <a target="_blank">。
+  const [previewImage, setPreviewImage] = useState<{ src: string; name: string } | null>(null);
   // 调度入口的「转接通知」：由路由自己说「已转交给 X」，成员答案在它后面一条。
   // 它不是答案，所以不参与点赞、不显示 trace、也不走普通答案气泡的排版。
   const noticeInfo = item.role === 'assistant' && isDispatchNotice(item)
@@ -442,24 +461,54 @@ export default function MessageBubble({
 
           {!statusOnly && attachments.length > 0 && (
             <div className={CHAT_ATTACHMENT_LIST_CLASS}>
-              {attachments.map((attachment) => (
-                <div className={CHAT_ATTACHMENT_CARD_CLASS} key={attachment.id}>
-                  {attachment.kind === 'image' && attachment.data_url ? (
-                    <img className={CHAT_ATTACHMENT_IMG_CLASS} src={attachment.data_url} alt={attachment.filename} />
-                  ) : (
-                    <span className={CHAT_ATTACHMENT_FILE_ICON_CLASS}>
-                      <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={18} />
-                    </span>
-                  )}
-                  <span className={CHAT_ATTACHMENT_COPY_CLASS}>
-                    <span className={CHAT_ATTACHMENT_NAME_CLASS} data-i18n-ignore>{attachment.filename}</span>
-                    <span className={CHAT_ATTACHMENT_META_CLASS} data-i18n-ignore>
-                      {attachmentTypeLabel(attachment)}
-                      {attachment.error ? ` · ${attachment.error}` : ''}
-                    </span>
-                  </span>
+              {attachments.some((attachment) => hasImagePreview(attachment)) && (
+                <div className={CHAT_ATTACHMENT_GRID_CLASS}>
+                  {attachments.filter(hasImagePreview).map((attachment) => (
+                    <button
+                      type="button"
+                      className={CHAT_ATTACHMENT_TILE_CLASS}
+                      key={attachment.id}
+                      title={attachment.filename}
+                      aria-label={`查看附件图片 ${attachment.filename}`}
+                      onClick={() => setPreviewImage({ src: attachment.data_url, name: attachment.filename })}
+                    >
+                      <img
+                        className={CHAT_ATTACHMENT_TILE_IMG_CLASS}
+                        src={attachment.data_url}
+                        alt={attachment.filename}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </button>
+                  ))}
                 </div>
-              ))}
+              )}
+              {attachments.some((attachment) => !hasImagePreview(attachment)) && (
+                <div className={CHAT_ATTACHMENT_GRID_CLASS}>
+                  {attachments.filter((attachment) => !hasImagePreview(attachment)).map((attachment) => (
+                    <span
+                      className={cn(
+                        CHAT_FILE_CHIP_CLASS,
+                        attachment.error && CHAT_FILE_CHIP_ERROR_CLASS,
+                      )}
+                      key={attachment.id}
+                      title={attachment.filename}
+                    >
+                      <span className={CHAT_FILE_CHIP_BODY_CLASS}>
+                        <span className={CHAT_FILE_CHIP_ICON_CLASS}>
+                          <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={14} />
+                        </span>
+                        <span className={CHAT_FILE_CHIP_NAME_CLASS} data-i18n-ignore>
+                          {attachment.filename}
+                        </span>
+                        <span className={CHAT_FILE_CHIP_META_CLASS} data-i18n-ignore>
+                          {attachment.error || attachmentTypeLabel(attachment)}
+                        </span>
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -521,6 +570,41 @@ export default function MessageBubble({
           </div>
         </div>
       </div>
+      <Dialog
+        open={Boolean(previewImage)}
+        onOpenChange={(open) => {
+          if (!open) setPreviewImage(null);
+        }}
+      >
+        <DialogContent
+          className="max-w-[min(960px,94vw)] gap-0 rounded-[16px] bg-white p-[10px] ring-[0.5px] ring-[rgba(24,24,26,0.16)]"
+          showCloseButton={false}
+          aria-describedby={undefined}
+        >
+          <DialogTitle className="sr-only">{previewImage?.name ?? '附件图片'}</DialogTitle>
+          {previewImage && (
+            <>
+              <img
+                className="block max-h-[78vh] w-full rounded-[10px] object-contain"
+                src={previewImage.src}
+                alt={previewImage.name}
+              />
+              {/* 自带的关闭钮是绝对定位，会压在图片右上角；这里放到图片下方，
+                  顺便把文件名露出来（缩略图 72px 时看不出是哪张）。 */}
+              <div className="mt-[8px] flex items-center justify-between gap-[10px]">
+                <span className="min-w-0 truncate text-[12px] text-[#4b4b50]" data-i18n-ignore>
+                  {previewImage.name}
+                </span>
+                <DialogClose asChild>
+                  <button type="button" className={CHAT_ARTIFACT_ZIP_CLASS}>
+                    关闭
+                  </button>
+                </DialogClose>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       {/* 排队态**不再显示「排队中」文案**（用户明确要求）：上一条答案还在流式
           输出时，界面本身就在动，用户知道还没轮到这条；挂一行「排队中」只会在
           队列卡住时误导用户以为在正常等待。虚线边框 + 删除按钮已经足够表达
