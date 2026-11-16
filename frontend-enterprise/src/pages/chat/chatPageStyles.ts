@@ -88,11 +88,16 @@ export const CHAT_DAY_DIVIDER_CLASS = 'my-[14px] flex justify-center';
 export const CHAT_DAY_DIVIDER_PILL_CLASS =
   'rounded-full bg-[rgba(24,24,26,0.05)] px-[10px] py-[2px] text-[11px] font-medium leading-[1.5] text-[#6d6d72]';
 
-// 正文基准 14.5px（tuffui ai-chat 用 text-sm + leading-relaxed，中文再抬半档），
-// 助手侧裸文本、不加卡片；用户侧只留一个暖米气泡。
+// 正文基准 14.5px（tuffui ai-chat 用 text-sm + leading-relaxed，中文再抬半档）。
 export const CHAT_BUBBLE_BASE_CLASS =
   'relative box-border min-w-0 max-w-[min(680px,92%)] text-[14.5px] leading-[1.7] wrap-anywhere text-[#18181a]';
-export const CHAT_BUBBLE_ASSISTANT_CLASS = 'w-full max-w-full';
+/** 助手答案 = 一张圆角卡，和下方输入框同一套语汇（16px 圆角 / 白面 / 0.5px 描边）。
+ *  **不加浮起阴影**：它已经落在消息窗口这张白卡里，再叠一层阴影会显脏；
+ *  描边就够了 —— 白卡套白卡时，边界只能靠这一圈发丝线交代。 */
+export const CHAT_BUBBLE_ASSISTANT_CLASS =
+  'w-full max-w-full rounded-[16px] bg-white px-[15px] py-[11px] ring-[0.5px] ring-[rgba(24,24,26,0.12)] shadow-[0_1px_2px_rgba(24,24,26,0.035)]';
+/** 提示态（statusOnly / 报错）仍走裸文本：一句话的状态不值得占一整张卡。 */
+export const CHAT_BUBBLE_ASSISTANT_PLAIN_CLASS = 'w-full max-w-full';
 export const CHAT_BUBBLE_USER_CLASS =
   'rounded-[16px] rounded-tr-[6px] bg-[#e5e4e0] px-[14px] py-[8px] text-[#18181a]';
 export const CHAT_BUBBLE_ERROR_CLASS = 'border-[#f38989] bg-[#fce7e7] text-[#d20b0b]';
@@ -110,10 +115,19 @@ export function chatRowClass(role: 'user' | 'assistant' | 'system' | 'tool'): st
   );
 }
 
-export function chatBubbleClass(role: 'user' | 'assistant' | 'system' | 'tool', isError?: boolean): string {
+export function chatBubbleClass(
+  role: 'user' | 'assistant' | 'system' | 'tool',
+  isError?: boolean,
+  /** true = 不套卡（状态提示 / 报错这类一句话消息）。 */
+  plain?: boolean,
+): string {
   return cn(
     CHAT_BUBBLE_BASE_CLASS,
-    role === 'user' ? CHAT_BUBBLE_USER_CLASS : CHAT_BUBBLE_ASSISTANT_CLASS,
+    role === 'user'
+      ? CHAT_BUBBLE_USER_CLASS
+      : plain
+        ? CHAT_BUBBLE_ASSISTANT_PLAIN_CLASS
+        : CHAT_BUBBLE_ASSISTANT_CLASS,
     isError && CHAT_BUBBLE_ERROR_CLASS,
   );
 }

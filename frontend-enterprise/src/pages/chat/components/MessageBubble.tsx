@@ -365,7 +365,7 @@ export default function MessageBubble({
           )}
           <div
             className={cn(
-              chatBubbleClass(item.role, item.isError),
+              chatBubbleClass(item.role, item.isError, statusOnly || Boolean(item.isError)),
               queuedMessage && CHAT_QUEUED_BUBBLE_CLASS,
             )}
           >

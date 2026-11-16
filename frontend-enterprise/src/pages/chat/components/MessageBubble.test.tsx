@@ -191,3 +191,56 @@ describe('MessageBubble legacy team progress', () => {
     expect(container.querySelector('button[aria-label="点赞"]')).toBeNull();
   });
 });
+
+describe('MessageBubble reply card', () => {
+  function renderAssistant(content: string, statusOnly = false) {
+    const item: ChatMessage = {
+      id: 'message-card',
+      role: 'assistant',
+      content,
+      created_at: '2026-11-16T10:24:00Z',
+    };
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-card',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: content,
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [],
+      harnessArtifacts: [],
+      statusOnly,
+    };
+    const chat = {
+      slashCommands: [],
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+      activeConversationId: 'session-card',
+    } as unknown as UseChatSession;
+    return render(<MessageBubble chat={chat} item={item} render={messageRender} />);
+  }
+
+  it('puts an answer in a rounded card so replies are not floating text', () => {
+    const { container } = renderAssistant('复盘已生成，附件里是完整版。');
+    const bubble = container.querySelector('[class*="rounded-[16px]"]');
+    expect(bubble).toBeTruthy();
+    // 与输入框同一套描边语汇：0.5px 发丝 ring（border 会再吃 2px 内容宽）
+    expect(bubble?.className).toContain('ring-[0.5px]');
+    expect(bubble?.textContent).toContain('复盘已生成');
+  });
+
+  it('leaves one-line status notices bare instead of boxing them', () => {
+    const { container } = renderAssistant('已转交给 数据分析组', true);
+    const bubble = container.querySelector('[class*="rounded-[16px]"]');
+    expect(bubble).toBeNull();
+    expect(container.textContent).toContain('已转交给');
+  });
+});
