@@ -78,12 +78,14 @@ export function AgentListView(props: {
     );
   };
 
-  const section = (label: string, list: AgentProfileRead[], emptyText: string) => (
-    <>
-      <div className="sd-section-label">{label}</div>
-      {list.length === 0 ? <div className="sd-list-status" style={{ padding: '10px 0' }}>{emptyText}</div> : list.map(renderCard)}
-    </>
-  );
+  // 分组为空时整段不渲染（表头连同占位文案），三组全空时再给一条兜底提示
+  const section = (label: string, list: AgentProfileRead[]) =>
+    list.length === 0 ? null : (
+      <>
+        <div className="sd-section-label">{label}</div>
+        {list.map(renderCard)}
+      </>
+    );
 
   return (
     <>
@@ -102,11 +104,15 @@ export function AgentListView(props: {
           </div>
         )}
         {agents !== null && !error && (
-          <>
-            {section('免费员工', groups.free, '暂无免费员工')}
-            {section('模型员工', groups.model, '暂无模型员工')}
-            {section('小队', groups.squad, '暂无小队')}
-          </>
+          groups.free.length + groups.model.length + groups.squad.length === 0 ? (
+            <div className="sd-list-status" style={{ padding: '10px 0' }}>暂无可用员工</div>
+          ) : (
+            <>
+              {section('免费员工', groups.free)}
+              {section('模型员工', groups.model)}
+              {section('小队', groups.squad)}
+            </>
+          )
         )}
       </div>
 
