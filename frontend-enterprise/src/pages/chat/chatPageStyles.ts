@@ -166,9 +166,23 @@ export const CHAT_MARKDOWN_CLASS = cn(
   '[&_.code-block-vscode]:my-[10px]',
 );
 export const CHAT_MARKDOWN_IMAGE_LINK_CLASS =
-  'my-[10px] block w-fit max-w-full overflow-hidden rounded-[12px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] no-underline shadow-[0_8px_24px_rgba(30,45,70,0.08)] transition hover:border-[rgba(24,24,26,0.12)] hover:shadow-[0_10px_28px_rgba(30,45,70,0.12)]';
+  'my-[10px] block w-full max-w-full overflow-hidden rounded-[12px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] no-underline shadow-[0_8px_24px_rgba(30,45,70,0.08)] transition hover:border-[rgba(24,24,26,0.12)] hover:shadow-[0_10px_28px_rgba(30,45,70,0.12)]';
+/**
+ * 知识库配图是**操作步骤截图**（常见 865×1272 的整屏截图），按高度封顶会被缩成
+ * 三百来像素宽，图里的菜单名和按钮一个都看不清 —— 等于给了图也用不了。
+ * 所以按宽度撑满正文列，高度不封顶，靠消息窗口自己滚动。
+ */
 export const CHAT_MARKDOWN_IMAGE_CLASS =
-  'block max-h-[420px] max-w-full object-contain';
+  'block h-auto w-full max-w-full object-contain';
+/**
+ * 配图加载失败时的行内占位。
+ *
+ * 之前失败是直接把 alt 当文本吐出来：知识库文档里每个步骤都挂一张图，一失败整条
+ * 回答就成了「…点击左上角“文件” 原文档配图 / …点击“帐户设置” 原文档配图」，读起来
+ * 像正文被污染，而且完全看不出是「图片挂了」。改成虚线小戳，只占一个字宽的提示位。
+ */
+export const CHAT_MARKDOWN_IMAGE_MISSING_CLASS =
+  'inline-flex max-w-full items-center gap-[5px] rounded-[7px] border border-dashed border-[rgba(24,24,26,0.18)] bg-[#faf9f6] px-[7px] py-[1px] align-[1px] text-[12px] leading-[1.7] text-[#9a9a9f]';
 export const CHAT_MD_TABLE_SCROLL_CLASS = 'my-[10px] max-w-full overflow-x-auto';
 export const CHAT_MD_TABLE_CLASS =
   'w-full border-collapse text-[13px] [&_th]:border [&_th]:border-[rgba(24,24,26,0.08)] [&_th]:bg-[#f2f1ee] [&_th]:px-[10px] [&_th]:py-[6px] [&_th]:font-semibold [&_td]:border [&_td]:border-[rgba(24,24,26,0.08)] [&_td]:px-[10px] [&_td]:py-[6px]';
