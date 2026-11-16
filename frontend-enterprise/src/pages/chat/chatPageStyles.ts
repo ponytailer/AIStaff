@@ -386,14 +386,14 @@ export const CHAT_COMPOSER_FORM_CLASS = cn(
 );
 export const CHAT_COMPOSER_FORM_DRAG_CLASS = 'bg-[rgba(15,118,110,0.05)] ring-[1px] ring-[#0f766e]';
 export const CHAT_COMPOSER_DROP_HINT_CLASS =
-  'pointer-events-none absolute inset-0 z-[2] grid place-items-center rounded-[18px] bg-white/85 text-[14px] font-medium text-[#18181a] backdrop-blur-sm';
+  'pointer-events-none absolute inset-0 z-[3] grid place-items-center rounded-[18px] bg-white/85 text-[14px] font-medium text-[#18181a] backdrop-blur-sm';
 // 卡内水平内边距 10（form）+ 10（textarea）= 20，正好等于消息列的 px-20：
 // 输入的文字与上方消息正文、头像落在同一条竖线上。
 export const CHAT_COMPOSER_TEXTAREA_CLASS =
   'min-h-[46px] min-w-0 max-h-[200px] w-full flex-1 resize-none border-0 bg-transparent px-[10px] py-[4px] text-[14.5px] leading-[1.7] text-[#18181a] shadow-none outline-none placeholder:text-[#9a9a9f] focus-visible:ring-0';
 export const CHAT_COMPOSER_TEXTAREA_WITH_COMMAND_CLASS =
   'min-h-[32px] py-[4px] leading-[24px]';
-export const CHAT_COMPOSER_INPUT_ROW_CLASS = 'flex min-w-0 items-start gap-[8px]';
+export const CHAT_COMPOSER_INPUT_ROW_CLASS = 'relative flex min-w-0 items-start gap-[8px]';
 export const CHAT_COMPOSER_COMMAND_CHIP_CLASS =
   'group/command inline-flex h-[32px] max-w-[min(300px,100%)] shrink-0 items-center gap-[7px] rounded-[9px] border border-[rgba(24,24,26,0.10)] bg-[#f2f1ee] py-[4px] pl-[6px] pr-[5px] text-[rgba(24,24,26,0.8)] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-colors hover:border-[rgba(24,24,26,0.16)] hover:bg-[#f0efec]';
 export const CHAT_COMPOSER_COMMAND_ICON_CLASS =
@@ -412,18 +412,35 @@ export const CHAT_COMMAND_KIND_TONE_CLASS: Record<'sop' | 'skill' | 'tool', stri
 };
 export const CHAT_COMPOSER_COMMAND_REMOVE_CLASS =
   'inline-grid size-[18px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[15px] leading-none text-[#9a9a9f] transition-colors hover:bg-[#18181a] hover:text-white focus-visible:bg-[#18181a] focus-visible:text-white focus-visible:outline-none';
-export const CHAT_COMPOSER_ATTACHMENTS_CLASS = 'flex flex-wrap gap-[6px]';
-/** 输入区附件：与消息里的文件胶囊同一套（999px 圆角 + 白底 + 1px 描边），
- *  只是多一行状态、右侧换成 20px 圆形移除钮。 */
-export const CHAT_COMPOSER_ATTACHMENT_CHIP_CLASS =
-  'inline-flex max-w-[240px] items-center gap-[7px] rounded-full border border-[rgba(24,24,26,0.10)] bg-white py-[4px] pl-[6px] pr-[4px] text-[12px] text-[#18181a]';
-export const CHAT_COMPOSER_ATTACHMENT_ERROR_CLASS = 'border-[#f0b4b4] bg-[#fdf4f4] text-[#a81b1b]';
-export const CHAT_COMPOSER_ATTACHMENT_IMG_CLASS = 'size-[26px] shrink-0 rounded-[7px] object-cover';
-export const CHAT_COMPOSER_ATTACHMENT_COPY_CLASS = 'grid min-w-0 gap-[1px]';
-export const CHAT_COMPOSER_ATTACHMENT_NAME_CLASS = 'min-w-0 truncate text-[12px] font-medium leading-[1.25]';
-export const CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS =
-  'min-w-0 truncate text-[11px] leading-[1.25] text-[#9a9a9f] [font-variant-numeric:tabular-nums]';
-export const CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS = CHAT_FILE_CHIP_ACTION_CLASS + ' ' + CHAT_FILE_CHIP_ACTION_REMOVE_CLASS;
+// ---------------------------------------------------------------------------
+// 输入区附件（浮在文字上，不占高度）
+//
+// 之前是一整行「26px 图 + 文件名/体积两行 + 20px 移除钮」的大胶囊：三个附件
+// 直接把输入框撑高 56px，一多还会换行。改成右上角一层 26px 的缩略瓷砖 ——
+// 绝对定位，**不参与布局**，输入框高度只跟文字行数有关；文件名/状态挂着
+// hover 才出的黑标签，需要移除时右上角才浮出 ✕。
+// ---------------------------------------------------------------------------
+export const CHAT_COMPOSER_ATTACHMENTS_CLASS =
+  'pointer-events-none absolute right-0 top-0 z-[2] flex items-center gap-[8px]';
+/** 一颗瓷砖 + 它的 ✕ / 黑标签；relative 是这两个浮层的定位基准。 */
+export const CHAT_COMPOSER_ATTACHMENT_WRAP_CLASS = 'group/attach relative shrink-0';
+export const CHAT_COMPOSER_ATTACHMENT_TILE_CLASS =
+  'pointer-events-auto grid size-[26px] place-items-center overflow-hidden rounded-[7px] bg-[#f2f1ee] text-[#6d6d72] ring-[0.5px] ring-[rgba(24,24,26,0.16)] transition-shadow group-hover/attach:ring-[rgba(24,24,26,0.32)]';
+export const CHAT_COMPOSER_ATTACHMENT_TILE_IMG_CLASS = 'size-full object-cover';
+export const CHAT_COMPOSER_ATTACHMENT_TILE_ERROR_CLASS =
+  'bg-[#fdf4f4] text-[#a81b1b] ring-[#e8a0a0]';
+/** 上传/解析进度：瓷砖底边一条 2px 发丝线，不抢画面。 */
+export const CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS =
+  'pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[2px] bg-[#0f766e] transition-[width] duration-200';
+export const CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS =
+  // 不移出 tab 序：`hidden` 会让键盘用户永远够不着它，改成透明 +
+// hover / 键盘进入时显形。
+  'absolute -right-[6px] -top-[6px] z-[3] grid size-[15px] place-items-center rounded-full border-0 bg-white p-0 text-[#6d6d72] opacity-0 shadow-[0_0_0_0.5px_rgba(24,24,26,0.20)] transition-opacity group-hover/attach:opacity-100 group-focus-within/attach:opacity-100 hover:text-[#d11a1a] focus-visible:opacity-100';
+/** hover 展开的文件名：26px 瓷砖光看图/图标分不清是哪一个文件。 */
+export const CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS =
+  'pointer-events-none absolute right-0 top-[calc(100%+6px)] z-[3] hidden max-w-[280px] truncate rounded-[7px] bg-[#18181a] px-[7px] py-[3px] text-[11px] leading-[1.35] text-white group-hover/attach:block';
+export const CHAT_COMPOSER_ATTACHMENT_MORE_CLASS =
+  'pointer-events-auto grid h-[26px] min-w-[28px] place-items-center rounded-[7px] bg-white px-[5px] text-[11px] font-medium text-[#6d6d72] ring-[0.5px] ring-[rgba(24,24,26,0.16)] [font-variant-numeric:tabular-nums]';
 
 export const CHAT_COMPOSER_TOOLBAR_CLASS = 'flex items-center justify-between gap-[10px]';
 export const CHAT_COMPOSER_CONTEXT_ROW_CLASS = 'flex min-w-0 items-center gap-[8px]';

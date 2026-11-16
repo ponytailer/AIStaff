@@ -13,16 +13,18 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
 import type { ChatSlashCommand } from '@/types';
 
+import type { ComposerAttachment } from '../chatTypes';
 import {
   CHAT_COMMAND_KIND_TONE_CLASS,
   CHAT_COMPOSER_ACTIONS_ROW_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_CHIP_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_COPY_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_ERROR_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_IMG_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_NAME_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_MORE_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS,
   CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_TILE_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_TILE_ERROR_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_TILE_IMG_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_WRAP_CLASS,
   CHAT_COMPOSER_ATTACHMENTS_CLASS,
   CHAT_COMPOSER_COMMAND_KIND_CLASS,
   CHAT_COMPOSER_CONTEXT_ROW_CLASS,
@@ -60,6 +62,17 @@ import {
 } from '../slashCommands';
 import type { UseChatSession } from '../useChatSession';
 import SlashCommandChip from './SlashCommandChip';
+
+/** 附件的第二行信息：上传中是进度，成功后是「PDF · 1.2 MB」，失败是错误原因。 */
+function composerAttachmentStatus(attachment: ComposerAttachment): string {
+  if (attachment.uploadStatus === 'uploading') {
+    return attachment.parse_job_id
+      ? `云端解析中 ${Math.round(attachment.parse_progress ?? 0)}%`
+      : '上传中';
+  }
+  if (attachment.uploadStatus === 'error') return attachment.error || '上传失败';
+  return attachmentTypeLabel(attachment);
+}
 
 export default function Composer({
   chat,
@@ -126,6 +139,19 @@ export default function Composer({
     !slashMenuDismissed && slashCommandQuery(input) && slashMatches.length,
   );
   const composerText = slashCommandComposerText(input, activeSlashCommand);
+
+  // 附件托盘只占「浮层」：最多露 3 颗 26px 瓷砖，多出来的收成 +N。
+  // 文字区按托盘实际宽度让出右侧内边距，正文永远不会钻到瓷砖底下。
+  const MAX_TRAY_TILES = 3;
+  const TRAY_TILE = 26;
+  const TRAY_GAP = 8;
+  const visibleComposerAttachments = composerAttachments.slice(0, MAX_TRAY_TILES);
+  const extraComposerAttachmentCount = composerAttachments.length - visibleComposerAttachments.length;
+  const composerAttachmentTrayWidth = composerAttachments.length === 0
+    ? 0
+    : visibleComposerAttachments.length * TRAY_TILE
+      + Math.max(0, visibleComposerAttachments.length - 1) * TRAY_GAP
+      + (extraComposerAttachmentCount > 0 ? TRAY_TILE + TRAY_GAP : 0);
 
   useEffect(() => {
     const element = textareaRef.current;
@@ -238,45 +264,6 @@ export default function Composer({
           />
           {composerDragActive && <div className={CHAT_COMPOSER_DROP_HINT_CLASS}>松开上传文件</div>}
 
-          {composerAttachments.length > 0 && (
-            <div className={CHAT_COMPOSER_ATTACHMENTS_CLASS}>
-              {composerAttachments.map((attachment) => (
-                <div
-                  className={cn(
-                    CHAT_COMPOSER_ATTACHMENT_CHIP_CLASS,
-                    attachment.uploadStatus === 'error' && CHAT_COMPOSER_ATTACHMENT_ERROR_CLASS,
-                  )}
-                  key={attachment.uploadKey}
-                >
-                  {attachment.kind === 'image' && attachment.data_url ? (
-                    <img className={CHAT_COMPOSER_ATTACHMENT_IMG_CLASS} src={attachment.data_url} alt={attachment.filename} />
-                  ) : (
-                    <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={16} />
-                  )}
-                  <span className={CHAT_COMPOSER_ATTACHMENT_COPY_CLASS}>
-                    <span className={CHAT_COMPOSER_ATTACHMENT_NAME_CLASS}>{attachment.filename}</span>
-                    <span className={CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS}>
-                      {attachment.uploadStatus === 'uploading' &&
-                        (attachment.parse_job_id
-                          ? `云端解析中 ${Math.round(attachment.parse_progress ?? 0)}%`
-                          : '上传中')}
-                      {attachment.uploadStatus === 'ready' && attachmentTypeLabel(attachment)}
-                      {attachment.uploadStatus === 'error' && (attachment.error || '上传失败')}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    className={CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS}
-                    onClick={() => removeComposerAttachment(attachment.uploadKey)}
-                    aria-label="移除附件"
-                  >
-                    <StaffdeckIcon name="close" size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
           {slashMenuOpen && (
             <div
               ref={slashMenuRef}
@@ -330,6 +317,72 @@ export default function Composer({
           )}
 
           <div className={CHAT_COMPOSER_INPUT_ROW_CLASS}>
+            {composerAttachments.length > 0 && (
+              <div
+                className={CHAT_COMPOSER_ATTACHMENTS_CLASS}
+                aria-label={t('待发送的附件')}
+                role="group"
+              >
+                {visibleComposerAttachments.map((attachment) => {
+                  const statusText = composerAttachmentStatus(attachment);
+                  return (
+                    <span className={CHAT_COMPOSER_ATTACHMENT_WRAP_CLASS} key={attachment.uploadKey}>
+                      <span
+                        className={cn(
+                          CHAT_COMPOSER_ATTACHMENT_TILE_CLASS,
+                          attachment.uploadStatus === 'error' && CHAT_COMPOSER_ATTACHMENT_TILE_ERROR_CLASS,
+                        )}
+                        role="img"
+                        aria-label={`${attachment.filename} · ${statusText}`}
+                      >
+                        {attachment.kind === 'image' && attachment.data_url ? (
+                          <img
+                            className={CHAT_COMPOSER_ATTACHMENT_TILE_IMG_CLASS}
+                            src={attachment.data_url}
+                            alt=""
+                          />
+                        ) : (
+                          <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={14} />
+                        )}
+                        {attachment.uploadStatus === 'uploading' && (
+                          <span
+                            className={CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS}
+                            style={{
+                              width: attachment.parse_job_id
+                                ? `${Math.max(4, Math.min(100, Math.round(attachment.parse_progress ?? 0)))}%`
+                                : '100%',
+                            }}
+                          />
+                        )}
+                      </span>
+                      {/* 26px 里放不下文件名：hover 才展开一条黑标签，顺带带上体积/进度。 */}
+                      <span className={CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS}>
+                        {attachment.filename} · {statusText}
+                      </span>
+                      <button
+                        type="button"
+                        className={CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS}
+                        onClick={() => removeComposerAttachment(attachment.uploadKey)}
+                        aria-label={`移除附件 ${attachment.filename}`}
+                      >
+                        <StaffdeckIcon name="close" size={9} />
+                      </button>
+                    </span>
+                  );
+                })}
+                {extraComposerAttachmentCount > 0 && (
+                  <span
+                    className={CHAT_COMPOSER_ATTACHMENT_MORE_CLASS}
+                    title={composerAttachments
+                      .slice(MAX_TRAY_TILES)
+                      .map((attachment) => attachment.filename)
+                      .join('、')}
+                  >
+                    +{extraComposerAttachmentCount}
+                  </span>
+                )}
+              </div>
+            )}
             {activeSlashCommand && (
               <SlashCommandChip
                 command={activeSlashCommand}
@@ -343,6 +396,11 @@ export default function Composer({
                 CHAT_COMPOSER_TEXTAREA_CLASS,
                 activeSlashCommand && CHAT_COMPOSER_TEXTAREA_WITH_COMMAND_CLASS,
               )}
+              // 附件托盘是浮层，文字按它的实际宽度让出右侧（只改 padding，
+              // 不动布局高度）；没有附件时不写 style，交给 class 里的 px。
+              style={composerAttachmentTrayWidth
+                ? { paddingRight: composerAttachmentTrayWidth + 16 }
+                : undefined}
               value={composerText}
               rows={activeSlashCommand ? 1 : 2}
               placeholder={t('输入消息，按 Enter 发送...')}

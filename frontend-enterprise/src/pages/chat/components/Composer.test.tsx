@@ -82,3 +82,39 @@ describe('Composer plus menu', () => {
     expect(screen.queryByText('定时任务')).toBeNull();
   });
 });
+
+describe('Composer attachment tray', () => {
+  function attachment(index: number) {
+    return {
+      id: `att-${index}`,
+      uploadKey: `key-${index}`,
+      filename: `门店巡检-${index}.pdf`,
+      content_type: 'application/pdf',
+      size: 862_000,
+      kind: 'pdf',
+      uploadStatus: 'ready',
+    };
+  }
+
+  it('附件浮在文字右上角，最多露 3 颗，其余收成 +N', () => {
+    const chat = buildChat();
+    chat.composerAttachments = [1, 2, 3, 4, 5].map(attachment) as never;
+    const { container } = render(
+      <I18nProvider>
+        <Composer chat={chat} />
+      </I18nProvider>,
+    );
+
+    // aria-label 走 i18n，会随语言变；这里只认角色与结构
+    const tray = container.querySelector('[role="group"]') as HTMLElement;
+    expect(tray).toBeTruthy();
+    // 托盘是浮层：absolute + pointer-events-none，不参与布局高度
+    expect(tray.className).toContain('absolute');
+    expect(tray.querySelectorAll('[role="img"]').length).toBe(3);
+    expect(screen.getByText('+2')).toBeTruthy();
+
+    // 文字区让出托盘宽度（3×26 + 2×8 + 26 + 8 + 16 = 144），正文不会钻到瓷砖下面
+    const textarea = container.querySelector('textarea') as HTMLTextAreaElement;
+    expect(textarea.style.paddingRight).toBe('144px');
+  });
+});
