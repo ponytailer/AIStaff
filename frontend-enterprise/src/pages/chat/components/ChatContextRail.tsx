@@ -24,7 +24,6 @@ import {
   CHAT_RAIL_HEAD_META_CLASS,
   CHAT_RAIL_HEAD_NAME_CLASS,
   CHAT_RAIL_ICON_CLASS,
-  CHAT_RAIL_PANEL_FOOT_CLASS,
   CHAT_RAIL_ROW_CLASS,
   CHAT_RAIL_ROW_TEXT_CLASS,
   CHAT_RAIL_ROW_VALUE_CLASS,
@@ -365,16 +364,6 @@ export default function ChatContextRail({ chat }: { chat: UseChatSession }) {
             />
           ))
         )}
-        <button
-          type="button"
-          className={CHAT_RAIL_PANEL_FOOT_CLASS}
-          onClick={openEmployeeProfile}
-          disabled={!agentId}
-          title={agentId ? '在员工档案里查看与配置能力' : '还没有选中员工'}
-        >
-          在员工档案中管理
-          <ArrowUpRight className="size-[11px] shrink-0" strokeWidth={2.4} />
-        </button>
       </RailCard>
     </aside>
   );

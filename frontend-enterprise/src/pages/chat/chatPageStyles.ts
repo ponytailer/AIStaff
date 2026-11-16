@@ -476,13 +476,13 @@ export const CHAT_RAIL_CLASS =
 export const CHAT_RAIL_CARD_CLASS =
   'flex shrink-0 flex-col overflow-hidden rounded-[16px] border border-[#e6e2da] bg-white shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
 // 卡头：小图标方块 + 标题 + 右上角计数/耗时，和参考图的卡头同构。
-export const CHAT_RAIL_CARD_HEAD_CLASS = 'flex shrink-0 items-center gap-[8px] px-[11px] pt-[11px] pb-[8px]';
+export const CHAT_RAIL_CARD_HEAD_CLASS = 'flex shrink-0 items-center gap-[8px] px-[11px] pt-[10px] pb-[7px]';
 export const CHAT_RAIL_CARD_ICON_CLASS =
   'grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-[#f2f1ee] text-[#6d6d72] [&>svg]:size-[12px]';
 export const CHAT_RAIL_CARD_TITLE_CLASS = 'truncate text-[12.5px] font-medium leading-[1.4] text-[#3d3d3f]';
 export const CHAT_RAIL_CARD_META_CLASS = 'ml-auto shrink-0 text-[11px] leading-none tabular-nums text-[#9a9a9f]';
 // 卡内内容块：比卡面再浅一档，和输入坞里「暖白底 + 白输入框」同一套层次。
-export const CHAT_RAIL_BODY_CLASS = 'mx-[7px] mb-[7px] rounded-[12px] bg-[#faf9f6] px-[7px] py-[3px]';
+export const CHAT_RAIL_BODY_CLASS = 'mx-[7px] mb-[7px] rounded-[12px] bg-[#faf9f6] px-[7px] py-[2px]';
 /** 最后一张卡吃掉剩余高度：右栏底部与左侧输入卡齐平，不在下面留一截纸背景。 */
 export const CHAT_RAIL_CARD_GROW_CLASS = 'flex-1';
 export const CHAT_RAIL_BODY_GROW_CLASS = 'flex flex-1 flex-col';
@@ -493,7 +493,7 @@ export const CHAT_RAIL_HEAD_META_CLASS = 'mt-[3px] truncate text-[11.5px] leadin
 export const CHAT_RAIL_HEAD_ACTION_CLASS =
   'grid size-[26px] shrink-0 place-items-center rounded-[8px] text-[#a3a3a8] transition-colors hover:bg-[#f2f1ee] hover:text-[#3d3d3f] disabled:cursor-not-allowed disabled:opacity-40';
 export const CHAT_RAIL_ROW_CLASS =
-  'flex items-center gap-[8px] rounded-[8px] px-[2px] py-[6px] text-[12.5px] leading-[1.5] text-[rgba(24,24,26,0.8)]';
+  'flex items-center gap-[8px] rounded-[8px] px-[2px] py-[5px] text-[12.5px] leading-[1.5] text-[rgba(24,24,26,0.8)]';
 export const CHAT_RAIL_ROW_TEXT_CLASS = 'min-w-0 flex-1 truncate';
 export const CHAT_RAIL_ROW_VALUE_CLASS = 'shrink-0 text-[11px] tabular-nums text-[#9a9a9f]';
 export const CHAT_RAIL_ROW_VALUE_ON_CLASS = 'shrink-0 text-[11px] text-[#0f766e]';
@@ -501,7 +501,4 @@ export const CHAT_RAIL_ICON_CLASS =
   'grid w-[16px] shrink-0 place-items-center text-[#6d6d72] [&>svg]:size-[12px]';
 export const CHAT_RAIL_STEP_TEXT_CLASS = 'min-w-0 flex-1 truncate text-[12.5px] leading-[1.5] text-[rgba(24,24,26,0.8)]';
 export const CHAT_RAIL_STEP_TEXT_FAILED_CLASS = 'min-w-0 flex-1 truncate text-[12.5px] leading-[1.5] text-[#d20b0b]';
-// 卡内最后一个动作：小字 + 外链箭头，贴着内容块底部。
-export const CHAT_RAIL_PANEL_FOOT_CLASS =
-  'mt-[2px] flex w-fit items-center gap-[4px] rounded-[8px] px-[2px] py-[6px] text-[11.5px] leading-none text-[#a3a3a8] transition-colors hover:text-[#6d6d72] disabled:cursor-not-allowed disabled:opacity-50';
 export const CHAT_RAIL_EMPTY_CLASS = 'px-[2px] py-[6px] text-[11.5px] leading-[1.6] text-[#9a9a9f]';
