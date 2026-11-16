@@ -214,8 +214,11 @@ def _query_needs_fresh_data(message: str) -> bool:
 
 
 #: 「模型一张图都没引用」时自动补在文末的配图数量。
-#: 只补 2 张：再多就是噪声，图文对应关系也更弱。
-KNOWLEDGE_IMAGE_APPENDIX_LIMIT = 2
+#: 2026-11-16 从 2 提到 8：图例的 caption 对截图型手册全是「原文档配图」，
+#: 模型无法判断哪张图对应哪步内容，按规则 30 一张都不敢引 → 兜底是用户
+#: 看到图的唯一途径。legend 本身就来自本轮检索证据（build_image_refs
+#: 按 MAX_IMAGE_REFS=8 封顶），都是与提问相关的图，不是全库倾泻。
+KNOWLEDGE_IMAGE_APPENDIX_LIMIT = 8
 
 #: 这些回答说明「没找到依据」，这时补图等于给空答案配图，更容易误导。
 _REFUSAL_MARKERS = (

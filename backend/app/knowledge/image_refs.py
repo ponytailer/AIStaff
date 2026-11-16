@@ -239,6 +239,11 @@ def build_image_appendix(
         if not url:
             continue
         caption = str(item.get("caption") or "").strip() or _DEFAULT_CAPTION
+        # 兜底补的是多张同名「原文档配图」时没有编号会分不清，用图例编号
+        # （{{img:3}} → 原文档配图 3）；caption 有真实图题时保持原样。
+        match = REF_PATTERN.fullmatch(str(item.get("ref") or ""))
+        if caption == _DEFAULT_CAPTION and match is not None:
+            caption = f"{caption} {int(match.group(1))}"
         picked.append(f"![{caption}]({url})")
     if not picked:
         return ""
