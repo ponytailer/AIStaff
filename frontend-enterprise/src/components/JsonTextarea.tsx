@@ -87,7 +87,7 @@ export function JsonTextarea({
   return (
     <div>
       <label className="flex flex-col gap-[6px]">
-        <span className="text-[12px] font-medium text-[#464c5e]">{label}</span>
+        <span className="text-[12px] font-medium text-[#3d3d3f]">{label}</span>
         <textarea
           data-slot="json-textarea"
           rows={rows}
@@ -111,7 +111,7 @@ export function JsonTextarea({
         <p
           className={cn(
             'mt-[4px] text-[12px] leading-[1.5]',
-            error ? 'text-[#e5484d]' : 'text-[#858b9c]',
+            error ? 'text-[#e5484d]' : 'text-[#6d6d72]',
           )}
         >
           {error || hint}

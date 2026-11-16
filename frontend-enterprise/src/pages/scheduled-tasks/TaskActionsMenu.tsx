@@ -15,7 +15,7 @@ import IconTrash from '../../assets/icons/trash.svg?react';
 import type { ScheduledTaskRead } from '../../types';
 
 const MENU_ITEM_CLASS =
-  'w-[110px] cursor-pointer gap-[4px] rounded-[10px] px-[12px] py-[6px] text-[12px] text-[#858b9c] focus:text-[#18181a] [&_svg]:size-[14px]';
+  'w-[110px] cursor-pointer gap-[4px] rounded-[10px] px-[12px] py-[6px] text-[12px] text-[#6d6d72] focus:text-[#18181a] [&_svg]:size-[14px]';
 const MENU_ITEM_DANGER_CLASS =
   'w-[110px] cursor-pointer gap-[4px] rounded-[10px] px-[12px] py-[6px] text-[12px] text-[#d20b0b] focus:bg-[#fce7e7] focus:text-[#d20b0b] focus:[&_svg]:text-[#d20b0b]! [&_svg]:size-[14px]';
 
@@ -49,7 +49,7 @@ export function TaskActionsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="flex w-auto min-w-0 flex-col gap-[4px] rounded-[14px] border-0 bg-white p-[4px] shadow-[0px_0px_8px_rgba(0,0,0,0.1)] ring-0 [--accent:#F6F6F6] [--accent-foreground:#18181A]"
+        className="flex w-auto min-w-0 flex-col gap-[4px] rounded-[14px] border-0 bg-white p-[4px] shadow-[0px_0px_8px_rgba(0,0,0,0.1)] ring-0 [--accent:#f2f1ee] [--accent-foreground:#18181A]"
       >
         <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => onViewRuns(task)}>
           <IconListBulleted />
@@ -71,7 +71,7 @@ export function TaskActionsMenu({
                 {task.status === 'active' ? '暂停' : '启用'}
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator className="my-[2px] bg-[#eef0f4]" />
+            <DropdownMenuSeparator className="my-[2px] bg-[#ecebe7]" />
             <DropdownMenuItem
               variant="destructive"
               className={MENU_ITEM_DANGER_CLASS}

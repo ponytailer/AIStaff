@@ -15,7 +15,9 @@ import type { UseChatSession } from '../useChatSession';
 
 function greetingFontSize(displayName: string): number {
   const length = Array.from(displayName).length;
-  return length > 20 ? 20 : length > 12 ? 24 : length > 6 ? 30 : 36;
+  // 问候语不再是海报字：demo 的欢迎区是一句正常大小的标题（18-20px），
+  // 过大字号会把「员工主体」压成营销页。
+  return length > 20 ? 18 : length > 12 ? 20 : length > 6 ? 24 : 26;
 }
 
 export default function ChatEmptyState({ chat }: { chat: UseChatSession }) {
@@ -103,13 +105,13 @@ function DispatcherEmptyCard({ chat }: { chat: UseChatSession }) {
                     key={member.member_agent_id}
                     agent={agentById(member.member_agent_id)}
                     size={56}
-                    className="-ml-[14px] shrink-0 rounded-full ring-4 ring-[#f6f6f6] first:ml-0"
+                    className="-ml-[14px] shrink-0 rounded-full ring-4 ring-[#e5e4e0] first:ml-0"
                   />
                 ))}
               </div>
             ) : (
               <div className="absolute inset-x-0 bottom-[14px] flex items-center justify-center">
-                <span className="grid size-[56px] place-items-center rounded-full bg-[#e1f1ed] text-[#0f7268] ring-4 ring-[#f6f6f6]">
+                <span className="grid size-[56px] place-items-center rounded-full bg-[#dceee9] text-[#0f766e] ring-4 ring-[#e5e4e0]">
                   <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
                     <circle cx="8" cy="3.2" r="1.9" />
                     <circle cx="3.4" cy="12.4" r="1.9" />

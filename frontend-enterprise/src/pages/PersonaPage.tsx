@@ -177,7 +177,7 @@ export default function PersonaPage() {
 function LabeledField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-[6px]">
-      <span className="text-[12px] font-medium text-[#464c5e]">{label}</span>
+      <span className="text-[12px] font-medium text-[#3d3d3f]">{label}</span>
       {children}
     </label>
   );

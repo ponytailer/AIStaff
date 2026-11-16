@@ -88,7 +88,7 @@ export default function OaAssistantPage({
         <section className="relative overflow-hidden rounded-[20px] bg-[#18181a] px-[26px] py-[24px] text-white shadow-[0_10px_28px_-12px_rgba(17,17,17,0.45)]">
           <div
             aria-hidden
-            className="pointer-events-none absolute -right-[60px] -top-[70px] size-[220px] rounded-full bg-[#0f7268]/35 blur-[46px]"
+            className="pointer-events-none absolute -right-[60px] -top-[70px] size-[220px] rounded-full bg-[#0f766e]/35 blur-[46px]"
           />
           <div
             aria-hidden
@@ -119,12 +119,12 @@ export default function OaAssistantPage({
         {/* 安装 */}
         <section className="rounded-[20px] bg-white p-[20px] shadow-[0_-4px_16px_0_rgba(0,0,0,0.05)]">
           <div className="flex items-center gap-[8px]">
-            <Bookmark className="size-[15px] text-[#757f9c]" />
+            <Bookmark className="size-[15px] text-[#6d6d72]" />
             <h2 className="text-[14px] font-medium text-[#18181a]">第一步：把按钮拖到书签栏</h2>
           </div>
-          <p className="mt-[6px] text-[12px] leading-[1.8] text-[#858b9c]">
-            书签栏默认隐藏，按 <kbd className="rounded border border-[#e3e7f1] bg-[#fafbfd] px-[5px] py-[1px] text-[11px]">Ctrl/⌘ + Shift + B</kbd> 显示。
-            把下面这个按钮<strong className="text-[#464c5e]">拖到书签栏</strong>即可（无需安装任何软件）。
+          <p className="mt-[6px] text-[12px] leading-[1.8] text-[#6d6d72]">
+            书签栏默认隐藏，按 <kbd className="rounded border border-[#e6e4df] bg-[#f2f1ee] px-[5px] py-[1px] text-[11px]">Ctrl/⌘ + Shift + B</kbd> 显示。
+            把下面这个按钮<strong className="text-[#3d3d3f]">拖到书签栏</strong>即可（无需安装任何软件）。
           </p>
 
           <div className="mt-[14px] flex flex-wrap items-center gap-[10px]">
@@ -132,10 +132,10 @@ export default function OaAssistantPage({
               ref={linkRef}
               draggable
               onClick={(e) => e.preventDefault()}
-              className="inline-flex h-[36px] cursor-grab items-center gap-[7px] rounded-[10px] border border-[#d6dbe8] bg-[#fafbfd] px-[14px] text-[13px] text-[#1f2333] no-underline hover:bg-[#f2f4f9] active:cursor-grabbing"
+              className="inline-flex h-[36px] cursor-grab items-center gap-[7px] rounded-[10px] border border-[#d6dbe8] bg-[#f2f1ee] px-[14px] text-[13px] text-[#1f2333] no-underline hover:bg-[#f2f4f9] active:cursor-grabbing"
               title="拖我到书签栏"
             >
-              <Puzzle className="size-[14px] text-[#757f9c]" />
+              <Puzzle className="size-[14px] text-[#6d6d72]" />
               AI 单据助手
             </a>
           </div>
@@ -149,31 +149,31 @@ export default function OaAssistantPage({
         {/* 使用 */}
         <section className="rounded-[20px] bg-white p-[20px] shadow-[0_-4px_16px_0_rgba(0,0,0,0.05)]">
           <div className="flex items-center gap-[8px]">
-            <MousePointerClick className="size-[15px] text-[#757f9c]" />
+            <MousePointerClick className="size-[15px] text-[#6d6d72]" />
             <h2 className="text-[14px] font-medium text-[#18181a]">第二步：在 OA 报销页面点这个书签</h2>
           </div>
-          <ol className="mt-[10px] flex list-decimal flex-col gap-[6px] pl-[20px] text-[12.5px] leading-[1.9] text-[#464c5e]">
+          <ol className="mt-[10px] flex list-decimal flex-col gap-[6px] pl-[20px] text-[12.5px] leading-[1.9] text-[#3d3d3f]">
             <li>像平时一样打开 OA 报销表单页（已登录状态）。</li>
             <li>点书签栏里的「AI 单据助手」→ 右上角弹出面板。</li>
             <li>在面板里确认场景 / 事由 / 金额，点「代填」。</li>
             <li>面板会逐个字段操作当前 OA 页面，并显示每一步结果；失败的字段可以单独重试。</li>
             <li>默认<strong>不会自动点保存</strong>，先看填得对不对；确认无误后可勾选「填完后自动点保存」。</li>
           </ol>
-          <p className="mt-[10px] rounded-[10px] border border-[#eef0f5] bg-[#fafbfd] p-[10px] text-[11.5px] leading-[1.8] text-[#858b9c]">
-            说明：本方案不需要服务端浏览器，也不需要用户安装扩展。代价是<strong className="text-[#5b6274]">每次执行都要手动点一下书签</strong>（浏览器不允许网页替用户点书签）。
+          <p className="mt-[10px] rounded-[10px] border border-[#eef0f5] bg-[#f2f1ee] p-[10px] text-[11.5px] leading-[1.8] text-[#6d6d72]">
+            说明：本方案不需要服务端浏览器，也不需要用户安装扩展。代价是<strong className="text-[#55555a]">每次执行都要手动点一下书签</strong>（浏览器不允许网页替用户点书签）。
           </p>
         </section>
 
         {/* 支持的报单场景（后端配置下发） */}
         <section className="rounded-[20px] bg-white p-[20px] shadow-[0_-4px_16px_0_rgba(0,0,0,0.05)]">
           <div className="flex items-center gap-[8px]">
-            <ListChecks className="size-[15px] text-[#757f9c]" />
+            <ListChecks className="size-[15px] text-[#6d6d72]" />
             <h2 className="text-[14px] font-medium text-[#18181a]">当前支持的报单场景</h2>
             {scenarios.length > 0 && (
-              <span className="font-mono text-[11px] text-[#a3aaba]">共 {scenarios.length} 个</span>
+              <span className="font-mono text-[11px] text-[#9a9a9f]">共 {scenarios.length} 个</span>
             )}
           </div>
-          <p className="mt-[6px] text-[12px] leading-[1.8] text-[#858b9c]">
+          <p className="mt-[6px] text-[12px] leading-[1.8] text-[#6d6d72]">
             打开对应场景的 OA 表单页再点书签，面板会自动切到该场景；也可以手动在面板顶部切换。
           </p>
 
@@ -181,25 +181,25 @@ export default function OaAssistantPage({
             <p className="mt-[10px] text-[12px] text-[#c15a3a]">场景清单加载失败，请刷新重试。</p>
           )}
           {!scenariosError && scenarios.length === 0 && (
-            <p className="mt-[10px] text-[12px] text-[#a3aaba]">正在加载场景清单…</p>
+            <p className="mt-[10px] text-[12px] text-[#9a9a9f]">正在加载场景清单…</p>
           )}
 
           <ul className="mt-[10px] flex flex-col gap-[8px]">
             {scenarios.map((item) => (
               <li
                 key={item.id}
-                className="rounded-[12px] border border-[#eef0f5] bg-[#fafbfd] px-[12px] py-[10px]"
+                className="rounded-[12px] border border-[#eef0f5] bg-[#f2f1ee] px-[12px] py-[10px]"
               >
                 <div className="flex flex-wrap items-center gap-[8px]">
                   <span className="text-[13px] font-medium text-[#1f2333]">{item.name}</span>
                   {item.scene && (
-                    <span className="rounded-[6px] border border-[#dfe4ec] bg-white px-[6px] py-[1px] font-mono text-[10.5px] text-[#757f9c]">
+                    <span className="rounded-[6px] border border-[#dfe4ec] bg-white px-[6px] py-[1px] font-mono text-[10.5px] text-[#6d6d72]">
                       报销场景：{item.scene}
                     </span>
                   )}
                 </div>
                 {item.summary && (
-                  <p className="mt-[4px] text-[12px] leading-[1.8] text-[#5b6274]">{item.summary}</p>
+                  <p className="mt-[4px] text-[12px] leading-[1.8] text-[#55555a]">{item.summary}</p>
                 )}
               </li>
             ))}

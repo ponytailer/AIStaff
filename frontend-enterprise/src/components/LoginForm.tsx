@@ -83,7 +83,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
       }}
     >
       <div
-        className={`${inputBaseClass} ${usernameError ? 'border-[#f54a45]' : username ? 'border-[#18181a]' : 'border-[#e3e7f1]'}`}
+        className={`${inputBaseClass} ${usernameError ? 'border-[#f54a45]' : username ? 'border-[#18181a]' : 'border-[#e6e4df]'}`}
       >
         <input
           value={username}
@@ -95,7 +95,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
             if (usernameError) setUsernameError('');
           }}
           onKeyDown={onFieldKeyDown}
-          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181a] outline-none placeholder:text-[#757f9c]"
+          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181a] outline-none placeholder:text-[#6d6d72]"
         />
         {username && (
           <button
@@ -105,7 +105,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
               setUsername('');
               setUsernameError('');
             }}
-            className="grid size-[18px] shrink-0 place-items-center text-[#667085] outline-none transition-colors hover:text-[#464c5e]"
+            className="grid size-[18px] shrink-0 place-items-center text-[#667085] outline-none transition-colors hover:text-[#3d3d3f]"
           >
             <IconFieldClear className="size-[18px]" />
           </button>
@@ -118,7 +118,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
       )}
 
       <div
-        className={`${inputBaseClass} ${passwordError ? 'border-[#f54a45]' : password ? 'border-[#18181a]' : 'border-[#e3e7f1]'}`}
+        className={`${inputBaseClass} ${passwordError ? 'border-[#f54a45]' : password ? 'border-[#18181a]' : 'border-[#e6e4df]'}`}
       >
         <input
           value={password}
@@ -131,13 +131,13 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
             if (passwordError) setPasswordError('');
           }}
           onKeyDown={onFieldKeyDown}
-          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181a] outline-none placeholder:text-[#757f9c]"
+          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181a] outline-none placeholder:text-[#6d6d72]"
         />
         <button
           type="button"
           aria-label={showPassword ? '隐藏密码' : '显示密码'}
           onClick={() => setShowPassword((prev) => !prev)}
-          className="grid size-[18px] shrink-0 place-items-center text-[#677185] outline-none transition-colors hover:text-[#464c5e]"
+          className="grid size-[18px] shrink-0 place-items-center text-[#677185] outline-none transition-colors hover:text-[#3d3d3f]"
         >
           {showPassword ? (
             <IconFieldEyeOn className="size-[18px]" />
@@ -180,9 +180,9 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
               </svg>
             )}
           </span>
-          <span className="text-[13px] leading-none text-[#5b6274]">记住账号</span>
+          <span className="text-[13px] leading-none text-[#55555a]">记住账号</span>
         </label>
-        <span className="shrink-0 text-[12px] leading-none text-[#757f9c]">
+        <span className="shrink-0 text-[12px] leading-none text-[#6d6d72]">
           30 天内免登录
         </span>
       </div>

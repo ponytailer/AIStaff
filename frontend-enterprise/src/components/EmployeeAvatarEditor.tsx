@@ -116,7 +116,7 @@ export default function EmployeeAvatarEditor({
         className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-4 overflow-hidden rounded-[14px] px-5 py-4 sm:max-w-[680px]"
       >
         <DialogHeader className="px-3">
-          <DialogTitle className="text-sm font-normal leading-none text-[#757f9c]">
+          <DialogTitle className="text-sm font-normal leading-none text-[#6d6d72]">
             {agent ? `设置头像：${employeeDisplayName(agent)}` : '设置头像'}
           </DialogTitle>
         </DialogHeader>
@@ -196,7 +196,7 @@ export default function EmployeeAvatarEditor({
             variant="outline"
             disabled={saving}
             onClick={onClose}
-            className="h-8 w-[92px] rounded-[10px] border-[#e3e7f1] bg-white px-3 text-sm font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+            className="h-8 w-[92px] rounded-[10px] border-[#e6e4df] bg-white px-3 text-sm font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
           >
             取消
           </Button>

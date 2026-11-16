@@ -46,7 +46,7 @@ export function UnderlineTabs<T extends string = string>({
       aria-label={ariaLabel}
       className={cn(
         'flex items-start',
-        isLine && 'border-b-[0.5px] border-[#e3e7f1]',
+        isLine && 'border-b-[0.5px] border-[#e6e4df]',
         className,
       )}
     >
@@ -66,10 +66,10 @@ export function UnderlineTabs<T extends string = string>({
               isLine
                 ? active
                   ? 'border-[#18181a] font-medium text-[#18181a]'
-                  : 'border-transparent font-normal text-[#4f5669] hover:text-[#18181a]'
+                  : 'border-transparent font-normal text-[#4a4a4c] hover:text-[#18181a]'
                 : active
                   ? 'font-medium text-[#18181A]'
-                  : 'font-normal text-[#858B9C] hover:text-[#18181A]',
+                  : 'font-normal text-[#6d6d72] hover:text-[#18181A]',
               'disabled:cursor-not-allowed disabled:opacity-50',
               tabClassName,
             )}

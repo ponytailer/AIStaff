@@ -70,7 +70,7 @@ export function CapabilityScopeControl({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-[16px] rounded-[12px] border border-[#eceef1] bg-[#fafbfc]',
+        'flex items-center justify-between gap-[16px] rounded-[12px] border border-[#ecebe7] bg-[#f2f1ee]',
         compact ? 'px-[12px] py-[10px]' : 'px-[14px] py-[12px]',
         className,
       )}
@@ -94,13 +94,13 @@ export function CapabilityScopeControl({
           </Tooltip>
         </div>
         {!compact && (
-          <p className="mt-[2px] text-[12px] leading-[1.55] text-[#858b9c]">
+          <p className="mt-[2px] text-[12px] leading-[1.55] text-[#6d6d72]">
             {isSopSpecific ? SOP_SPECIFIC_INLINE_DESCRIPTIONS[resourceType] : '闲聊与 SOP 执行中均可自主调用。'}
           </p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-[8px]">
-        <span className={cn('text-[12px]', !isSopSpecific ? 'font-medium text-[#18181a]' : 'text-[#858b9c]')}>
+        <span className={cn('text-[12px]', !isSopSpecific ? 'font-medium text-[#18181a]' : 'text-[#6d6d72]')}>
           通用
         </span>
         <Switch
@@ -109,7 +109,7 @@ export function CapabilityScopeControl({
           aria-label="切换能力范围"
           onCheckedChange={(checked) => onChange(checked ? 'sop_specific' : 'general')}
         />
-        <span className={cn('text-[12px]', isSopSpecific ? 'font-medium text-[#18181a]' : 'text-[#858b9c]')}>
+        <span className={cn('text-[12px]', isSopSpecific ? 'font-medium text-[#18181a]' : 'text-[#6d6d72]')}>
           仅限 SOP
         </span>
       </div>

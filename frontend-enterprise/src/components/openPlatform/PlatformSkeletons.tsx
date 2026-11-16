@@ -5,13 +5,13 @@ import { cn } from '@/lib/utils';
  *
  * 之前有三份各自内联的骨架（OpenPlatformPage / PlatformKindDetailView 的
  * `DetailSkeleton` 逐字节相同，PlatformColumn 的列内骨架同款卡片），卡片基类
- * `rounded-[20px] border-[#f0f1f5] bg-[#f6f6f6]` 被抄了三遍 —— 改一处忘一处就会出现
+ * `rounded-[20px] border-[#f0f1f5] bg-[#f2f1ee]` 被抄了三遍 —— 改一处忘一处就会出现
  * 「同一个广场的加载态长得不一样」。这里收敛成单一来源。
  */
 
 /** 广场卡片骨架的公共外观。改这里即可全站生效。 */
 export const PLATFORM_SKELETON_CARD_CLASS =
-  'w-full animate-pulse rounded-[20px] border-[0.5px] border-[#f0f1f5] bg-[#f6f6f6]';
+  'w-full animate-pulse rounded-[20px] border-[0.5px] border-[#f0f1f5] bg-[#f2f1ee]';
 
 /**
  * 单张广场卡片骨架。

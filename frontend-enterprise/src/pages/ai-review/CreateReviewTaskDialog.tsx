@@ -197,16 +197,16 @@ export default function CreateReviewTaskDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         aria-describedby="ai-review-create-description"
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[680px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[680px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[24px] py-[20px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[24px] py-[20px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <GitPullRequest className="size-[17px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">发起评审</DialogTitle>
-              <DialogDescription id="ai-review-create-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="ai-review-create-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 {workspace ? `workspace「${workspace.name}」 · ` : ''}
                 任务异步执行，提交后可以继续做别的
               </DialogDescription>
@@ -216,7 +216,7 @@ export default function CreateReviewTaskDialog({
 
         <div className="min-h-0 flex-1 space-y-[14px] overflow-y-auto px-[24px] py-[20px]">
           {!mr ? (
-            <section className="rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] py-[12px]">
+            <section className="rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] py-[12px]">
               <div className="text-[13px] font-semibold text-[#18181a]">选择要评审的 PR / MR</div>
               <div className="mt-[10px] flex items-center gap-[8px]">
                 <Input
@@ -232,10 +232,10 @@ export default function CreateReviewTaskDialog({
                 >
                   指定编号
                 </Button>
-                <span className="min-w-0 flex-1 truncate text-[11px] text-[#a3aaba]">或从下方列表挑选</span>
+                <span className="min-w-0 flex-1 truncate text-[11px] text-[#9a9a9f]">或从下方列表挑选</span>
               </div>
               {mrLoading ? (
-                <div className="mt-[10px] flex items-center gap-[8px] py-[10px] text-[12px] text-[#a3aaba]">
+                <div className="mt-[10px] flex items-center gap-[8px] py-[10px] text-[12px] text-[#9a9a9f]">
                   <LoaderCircle className="size-[13px] animate-spin" />
                   正在拉取 open 状态的 PR / MR…
                 </div>
@@ -254,7 +254,7 @@ export default function CreateReviewTaskDialog({
               ) : (
                 <div className="mt-[10px] flex max-h-[220px] flex-col gap-[6px] overflow-y-auto">
                   {(mrs ?? []).length === 0 ? (
-                    <span className="py-[8px] text-[11.5px] text-[#757f9c]">没有 open 状态的 PR / MR，请手动指定编号。</span>
+                    <span className="py-[8px] text-[11.5px] text-[#6d6d72]">没有 open 状态的 PR / MR，请手动指定编号。</span>
                   ) : (
                     (mrs ?? []).map((item) => {
                       const itemInFlight =
@@ -278,15 +278,15 @@ export default function CreateReviewTaskDialog({
                           className={cn(
                             'flex flex-col items-start gap-[2px] rounded-[10px] border-[0.5px] px-[10px] py-[8px] text-left transition-colors',
                             itemBlocked
-                              ? 'cursor-not-allowed border-[#eef0f4] bg-[#f6f7f9]'
-                              : 'border-[#eef0f4] bg-[#fafbfd] hover:border-[#cfe0ff] hover:bg-[#f4f8ff]',
+                              ? 'cursor-not-allowed border-[#ecebe7] bg-[#f6f7f9]'
+                              : 'border-[#ecebe7] bg-[#f2f1ee] hover:border-[#cfe0ff] hover:bg-[#f4f8ff]',
                           )}
                         >
                           <span className="flex w-full items-center gap-[6px]">
                             <span
                               className={cn(
                                 'min-w-0 flex-1 truncate text-[12.5px] font-medium',
-                                itemBlocked ? 'text-[#a3aaba]' : 'text-[#18181a]',
+                                itemBlocked ? 'text-[#9a9a9f]' : 'text-[#18181a]',
                               )}
                             >
                               #{item.number} {item.title}
@@ -304,7 +304,7 @@ export default function CreateReviewTaskDialog({
                               </span>
                             )}
                           </span>
-                          <span className="truncate font-mono text-[11px] text-[#757f9c]">
+                          <span className="truncate font-mono text-[11px] text-[#6d6d72]">
                             {item.source_branch} → {item.target_branch}
                             {item.author ? ` · @${item.author}` : ''}
                           </span>
@@ -320,7 +320,7 @@ export default function CreateReviewTaskDialog({
               <div className="flex items-center justify-between gap-[10px]">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-[6px]">
-                    <span className="shrink-0 text-[12px] font-medium tabular-nums text-[#5b6273]">#{mr.number}</span>
+                    <span className="shrink-0 text-[12px] font-medium tabular-nums text-[#55555a]">#{mr.number}</span>
                     <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#18181a]">
                       {mr.title || '（标题将以平台返回为准）'}
                     </span>
@@ -328,9 +328,9 @@ export default function CreateReviewTaskDialog({
                   {(mr.description?.trim() || mr.source_branch) && (
                     <div className="mt-[4px] space-y-[3px]">
                       {mr.description?.trim() && (
-                        <p className="line-clamp-2 text-[11.5px] leading-[17px] text-[#464c5e]">{mr.description}</p>
+                        <p className="line-clamp-2 text-[11.5px] leading-[17px] text-[#3d3d3f]">{mr.description}</p>
                       )}
-                      <p className="truncate font-mono text-[11px] text-[#757f9c]">
+                      <p className="truncate font-mono text-[11px] text-[#6d6d72]">
                         {mr.source_branch || '…'} → {mr.target_branch || '…'}
                         {mr.author ? ` · @${mr.author}` : ''}
                       </p>
@@ -341,7 +341,7 @@ export default function CreateReviewTaskDialog({
                   type="button"
                   aria-label="重新选择 PR / MR"
                   onClick={() => setMr(null)}
-                  className="h-[26px] shrink-0 rounded-[7px] border-[0.5px] border-[#cfe0ff] bg-white px-[9px] text-[11px] text-[#5b6273] transition-colors hover:bg-[#e9f1ff]"
+                  className="h-[26px] shrink-0 rounded-[7px] border-[0.5px] border-[#cfe0ff] bg-white px-[9px] text-[11px] text-[#55555a] transition-colors hover:bg-[#e9f1ff]"
                 >
                   重选
                 </button>
@@ -350,7 +350,7 @@ export default function CreateReviewTaskDialog({
           )}
 
           {presets.length > 0 && (
-            <section className="rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] py-[12px]">
+            <section className="rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] py-[12px]">
               <div className="text-[13px] font-semibold text-[#18181a]">叠加全局评审要求</div>
               <div className="mt-[8px] flex flex-col gap-[6px]">
                 {presets.map((preset) => {
@@ -362,7 +362,7 @@ export default function CreateReviewTaskDialog({
                       onClick={() => togglePreset(preset.id)}
                       className={cn(
                         'flex items-start gap-[8px] rounded-[10px] border-[0.5px] px-[10px] py-[8px] text-left transition-colors',
-                        checked ? 'border-[#cfe0ff] bg-[#f4f8ff]' : 'border-[#eef0f4] bg-[#fafbfd] hover:bg-[#f6f6f6]',
+                        checked ? 'border-[#cfe0ff] bg-[#f4f8ff]' : 'border-[#ecebe7] bg-[#f2f1ee] hover:bg-[#f2f1ee]',
                       )}
                     >
                       <span
@@ -383,7 +383,7 @@ export default function CreateReviewTaskDialog({
                             </span>
                           )}
                         </span>
-                        <span className="mt-[2px] block line-clamp-2 text-[11px] leading-[16px] text-[#757f9c]">
+                        <span className="mt-[2px] block line-clamp-2 text-[11px] leading-[16px] text-[#6d6d72]">
                           {preset.content}
                         </span>
                       </span>
@@ -409,9 +409,9 @@ export default function CreateReviewTaskDialog({
           )}
 
           <section className="flex flex-col gap-[6px]">
-            <label className="text-[12px] font-medium text-[#464c5e]">
+            <label className="text-[12px] font-medium text-[#3d3d3f]">
               本次评审要求
-              <span className="ml-[6px] font-normal text-[#a3aaba]">将与勾选的预设一起冻结进任务</span>
+              <span className="ml-[6px] font-normal text-[#9a9a9f]">将与勾选的预设一起冻结进任务</span>
             </label>
             <Textarea
               rows={4}
@@ -424,12 +424,12 @@ export default function CreateReviewTaskDialog({
           </section>
         </div>
 
-        <div className="flex items-center justify-end gap-[8px] border-t-[0.5px] border-[#eef0f4] bg-white px-[24px] py-[14px]">
+        <div className="flex items-center justify-end gap-[8px] border-t-[0.5px] border-[#ecebe7] bg-white px-[24px] py-[14px]">
           <Button
             type="button"
             variant="ghost"
             onClick={onClose}
-            className="h-[32px] rounded-[9px] px-[14px] text-[12px] text-[#5b6273] hover:bg-[#f6f6f6]"
+            className="h-[32px] rounded-[9px] px-[14px] text-[12px] text-[#55555a] hover:bg-[#f2f1ee]"
           >
             取消
           </Button>

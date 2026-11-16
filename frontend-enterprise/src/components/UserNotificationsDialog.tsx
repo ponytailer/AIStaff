@@ -91,7 +91,7 @@ export default function UserNotificationsDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className="flex max-h-[calc(100dvh-80px)] w-[calc(100%-32px)] flex-col gap-0 overflow-hidden rounded-[16px] p-0 sm:max-w-[520px]">
-        <div className="flex items-center justify-between gap-[12px] border-b border-[#eceef1] px-[20px] py-[14px]">
+        <div className="flex items-center justify-between gap-[12px] border-b border-[#ecebe7] px-[20px] py-[14px]">
           <DialogTitle className="flex items-center gap-[8px] text-[15px] font-semibold text-[#18181a]">
             <Bell className="size-[16px]" />
             我的消息
@@ -106,7 +106,7 @@ export default function UserNotificationsDialog({
               variant="ghost"
               size="sm"
               onClick={() => void markAllRead()}
-              className="h-[28px] gap-[4px] px-[8px] text-[12px] text-[#757f9c]"
+              className="h-[28px] gap-[4px] px-[8px] text-[12px] text-[#6d6d72]"
             >
               <CheckCheck className="size-[13px]" />
               全部已读
@@ -115,7 +115,7 @@ export default function UserNotificationsDialog({
         </div>
         <div className="min-h-0 flex-1 overflow-auto p-[10px]">
           {loading && !rows.length ? (
-            <p className="py-[40px] text-center text-[12px] text-[#a7adbb]">加载中…</p>
+            <p className="py-[40px] text-center text-[12px] text-[#9a9a9f]">加载中…</p>
           ) : rows.length ? (
             <div className="flex flex-col gap-[6px]">
               {rows.map((row) => (
@@ -139,11 +139,11 @@ export default function UserNotificationsDialog({
                       <strong className="truncate text-[13px] font-medium text-[#18181a]">
                         {row.title}
                       </strong>
-                      <span className="shrink-0 text-[10px] text-[#a7adbb]">
+                      <span className="shrink-0 text-[10px] text-[#9a9a9f]">
                         {formatDateTime(row.created_at)}
                       </span>
                     </span>
-                    <span className="mt-[3px] block text-[12px] leading-[1.55] text-[#757f9c]">
+                    <span className="mt-[3px] block text-[12px] leading-[1.55] text-[#6d6d72]">
                       {row.message}
                     </span>
                   </span>
@@ -152,8 +152,8 @@ export default function UserNotificationsDialog({
             </div>
           ) : (
             <div className="flex flex-col items-center gap-[8px] py-[48px] text-center">
-              <Bell className="size-[24px] text-[#c0c6d4]" />
-              <p className="text-[13px] text-[#858b9c]">暂无消息</p>
+              <Bell className="size-[24px] text-[#d6d1c9]" />
+              <p className="text-[13px] text-[#6d6d72]">暂无消息</p>
             </div>
           )}
         </div>

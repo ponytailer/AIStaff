@@ -161,7 +161,7 @@ export default function EmployeeTransferDialog({
           </DialogTitle>
           <DialogDescription
             id="employee-transfer-description"
-            className="mt-[4px] text-[12px] leading-[18px] text-[#757f9c]"
+            className="mt-[4px] text-[12px] leading-[18px] text-[#6d6d72]"
           >
             转给同租户的其他成员，员工名下的资料、技能、SOP、工具一并转名。
           </DialogDescription>
@@ -169,7 +169,7 @@ export default function EmployeeTransferDialog({
 
         <div className="min-h-0 min-w-0 overflow-y-auto px-[20px] py-[14px]">
           {counts.length > 0 && (
-            <p className="m-0 mb-[10px] text-[12px] leading-[18px] text-[#464c5e]">
+            <p className="m-0 mb-[10px] text-[12px] leading-[18px] text-[#3d3d3f]">
               一并转名：
               {counts.map((item) => `${item.label} ${item.value}`).join(' · ')}
             </p>
@@ -220,7 +220,7 @@ export default function EmployeeTransferDialog({
                         {candidateLabel(row)}
                       </span>
                       {row.role === 'admin' && (
-                        <span className="shrink-0 rounded-[5px] bg-[#eef7f5] px-[5px] py-px text-[10px] leading-[14px] text-[#0f7268]">
+                        <span className="shrink-0 rounded-[5px] bg-[#eef7f5] px-[5px] py-px text-[10px] leading-[14px] text-[#0f766e]">
                           管理员
                         </span>
                       )}

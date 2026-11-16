@@ -40,8 +40,8 @@ import {
 function SummaryChip({ label, value }: { label: string; value: string }) {
   if (!value) return null;
   return (
-    <span className="inline-flex items-center gap-[5px] rounded-[8px] bg-[#f4f5f8] px-[10px] py-[4px] text-[11.5px] text-[#464c5e]">
-      <span className="text-[#a3aaba]">{label}</span>
+    <span className="inline-flex items-center gap-[5px] rounded-[8px] bg-[#f4f5f8] px-[10px] py-[4px] text-[11.5px] text-[#3d3d3f]">
+      <span className="text-[#9a9a9f]">{label}</span>
       <span className="font-medium tabular-nums text-[#18181a]">{value}</span>
     </span>
   );
@@ -72,9 +72,9 @@ function CommentCard({ comment }: { comment: AiReviewTaskDetail['result_json'][n
   const thinkingSize = formatThinkingSize(comment.thinking);
   const thinkingBlocks = thinkingSize ? splitThinkingBlocks(comment.thinking) : [];
   return (
-    <div className="flex flex-col gap-[8px] rounded-[14px] border-[0.5px] border-[#eef0f4] bg-white px-[14px] py-[12px]">
+    <div className="flex flex-col gap-[8px] rounded-[14px] border-[0.5px] border-[#ecebe7] bg-white px-[14px] py-[12px]">
       <div className="flex flex-wrap items-center gap-[8px]">
-        <FileCode2 className="size-[13px] shrink-0 text-[#5b6273]" />
+        <FileCode2 className="size-[13px] shrink-0 text-[#55555a]" />
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] font-medium text-[#18181a]" title={path}>
           {path}
         </span>
@@ -102,18 +102,18 @@ function CommentCard({ comment }: { comment: AiReviewTaskDetail['result_json'][n
         </div>
       )}
       {thinkingBlocks.length > 0 && (
-        <details className="group overflow-hidden rounded-[10px] border-[0.5px] border-[#eef0f4] bg-[#fafbfd]">
-          <summary className="flex cursor-pointer select-none list-none items-center gap-[6px] px-[10px] py-[7px] text-[11px] text-[#757f9c] transition-colors hover:bg-[#f4f6fa] [&::-webkit-details-marker]:hidden">
-            <ChevronRight className="size-[12px] shrink-0 text-[#a3aaba] transition-transform group-open:rotate-90" />
-            <span className="shrink-0 font-medium text-[#5b6273]">评审思路</span>
-            <span className="shrink-0 rounded-[5px] bg-white px-[5px] py-[1px] tabular-nums text-[10.5px] text-[#a3aaba]">
+        <details className="group overflow-hidden rounded-[10px] border-[0.5px] border-[#ecebe7] bg-[#f2f1ee]">
+          <summary className="flex cursor-pointer select-none list-none items-center gap-[6px] px-[10px] py-[7px] text-[11px] text-[#6d6d72] transition-colors hover:bg-[#f4f6fa] [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="size-[12px] shrink-0 text-[#9a9a9f] transition-transform group-open:rotate-90" />
+            <span className="shrink-0 font-medium text-[#55555a]">评审思路</span>
+            <span className="shrink-0 rounded-[5px] bg-white px-[5px] py-[1px] tabular-nums text-[10.5px] text-[#9a9a9f]">
               {thinkingSize}
             </span>
-            <span className="min-w-0 flex-1 truncate text-right text-[10.5px] text-[#a3aaba]">
+            <span className="min-w-0 flex-1 truncate text-right text-[10.5px] text-[#9a9a9f]">
               模型内部推理，未做整理
             </span>
           </summary>
-          <div className="max-h-[260px] overflow-y-auto border-t-[0.5px] border-[#eef0f4] bg-white px-[12px] py-[10px]">
+          <div className="max-h-[260px] overflow-y-auto border-t-[0.5px] border-[#ecebe7] bg-white px-[12px] py-[10px]">
             {thinkingBlocks.map((block, index) => (
               <p
                 key={index}
@@ -239,9 +239,9 @@ export default function ReviewResultDialog({
     <Dialog open={taskId !== null} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         aria-describedby="ai-review-result-description"
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[760px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[760px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[24px] py-[20px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[24px] py-[20px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <Bot className="size-[17px]" />
@@ -250,7 +250,7 @@ export default function ReviewResultDialog({
               <DialogTitle className="truncate text-[16px] font-semibold text-[#18181a]">
                 {detail ? `评审结果 · #${detail.mr_number} ${detail.mr_title}` : '评审结果'}
               </DialogTitle>
-              <DialogDescription id="ai-review-result-description" className="mt-[5px] truncate text-[12px] text-[#757f9c]">
+              <DialogDescription id="ai-review-result-description" className="mt-[5px] truncate text-[12px] text-[#6d6d72]">
                 {detail ? `${detail.source_branch} → ${detail.target_branch}` : '任务结果与逐行评审意见'}
               </DialogDescription>
             </div>
@@ -272,7 +272,7 @@ export default function ReviewResultDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-[24px] py-[20px]">
           {loading ? (
-            <div className="flex items-center justify-center gap-[8px] py-[60px] text-[12px] text-[#a3aaba]">
+            <div className="flex items-center justify-center gap-[8px] py-[60px] text-[12px] text-[#9a9a9f]">
               <LoaderCircle className="size-[14px] animate-spin" />
               正在加载评审结果…
             </div>
@@ -282,7 +282,7 @@ export default function ReviewResultDialog({
               <button
                 type="button"
                 onClick={() => void reload()}
-                className="inline-flex items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] py-[4px] text-[12px] text-[#464c5e] hover:bg-[#f6f6f6]"
+                className="inline-flex items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] py-[4px] text-[12px] text-[#3d3d3f] hover:bg-[#f2f1ee]"
               >
                 <RotateCcw className="size-[12px]" />
                 重试
@@ -345,18 +345,18 @@ export default function ReviewResultDialog({
               )}
 
               {detail.requirements?.trim() && (
-                <div className="rounded-[12px] bg-[#fafbfd] px-[14px] py-[10px]">
-                  <div className="text-[11px] font-medium text-[#757f9c]">本次评审要求（快照）</div>
-                  <p className="mt-[4px] whitespace-pre-wrap text-[11.5px] leading-[18px] text-[#5b6273]">
+                <div className="rounded-[12px] bg-[#f2f1ee] px-[14px] py-[10px]">
+                  <div className="text-[11px] font-medium text-[#6d6d72]">本次评审要求（快照）</div>
+                  <p className="mt-[4px] whitespace-pre-wrap text-[11.5px] leading-[18px] text-[#55555a]">
                     {detail.requirements}
                   </p>
                 </div>
               )}
 
               <div className="flex items-center gap-[6px] text-[13px] font-semibold text-[#18181a]">
-                <MessageSquare className="size-[14px] text-[#5b6273]" />
+                <MessageSquare className="size-[14px] text-[#55555a]" />
                 评审意见
-                <span className="text-[11.5px] font-normal text-[#a3aaba]">共 {comments.length} 条</span>
+                <span className="text-[11.5px] font-normal text-[#9a9a9f]">共 {comments.length} 条</span>
               </div>
 
               {comments.length === 0 ? (
@@ -374,14 +374,14 @@ export default function ReviewResultDialog({
                             </li>
                           ))}
                         </ul>
-                        <p className="mt-[8px] rounded-[8px] bg-white/70 px-[10px] py-[7px] text-[11.5px] leading-[18px] text-[#5b6273]">
+                        <p className="mt-[8px] rounded-[8px] bg-white/70 px-[10px] py-[7px] text-[11.5px] leading-[18px] text-[#55555a]">
                           {skipHint.advice}
                         </p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-[12px] border-[0.5px] border-dashed border-[#e3e7f1] bg-[#fafbfd] px-[14px] py-[18px] text-[12px] leading-[18px] text-[#757f9c]">
+                  <div className="rounded-[12px] border-[0.5px] border-dashed border-[#e6e4df] bg-[#f2f1ee] px-[14px] py-[18px] text-[12px] leading-[18px] text-[#6d6d72]">
                     这次评审没有产出行级意见——可能变更很小，或模型认为没有值得指摘的点。
                   </div>
                 )

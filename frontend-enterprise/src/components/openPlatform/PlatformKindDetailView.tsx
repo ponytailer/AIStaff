@@ -7,7 +7,7 @@ import { Button as UIButton } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const RETURN_BUTTON_CLASS =
-  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-5 text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]';
+  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-5 text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]';
 
 import IconArrowRight from '../../assets/icons/arrow-right.svg?react';
 import IconAdd from '../../assets/icons/add.svg?react';
@@ -158,7 +158,7 @@ export default function PlatformKindDetailView({
         </div>
 
         <div className="flex flex-col gap-[18px]">
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <PlatformIcon className="size-[14px] shrink-0" />
             <span className="text-[14px] font-normal leading-none">{title}</span>
           </div>
@@ -168,7 +168,7 @@ export default function PlatformKindDetailView({
               {signals.map((signal) => (
                 <span
                   key={signal}
-                  className="rounded-[20px] border-[0.5px] border-[#e3e7f1] px-[8px] py-[2px] text-[10px] leading-[normal] text-[#757f9c]"
+                  className="rounded-[20px] border-[0.5px] border-[#e6e4df] px-[8px] py-[2px] text-[10px] leading-[normal] text-[#6d6d72]"
                 >
                   {signal}
                 </span>
@@ -176,8 +176,8 @@ export default function PlatformKindDetailView({
             </div>
           )}
 
-          <label className="flex h-[34px] w-full max-w-[360px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] transition-colors focus-within:border-[#18181a]">
-            <IconSearch className="size-[14px] shrink-0 text-[#858b9c]" />
+          <label className="flex h-[34px] w-full max-w-[360px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] transition-colors focus-within:border-[#18181a]">
+            <IconSearch className="size-[14px] shrink-0 text-[#6d6d72]" />
             <input
               autoComplete="off"
               data-1p-ignore="true"
@@ -186,7 +186,7 @@ export default function PlatformKindDetailView({
               value={searchText}
               placeholder={`搜索${countLabel}`}
               onChange={(event) => setSearchText(event.target.value)}
-              className="min-w-0 flex-1 border-0 bg-transparent text-[12px] text-[#18181a] outline-none placeholder:text-[#858b9c]"
+              className="min-w-0 flex-1 border-0 bg-transparent text-[12px] text-[#18181a] outline-none placeholder:text-[#6d6d72]"
             />
           </label>
 

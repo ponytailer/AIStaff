@@ -444,11 +444,11 @@ export default function DispatcherEditorDialog({
       >
         <DialogTitle className="shrink-0 px-[24px] pt-[18px] text-[16px] font-semibold text-[#18181a]">
           {dispatcher ? '编辑员工小队' : '新建员工小队'}
-          <span className="ml-[8px] rounded-[6px] bg-[#e1f1ed] px-[7px] py-[2px] align-middle text-[11px] font-normal text-[#0f7268]">
+          <span className="ml-[8px] rounded-[6px] bg-[#e1f1ed] px-[7px] py-[2px] align-middle text-[11px] font-normal text-[#0f766e]">
             路由型 Agent
           </span>
         </DialogTitle>
-        <p className="shrink-0 px-[24px] pt-[6px] text-[12px] leading-[1.6] text-[#757f9c]">
+        <p className="shrink-0 px-[24px] pt-[6px] text-[12px] leading-[1.6] text-[#6d6d72]">
           用户只跟这个入口对话。它不回答业务问题，只负责判断该由哪位同事处理，然后把问题转过去。
         </p>
 
@@ -485,7 +485,7 @@ export default function DispatcherEditorDialog({
             <div className="mt-[14px] flex flex-wrap items-center gap-[14px]">
               <DispatcherAvatar preset={avatarPreset} size={54} radius={16} decorative={false} />
               <div className="flex min-w-0 flex-col gap-[7px]">
-                <span className="text-[12px] font-medium text-[#464c5e]">小队头像</span>
+                <span className="text-[12px] font-medium text-[#3d3d3f]">小队头像</span>
                 <div className="flex flex-wrap gap-[7px]" role="radiogroup" aria-label="选择小队头像">
                   {DISPATCHER_AVATAR_PRESETS.map((item) => (
                     <button
@@ -497,9 +497,9 @@ export default function DispatcherEditorDialog({
                       title={item.label}
                       onClick={() => setAvatarPreset(item.key)}
                       className={cn(
-                        'rounded-[12px] p-[2px] transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f7268]/40',
+                        'rounded-[12px] p-[2px] transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/40',
                         avatarPreset === item.key
-                          ? 'ring-2 ring-[#0f7268]'
+                          ? 'ring-2 ring-[#0f766e]'
                           : 'ring-1 ring-transparent hover:ring-[#dfe3ea]',
                       )}
                     >
@@ -521,7 +521,7 @@ export default function DispatcherEditorDialog({
                 <select
                   value={modelConfigId}
                   onChange={(event) => setModelConfigId(event.target.value)}
-                  className="h-9 w-full rounded-[10px] border border-[#e3e7f1] bg-white px-[12px] text-[13px] text-[#18181a] outline-none focus:border-[#cbd3e6]"
+                  className="h-9 w-full rounded-[10px] border border-[#e6e4df] bg-white px-[12px] text-[13px] text-[#18181a] outline-none focus:border-[#ddd9d2]"
                 >
                   <option value="">请选择模型（必填）</option>
                   {models
@@ -547,15 +547,15 @@ export default function DispatcherEditorDialog({
                 placeholder="人事相关问题都可以先问我，我会转给对应的同事。"
               />
             </Field>
-            <div className="mt-[12px] flex items-start gap-[8px] rounded-[10px] bg-[#f7f8fa] px-[12px] py-[10px] text-[11.5px] leading-[1.6] text-[#757f9c]">
-              <span className="mt-[1px] shrink-0 text-[#9aa1b1]">
+            <div className="mt-[12px] flex items-start gap-[8px] rounded-[10px] bg-[#f2f1ee] px-[12px] py-[10px] text-[11.5px] leading-[1.6] text-[#6d6d72]">
+              <span className="mt-[1px] shrink-0 text-[#9a9a9f]">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
                   <rect x="3.2" y="7" width="9.6" height="6.6" rx="1.6" />
                   <path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7" />
                 </svg>
               </span>
               <span>
-                员工小队<b className="text-[#5b6274]">不配置知识库、技能与工具</b>
+                员工小队<b className="text-[#55555a]">不配置知识库、技能与工具</b>
                 ，也不参与免费额度。路由判断与所有子流程都用上面的模型（成员自己配了模型则用成员自己的）。
               </span>
             </div>
@@ -573,17 +573,17 @@ export default function DispatcherEditorDialog({
                   countInvalid
                     ? 'bg-[#fdeaea] text-[#dc2626]'
                     : count >= MAX_DISPATCH_MEMBERS
-                      ? 'bg-[#e1f1ed] text-[#0f7268]'
-                      : 'bg-[#f0f1f4] text-[#757f9c]',
+                      ? 'bg-[#e1f1ed] text-[#0f766e]'
+                      : 'bg-[#f0f1f4] text-[#6d6d72]',
                 )}
               >
                 {count} / {MAX_DISPATCH_MEMBERS}
               </span>
             }
           >
-            <p className="text-[11.5px] leading-[1.6] text-[#757f9c]">
+            <p className="text-[11.5px] leading-[1.6] text-[#6d6d72]">
               每个成员写清楚「什么情况转给他」。
-              <b className="text-[#5b6274]">写负向条件效果最好</b>
+              <b className="text-[#55555a]">写负向条件效果最好</b>
               ——例如「涉及薪资的不要转给他，转给薪资专员」，能显著减少转错人。
             </p>
 
@@ -606,25 +606,25 @@ export default function DispatcherEditorDialog({
                     className={cn(
                       'rounded-[12px] border bg-white px-[14px] py-[12px] transition-colors',
                       highlightMemberId === member.agentId
-                        ? 'border-[#0f7268] shadow-[0_0_0_3px_rgba(15,114,104,0.10)]'
+                        ? 'border-[#0f766e] shadow-[0_0_0_3px_rgba(15,114,104,0.10)]'
                         : 'border-black/[0.06]',
                     )}
                   >
                     <div className="flex items-start gap-[10px]">
-                      <span className="mt-[6px] grid size-[18px] shrink-0 place-items-center rounded-[5px] bg-[#f0f1f4] text-[11px] font-semibold text-[#757f9c]">
+                      <span className="mt-[6px] grid size-[18px] shrink-0 place-items-center rounded-[5px] bg-[#f0f1f4] text-[11px] font-semibold text-[#6d6d72]">
                         {index + 1}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-[6px] text-[13px] font-medium text-[#18181a]">
                           {member.name}
                           {member.roleName && (
-                            <span className="text-[11.5px] font-normal text-[#9aa1b1]">
+                            <span className="text-[11.5px] font-normal text-[#9a9a9f]">
                               · {member.roleName}
                             </span>
                           )}
                         </div>
                         {member.description && (
-                          <div className="mt-[1px] truncate text-[11.5px] text-[#9aa1b1]">
+                          <div className="mt-[1px] truncate text-[11.5px] text-[#9a9a9f]">
                             {member.description}
                           </div>
                         )}
@@ -651,7 +651,7 @@ export default function DispatcherEditorDialog({
                     </div>
 
                     <div className="mt-[10px]">
-                      <label className="mb-[5px] block text-[11.5px] text-[#5b6274]">
+                      <label className="mb-[5px] block text-[11.5px] text-[#55555a]">
                         什么情况转给他 <span className="text-[#dc2626]">*</span>
                       </label>
                       <Textarea
@@ -668,17 +668,17 @@ export default function DispatcherEditorDialog({
                           ruleMissing && 'border-[#f0d5a8]',
                         )}
                       />
-                      <div className="mt-[4px] text-[11px] leading-[1.5] text-[#9aa1b1]">
+                      <div className="mt-[4px] text-[11px] leading-[1.5] text-[#9a9a9f]">
                         支持多行。写清「什么情况转给他」+「什么情况
-                        <b className="text-[#757f9c]">不要</b>
+                        <b className="text-[#6d6d72]">不要</b>
                         ​转给他」，比只写岗位描述准得多。
                       </div>
                     </div>
 
                     <div className="mt-[9px]">
-                      <label className="mb-[5px] block text-[11.5px] text-[#5b6274]">
+                      <label className="mb-[5px] block text-[11.5px] text-[#55555a]">
                         示例问法{' '}
-                        <span className="text-[11px] font-normal text-[#9aa1b1]">
+                        <span className="text-[11px] font-normal text-[#9a9a9f]">
                           建议 2~5 条，能明显提高识别率
                         </span>
                       </label>
@@ -699,8 +699,8 @@ export default function DispatcherEditorDialog({
               className={cn(
                 'mt-[12px] flex h-[38px] w-full items-center justify-center gap-[6px] rounded-[10px] border border-dashed text-[12.5px] transition-colors',
                 count >= MAX_DISPATCH_MEMBERS
-                  ? 'cursor-not-allowed border-[#e3e7f1] text-[#c3c9d6]'
-                  : 'border-[#cbd3e6] text-[#5b6274] hover:border-[#0f7268] hover:text-[#0f7268]',
+                  ? 'cursor-not-allowed border-[#e6e4df] text-[#c3c9d6]'
+                  : 'border-[#ddd9d2] text-[#55555a] hover:border-[#0f766e] hover:text-[#0f766e]',
               )}
             >
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -720,7 +720,7 @@ export default function DispatcherEditorDialog({
             sectionKey="fallback"
             ref={fallbackCardRef}
           >
-            <p className="text-[11.5px] leading-[1.6] text-[#757f9c]">
+            <p className="text-[11.5px] leading-[1.6] text-[#6d6d72]">
               当问题不属于任何成员、或路由把握不足时，按这里配置的方式处理。
             </p>
 
@@ -735,7 +735,7 @@ export default function DispatcherEditorDialog({
                   setHighlightFallback(false);
                 }}
               >
-                <label className="flex items-center gap-[6px] text-[11.5px] text-[#5b6274]">
+                <label className="flex items-center gap-[6px] text-[11.5px] text-[#55555a]">
                   <input
                     type="checkbox"
                     checked={fallback.offerCandidates}
@@ -791,7 +791,7 @@ export default function DispatcherEditorDialog({
                       defaultMemberAgentId: event.target.value || null,
                     }))
                   }
-                  className="h-8 w-full rounded-[8px] border border-[#e3e7f1] bg-white px-[10px] text-[12px] text-[#18181a] outline-none focus:border-[#cbd3e6]"
+                  className="h-8 w-full rounded-[8px] border border-[#e6e4df] bg-white px-[10px] text-[12px] text-[#18181a] outline-none focus:border-[#ddd9d2]"
                 >
                   <option value="">请选择默认同事</option>
                   {members.map((item) => (
@@ -806,9 +806,9 @@ export default function DispatcherEditorDialog({
 
             {/* 试跑 */}
             <div className="mt-[14px] rounded-[12px] border border-black/[0.06] bg-[#fbfcfd] px-[14px] py-[12px]">
-              <div className="flex items-center gap-[8px] text-[12px] font-medium text-[#5b6274]">
+              <div className="flex items-center gap-[8px] text-[12px] font-medium text-[#55555a]">
                 试跑规则
-                <span className="rounded-[5px] bg-white px-[6px] py-[1px] text-[10.5px] font-normal text-[#9aa1b1]">
+                <span className="rounded-[5px] bg-white px-[6px] py-[1px] text-[10.5px] font-normal text-[#9a9a9f]">
                   配置完马上验，不用等人来问
                 </span>
               </div>
@@ -847,7 +847,7 @@ export default function DispatcherEditorDialog({
                   <span
                     className={cn(
                       'mt-[5px] size-[7px] shrink-0 rounded-full',
-                      trialResult.kind === 'route' ? 'bg-[#0f7268]' : 'bg-[#b45309]',
+                      trialResult.kind === 'route' ? 'bg-[#0f766e]' : 'bg-[#b45309]',
                     )}
                   />
                   <div className="min-w-0 flex-1">
@@ -858,17 +858,17 @@ export default function DispatcherEditorDialog({
                           ? trialResult.label
                           : `没有匹配的同事 → ${trialResult.label}`}
                     </div>
-                    <div className="mt-[2px] text-[11.5px] leading-[1.6] text-[#757f9c]">
+                    <div className="mt-[2px] text-[11.5px] leading-[1.6] text-[#6d6d72]">
                       {trialResult.reason}
                     </div>
                     {trialResult.kind === 'route' && trialResult.query && (
-                      <div className="mt-[3px] text-[11px] leading-[1.6] text-[#9aa1b1]">
+                      <div className="mt-[3px] text-[11px] leading-[1.6] text-[#9a9a9f]">
                         转给同事的问题：{trialResult.query}
                       </div>
                     )}
                   </div>
                   {trialResult.kind === 'route' && (
-                    <span className="shrink-0 rounded-[5px] bg-white px-[6px] py-[2px] text-[11px] font-medium text-[#0f7268]">
+                    <span className="shrink-0 rounded-[5px] bg-white px-[6px] py-[2px] text-[11px] font-medium text-[#0f766e]">
                       {Math.round(trialResult.confidence * 100)}%
                     </span>
                   )}
@@ -879,7 +879,7 @@ export default function DispatcherEditorDialog({
         </div>
 
         <div className="flex shrink-0 items-center justify-between gap-[12px] border-t border-black/[0.05] px-[24px] py-[14px]">
-          <span className="text-[11.5px] text-[#9aa1b1]">
+          <span className="text-[11.5px] text-[#9a9a9f]">
             创建后可在「员工广场」被成员选用，也可生成分享链接对外。
           </span>
           <div className="flex shrink-0 items-center gap-[8px]">
@@ -887,7 +887,7 @@ export default function DispatcherEditorDialog({
               type="button"
               variant="outline"
               onClick={onClose}
-              className="h-[34px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[16px] text-[12.5px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+              className="h-[34px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[16px] text-[12.5px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
             >
               取消
             </UIButton>
@@ -918,13 +918,13 @@ export default function DispatcherEditorDialog({
                 <h3 className="text-[14px] font-semibold text-[#18181a]">
                   选择要挂到这个入口的同事
                 </h3>
-                <p className="mt-[3px] text-[11.5px] text-[#9aa1b1]">
+                <p className="mt-[3px] text-[11.5px] text-[#9a9a9f]">
                   只有已上线、且你可见的数字员工才在列表里
                 </p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto px-[10px] pb-[12px]">
                 {selectableAgents.length === 0 ? (
-                  <div className="px-[10px] py-[24px] text-center text-[12px] text-[#9aa1b1]">
+                  <div className="px-[10px] py-[24px] text-center text-[12px] text-[#9a9a9f]">
                     没有可添加的同事，请先创建并上线数字员工
                   </div>
                 ) : (
@@ -947,19 +947,19 @@ export default function DispatcherEditorDialog({
                           <span className="block truncate text-[12.5px] font-medium text-[#18181a]">
                             {employeeDisplayName(agent)}
                             {profile.roleName && (
-                              <span className="font-normal text-[#9aa1b1]">
+                              <span className="font-normal text-[#9a9a9f]">
                                 {' '}
                                 · {profile.roleName}
                               </span>
                             )}
                           </span>
                           {agent.description && (
-                            <span className="mt-[1px] block truncate text-[11px] text-[#9aa1b1]">
+                            <span className="mt-[1px] block truncate text-[11px] text-[#9a9a9f]">
                               {agent.description}
                             </span>
                           )}
                         </span>
-                        {used && <span className="shrink-0 text-[11px] text-[#9aa1b1]">已添加</span>}
+                        {used && <span className="shrink-0 text-[11px] text-[#9a9a9f]">已添加</span>}
                       </button>
                     );
                   })
@@ -1019,10 +1019,10 @@ const Field = ({
   children: React.ReactNode;
 }) => (
   <div className="flex flex-col gap-[5px]">
-    <label className="flex items-baseline gap-[4px] text-[11.5px] text-[#5b6274]">
+    <label className="flex items-baseline gap-[4px] text-[11.5px] text-[#55555a]">
       {label}
       {required && <span className="text-[#dc2626]">*</span>}
-      {hint && <span className="text-[11px] font-normal text-[#9aa1b1]">{hint}</span>}
+      {hint && <span className="text-[11px] font-normal text-[#9a9a9f]">{hint}</span>}
     </label>
     {children}
   </div>
@@ -1049,7 +1049,7 @@ const IconAction = ({
       'grid size-[24px] place-items-center rounded-[6px] transition-colors',
       disabled
         ? 'cursor-not-allowed text-[#d6dae4]'
-        : 'text-[#9aa1b1] hover:bg-[#f0f1f4] hover:text-[#18181a]',
+        : 'text-[#9a9a9f] hover:bg-[#f0f1f4] hover:text-[#18181a]',
     )}
   >
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1085,22 +1085,22 @@ const FallbackOption = ({
     className={cn(
       'cursor-pointer rounded-[11px] border px-[12px] py-[10px] transition-colors',
       active
-        ? 'border-[#0f7268] bg-[#f7fbfa]'
-        : 'border-black/[0.07] bg-white hover:border-[#cbd3e6]',
+        ? 'border-[#0f766e] bg-[#f7fbfa]'
+        : 'border-black/[0.07] bg-white hover:border-[#ddd9d2]',
     )}
   >
     <div className="flex items-start gap-[9px]">
       <span
         className={cn(
           'mt-[3px] grid size-[14px] shrink-0 place-items-center rounded-full border',
-          active ? 'border-[#0f7268]' : 'border-[#c3c9d6]',
+          active ? 'border-[#0f766e]' : 'border-[#c3c9d6]',
         )}
       >
-        {active && <span className="size-[7px] rounded-full bg-[#0f7268]" />}
+        {active && <span className="size-[7px] rounded-full bg-[#0f766e]" />}
       </span>
       <div className="min-w-0 flex-1">
         <div className="text-[12.5px] font-medium text-[#18181a]">{title}</div>
-        <div className="mt-[2px] text-[11.5px] leading-[1.6] text-[#9aa1b1]">{desc}</div>
+        <div className="mt-[2px] text-[11.5px] leading-[1.6] text-[#9a9a9f]">{desc}</div>
         {active && children && (
           <div className="mt-[8px]" onClick={(event) => event.stopPropagation()}>
             {children}
@@ -1132,18 +1132,18 @@ const ExampleChips = ({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-[5px] rounded-[9px] border border-[#e3e7f1] bg-white px-[8px] py-[6px]">
+    <div className="flex flex-wrap items-center gap-[5px] rounded-[9px] border border-[#e6e4df] bg-white px-[8px] py-[6px]">
       {examples.map((item, index) => (
         <span
           key={`${item}-${index}`}
-          className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#f0f1f4] px-[7px] py-[3px] text-[11.5px] text-[#5b6274]"
+          className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#f0f1f4] px-[7px] py-[3px] text-[11.5px] text-[#55555a]"
         >
           {item}
           <button
             type="button"
             aria-label={`删除示例 ${item}`}
             onClick={() => onChange(examples.filter((_value, idx) => idx !== index))}
-            className="text-[#9aa1b1] hover:text-[#dc2626]"
+            className="text-[#9a9a9f] hover:text-[#dc2626]"
           >
             ✕
           </button>

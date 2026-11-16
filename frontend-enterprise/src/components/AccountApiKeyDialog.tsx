@@ -171,16 +171,16 @@ export default function AccountApiKeyDialog({
       <DialogContent
         aria-describedby="account-api-key-description"
         data-i18n-ignore
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[780px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[780px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[26px] py-[22px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[26px] py-[22px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <KeyRound className="size-[18px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">账号 API 密钥 · {displayName}</DialogTitle>
-              <DialogDescription id="account-api-key-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="account-api-key-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 这是您自己的账号密钥；明文只显示一次，请创建后立即保存。
               </DialogDescription>
             </div>
@@ -192,7 +192,7 @@ export default function AccountApiKeyDialog({
             <span className="absolute right-[14px] top-[14px] rounded-full bg-[#d8efe4] px-[8px] py-[3px] text-[10px] font-semibold text-[#207451]">账号级</span>
             <ShieldCheck className="size-[20px] text-[#207451]" />
             <h3 className="mt-[13px] text-[14px] font-semibold text-[#18181a]">账号全量密钥</h3>
-            <p className="mt-[4px] text-[12px] font-medium text-[#464c5e]">以当前账号身份访问和管理数字员工</p>
+            <p className="mt-[4px] text-[12px] font-medium text-[#3d3d3f]">以当前账号身份访问和管理数字员工</p>
             <div className="mt-[10px] grid gap-[7px] text-[11px] leading-[17px] text-[#647064] sm:grid-cols-2">
               <span className="flex gap-[6px]"><UsersRound className="mt-[1px] size-[14px] shrink-0" />可浏览广场、选择加入员工，并运行当前账号可访问的全部数字员工。</span>
               <span className="flex gap-[6px]"><RefreshCw className="mt-[1px] size-[14px] shrink-0" />可创建和管理本人有权管理的员工；权限随账号角色、员工归属和发布状态自动更新。</span>
@@ -257,7 +257,7 @@ export default function AccountApiKeyDialog({
                       <span className="rounded-full bg-[#e5f4ec] px-[7px] py-[2px] text-[9px] font-medium text-[#207451]">账号全量密钥</span>
                       <span className={row.status === 'active'
                         ? 'rounded-full bg-[#e8f7ec] px-[7px] py-[2px] text-[9px] text-[#218546]'
-                        : 'rounded-full bg-[#f1f2f5] px-[7px] py-[2px] text-[9px] text-[#8a92a2]'}
+                        : 'rounded-full bg-[#ecebe7] px-[7px] py-[2px] text-[9px] text-[#8a92a2]'}
                       >
                         {row.status === 'active' ? '启用' : '已禁用'}
                       </span>

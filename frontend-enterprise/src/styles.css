@@ -104,12 +104,12 @@
   --chart-5: #b45309;
   --radius: 0.625rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #858b9c;
+  --sidebar-foreground: #6d6d72;
   --sidebar-primary: #18181a;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f6f6f6;
+  --sidebar-accent: #f2f1ee;
   --sidebar-accent-foreground: #18181a;
-  --sidebar-border: #f4f4f4;
+  --sidebar-border: #f2f1ee;
   --sidebar-ring: #18181a;
 }html,
 body,
@@ -1994,7 +1994,7 @@ body.skill-distill-fixed .content {
 .general-skill-file-node:hover,
 .general-skill-file-node.active {
   color: #18181a;
-  background: #f6f6f6;
+  background: #f2f1ee;
 }
 
 .general-result-card .ui-card-body {
@@ -3761,7 +3761,7 @@ pre {
 
 .kgv-status-badge {
   background: #f2f3f5;
-  color: #5b6273;
+  color: #55555a;
 }
 
 .kgv-detail-description {
@@ -5218,11 +5218,11 @@ pre {
   --foreground: #111111;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-muted: #f3f4f6;
-  --surface-subtle: #fafafa;
+  --surface-muted: #f2f1ee;
+  --surface-subtle: #f7f7f6;
   --border: #e5e7eb;
   --border-strong: #d4d4d8;
-  --line: #eceef1;
+  --line: #ecebe7;
   --muted: #6b7280;
   --muted-soft: #9ca3af;
   --accent: #111111;
@@ -5254,7 +5254,7 @@ body,
   min-width: 208px !important;
   max-width: 208px !important;
   background: #ffffff !important;
-  border-right: 1px solid #eceef1;
+  border-right: 1px solid #ecebe7;
   box-shadow: none;
   backdrop-filter: none;
 }
@@ -5262,12 +5262,12 @@ body,
 .brand {
   height: 52px;
   padding: 0 12px;
-  border-bottom: 1px solid #eceef1;
+  border-bottom: 1px solid #ecebe7;
 }
 
 .content {
   padding: 18px;
-  background: #f7f8fa;
+  background: #f2f1ee;
 }
 
 .page {
@@ -5303,15 +5303,15 @@ body,
 .employee-task-item .ui-tag {
   border-radius: 999px;
   color: #111111;
-  background: #f3f4f6;
+  background: #f2f1ee;
   border-color: #e5e7eb;
 }
 
 .employee-metric-tile {
   min-height: 70px;
-  border: 1px solid #eceef1;
+  border: 1px solid #ecebe7;
   border-radius: 8px;
-  background: #fafafa;
+  background: #f7f7f6;
 }
 
 .employee-metric-tile span {
@@ -5334,7 +5334,7 @@ body,
 .employee-capability-head > span,
 .org-dashboard-icon {
   color: #111111;
-  background: #f3f4f6;
+  background: #f2f1ee;
 }
 
 .employee-capability-card .ui-card-body {
@@ -5863,7 +5863,7 @@ body,
   min-height: 0;
   padding: 0 !important;
   overflow: auto;
-  background: #FCFCFC;
+  background: #f7f7f6;
 }
 
 @media (min-width: 1181px) {
@@ -5935,7 +5935,7 @@ body,
 }
 
 .employee-online-status .ui-typography {
-  color: #464c5e !important;
+  color: #3d3d3f !important;
   font-size: 12px;
   line-height: 16px;
   font-weight: 700;
@@ -6029,7 +6029,7 @@ body,
 
 .sd1-agents-summary button.active,
 .sd1-agents-summary button:hover {
-  background: #f6f6f6;
+  background: #f2f1ee;
 }
 
 .sd1-agents-summary-label .sd1-icon {
@@ -6108,7 +6108,7 @@ body,
   border: 0;
   border-radius: 999px;
   color: #5f6879;
-  background: #f4f5f7;
+  background: #f2f1ee;
   font-size: 11px;
   line-height: 17px;
   font-weight: 650;
@@ -6312,14 +6312,14 @@ body,
 }
 
 .sd1-sidebar.is-expanded .sd1-rail-agent-name {
-  color: #757f9c !important;
+  color: #6d6d72 !important;
   font-size: 10px !important;
   line-height: 13px !important;
   font-weight: 400 !important;
 }
 
 .sd1-sidebar.is-expanded .sd1-rail-agent-role {
-  color: #464c5e !important;
+  color: #3d3d3f !important;
   font-size: 12px !important;
   line-height: 16px !important;
   font-weight: 560 !important;
@@ -6563,14 +6563,14 @@ body,
 }
 
 .sd1-sidebar.is-expanded .sd1-rail-agent:not(.is-empty) .sd1-rail-agent-name {
-  color: #757f9c !important;
+  color: #6d6d72 !important;
   font-size: 10px !important;
   line-height: 13px !important;
   font-weight: 400 !important;
 }
 
 .sd1-sidebar.is-expanded .sd1-rail-agent:not(.is-empty) .sd1-rail-agent-role {
-  color: #464c5e !important;
+  color: #3d3d3f !important;
   font-size: 12px !important;
   line-height: 16px !important;
   font-weight: 560 !important;

@@ -35,9 +35,9 @@ const FALLBACK_LIMITS = { maxFiles: 10, maxFileMb: 50 };
 
 const FIELD_LABEL_CLASS = 'flex items-center gap-[6px] text-[12px] font-medium leading-none text-[#18181a]';
 const FIELD_INPUT_CLASS =
-  'h-[34px] w-full rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] text-[12px] text-[#18181a] outline-none transition-colors placeholder:text-[#a3aab9] focus:border-[#18181a]';
-const HINT_CLASS = 'text-[11px] leading-[1.5] text-[#a3aab9]';
-const SEGMENT_CLASS = 'flex rounded-[8px] border-[0.5px] border-[#e3e7f1] p-[2px]';
+  'h-[34px] w-full rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] text-[12px] text-[#18181a] outline-none transition-colors placeholder:text-[#9a9a9f] focus:border-[#18181a]';
+const HINT_CLASS = 'text-[11px] leading-[1.5] text-[#9a9a9f]';
+const SEGMENT_CLASS = 'flex rounded-[8px] border-[0.5px] border-[#e6e4df] p-[2px]';
 
 const FORMAT_OPTIONS: { value: OcrFormat; label: string; hint: string }[] = [
   { value: 'json', label: '结构化', hint: '带行坐标与版面块，适合二次处理' },
@@ -119,15 +119,15 @@ function PageBody({ page, view }: { page: OcrPage; view: PageView }) {
       return <span className={HINT_CLASS}>这页没有返回行坐标（纯文本输出格式通常不带，或这一页没有可用文字）。</span>;
     }
     return (
-      <div className="flex flex-col gap-[2px] font-mono text-[11px] leading-[1.7] text-[#4f5669]">
+      <div className="flex flex-col gap-[2px] font-mono text-[11px] leading-[1.7] text-[#4a4a4c]">
         {page.lines.map((line, index) => (
           <div key={index} className="flex min-w-0 gap-[8px]">
-            <span className="w-[132px] shrink-0 text-[#a3aab9]">
+            <span className="w-[132px] shrink-0 text-[#9a9a9f]">
               {Array.isArray(line.box) ? line.box.slice(0, 4).join(', ') : '—'}
             </span>
             <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{line.text || ''}</span>
             {typeof line.conf === 'number' && (
-              <span className="w-[46px] shrink-0 text-right text-[#a3aab9]">{line.conf.toFixed(2)}</span>
+              <span className="w-[46px] shrink-0 text-right text-[#9a9a9f]">{line.conf.toFixed(2)}</span>
             )}
           </div>
         ))}
@@ -142,8 +142,8 @@ function PageBody({ page, view }: { page: OcrPage; view: PageView }) {
     return (
       <div className="flex flex-col gap-[6px]">
         {page.blocks.map((block, index) => (
-          <div key={index} className="flex min-w-0 items-start gap-[8px] rounded-[6px] bg-[#f7f8fa] px-[8px] py-[6px]">
-            <span className="shrink-0 rounded-[4px] bg-white px-[6px] py-[1px] text-[10px] text-[#6b7280] shadow-[0_0_0_0.5px_#e3e7f1]">
+          <div key={index} className="flex min-w-0 items-start gap-[8px] rounded-[6px] bg-[#f2f1ee] px-[8px] py-[6px]">
+            <span className="shrink-0 rounded-[4px] bg-white px-[6px] py-[1px] text-[10px] text-[#6b7280] shadow-[0_0_0_0.5px_#e6e4df]">
               {block.label || 'Text'}
             </span>
             <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[12px] leading-[1.6] text-[#18181a]">
@@ -160,7 +160,7 @@ function PageBody({ page, view }: { page: OcrPage; view: PageView }) {
     return <span className={HINT_CLASS}>这一页没有识别出文字。</span>;
   }
   return (
-    <pre className="m-0 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-[8px] bg-[#f7f8fa] p-[12px] font-mono text-[12px] leading-[1.7] text-[#18181a]">
+    <pre className="m-0 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-[8px] bg-[#f2f1ee] p-[12px] font-mono text-[12px] leading-[1.7] text-[#18181a]">
       {content}
     </pre>
   );
@@ -194,7 +194,7 @@ function PageCard({
         >
           {source.label}
         </span>
-        {meta.length > 0 && <span className="text-[11px] text-[#a3aab9]">{meta.join(' · ')}</span>}
+        {meta.length > 0 && <span className="text-[11px] text-[#9a9a9f]">{meta.join(' · ')}</span>}
         <div className="ml-auto flex items-center gap-[6px]">
           <div className={SEGMENT_CLASS}>
             {PAGE_VIEW_OPTIONS.map((option) => {
@@ -212,7 +212,7 @@ function PageCard({
                     'rounded-[6px] px-[8px] py-[2px] text-[11px] transition-colors',
                     view === option.value
                       ? 'bg-[#18181a] font-medium text-white'
-                      : 'text-[#757f9c] hover:text-[#18181a]',
+                      : 'text-[#6d6d72] hover:text-[#18181a]',
                     disabled && 'cursor-not-allowed text-[#d3d8e2] hover:text-[#d3d8e2]',
                   )}
                 >
@@ -225,7 +225,7 @@ function PageCard({
             type="button"
             title="复制这一页的 Markdown"
             onClick={() => copyText(page.markdown || page.text, `已复制第 ${page.index + 1} 页`)}
-            className="flex size-[24px] items-center justify-center rounded-[6px] text-[#858b9c] transition-colors hover:bg-[#f2f4f8] hover:text-[#18181a]"
+            className="flex size-[24px] items-center justify-center rounded-[6px] text-[#6d6d72] transition-colors hover:bg-[#f2f4f8] hover:text-[#18181a]"
           >
             <Copy className="size-[13px]" />
           </button>
@@ -236,7 +236,7 @@ function PageCard({
         <div
           className={cn(
             'mx-[12px] mt-[8px] rounded-[6px] px-[10px] py-[6px] text-[11px] leading-[1.6]',
-            page.source === 'error' ? 'bg-[#fdecec] text-[#c0392b]' : 'bg-[#f7f8fa] text-[#6b7280]',
+            page.source === 'error' ? 'bg-[#fdecec] text-[#c0392b]' : 'bg-[#f2f1ee] text-[#6b7280]',
           )}
         >
           {page.note}
@@ -270,7 +270,7 @@ function FileBlock({
         <PageCard key={page.index} page={page} view={view} onViewChange={onViewChange} />
       ))}
       {file.pages.length === 0 && !file.error && (
-        <div className="rounded-[12px] border-[0.5px] border-dashed border-[#e3e7f1] px-[16px] py-[28px] text-center text-[12px] text-[#a3aab9]">
+        <div className="rounded-[12px] border-[0.5px] border-dashed border-[#e6e4df] px-[16px] py-[28px] text-center text-[12px] text-[#9a9a9f]">
           没有识别出任何页面
         </div>
       )}
@@ -430,7 +430,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
           <button
             type="button"
             onClick={() => setApiOpen(true)}
-            className="flex h-[26px] items-center gap-[5px] rounded-[8px] border-[0.5px] border-[#e3e7f1] px-[10px] text-[12px] text-[#4f5669] transition-colors hover:border-[#cbd3e6] hover:bg-[#f6f7f9]"
+            className="flex h-[26px] items-center gap-[5px] rounded-[8px] border-[0.5px] border-[#e6e4df] px-[10px] text-[12px] text-[#4a4a4c] transition-colors hover:border-[#ddd9d2] hover:bg-[#f6f7f9]"
           >
             <Code2 className="size-[12px]" />
             API 接入
@@ -475,7 +475,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                     event.target.value = '';
                   }}
                 />
-                <Upload className="size-[16px] text-[#858b9c]" />
+                <Upload className="size-[16px] text-[#6d6d72]" />
                 <span className="text-[12px] font-medium text-[#18181a]">拖入文件，或点击选择</span>
                 <span className={HINT_CLASS}>
                   {ACCEPT_LABEL}；单次 ≤ {limits.maxFiles} 个、单个 ≤ {limits.maxFileMb}MB
@@ -490,19 +490,19 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                       className="group flex items-center gap-[8px] rounded-[8px] border-[0.5px] border-[#eef0f5] px-[8px] py-[6px]"
                     >
                       {file.type.startsWith('image/') ? (
-                        <ImageIcon className="size-[13px] shrink-0 text-[#858b9c]" />
+                        <ImageIcon className="size-[13px] shrink-0 text-[#6d6d72]" />
                       ) : (
-                        <FileText className="size-[13px] shrink-0 text-[#858b9c]" />
+                        <FileText className="size-[13px] shrink-0 text-[#6d6d72]" />
                       )}
-                      <span className="min-w-0 flex-1 truncate text-[11px] text-[#4f5669]" title={file.name}>
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-[#4a4a4c]" title={file.name}>
                         {file.name}
                       </span>
-                      <span className="shrink-0 text-[10px] text-[#a3aab9]">{formatSize(file.size)}</span>
+                      <span className="shrink-0 text-[10px] text-[#9a9a9f]">{formatSize(file.size)}</span>
                       <button
                         type="button"
                         aria-label={`移除 ${file.name}`}
                         onClick={() => removeFile(index)}
-                        className="flex size-[18px] shrink-0 items-center justify-center rounded-[4px] text-[#a3aab9] transition-colors hover:bg-[#f2f4f8] hover:text-[#18181a]"
+                        className="flex size-[18px] shrink-0 items-center justify-center rounded-[4px] text-[#9a9a9f] transition-colors hover:bg-[#f2f4f8] hover:text-[#18181a]"
                       >
                         <X className="size-[11px]" />
                       </button>
@@ -525,7 +525,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                         'flex-1 rounded-[6px] py-[4px] text-[11px] transition-colors',
                         format === option.value
                           ? 'bg-[#18181a] font-medium text-white'
-                          : 'text-[#757f9c] hover:text-[#18181a]',
+                          : 'text-[#6d6d72] hover:text-[#18181a]',
                       )}
                     >
                       {option.label}
@@ -554,7 +554,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
               <div className="flex flex-col gap-[6px]">
                 <div className={FIELD_LABEL_CLASS}>
                   <span>PDF 密码</span>
-                  <span className="rounded-[4px] border-[0.5px] border-[#e3e7f1] px-[5px] py-[1px] text-[10px] font-normal text-[#858b9c]">
+                  <span className="rounded-[4px] border-[0.5px] border-[#e6e4df] px-[5px] py-[1px] text-[10px] font-normal text-[#6d6d72]">
                     选填
                   </span>
                 </div>
@@ -581,8 +581,8 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                       className="mt-[2px]"
                     />
                     <span className="min-w-0">
-                      <span className="block text-[12px] leading-[1.5] text-[#4f5669]">{row.label}</span>
-                      <span className="block text-[10px] leading-[1.4] text-[#a3aab9]">{row.hint}</span>
+                      <span className="block text-[12px] leading-[1.5] text-[#4a4a4c]">{row.label}</span>
+                      <span className="block text-[10px] leading-[1.4] text-[#9a9a9f]">{row.hint}</span>
                     </span>
                   </label>
                 ))}
@@ -608,10 +608,10 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
           {/* ---------------- 右栏：结果 ---------------- */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {!result && !running && !error && (
-              <div className="grid min-h-[320px] flex-1 place-items-center content-center gap-[8px] rounded-[12px] border-[0.5px] border-dashed border-[#e3e7f1] px-[24px] py-[40px] text-center">
+              <div className="grid min-h-[320px] flex-1 place-items-center content-center gap-[8px] rounded-[12px] border-[0.5px] border-dashed border-[#e6e4df] px-[24px] py-[40px] text-center">
                 <FileText className="size-[20px] text-[#c2c8d4]" />
                 <span className="text-[14px] font-medium text-[#18181a]">上传文件后开始识别</span>
-                <span className="max-w-[420px] text-[12px] leading-[1.7] text-[#858b9c]">
+                <span className="max-w-[420px] text-[12px] leading-[1.7] text-[#6d6d72]">
                   左边选好输出形态与识别内容，点「开始识别」。结果按页返回：
                   Markdown、纯文本，以及可选的逐行坐标与版面块。
                 </span>
@@ -630,8 +630,8 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
 
             {running && (
               <div className="flex flex-1 flex-col items-center justify-center gap-[10px] rounded-[12px] border-[0.5px] border-[#eef0f5]">
-                <LoaderCircle className="size-[18px] animate-spin text-[#858b9c]" />
-                <span className="text-[12px] text-[#4f5669]">正在识别 {files.length} 个文件…</span>
+                <LoaderCircle className="size-[18px] animate-spin text-[#6d6d72]" />
+                <span className="text-[12px] text-[#4a4a4c]">正在识别 {files.length} 个文件…</span>
                 <span className={HINT_CLASS}>扫描件按页处理，页数多时会久一些</span>
               </div>
             )}
@@ -657,7 +657,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                     <span className="truncate text-[13px] font-medium text-[#18181a]" title={active?.filename}>
                       {active?.filename || '识别结果'}
                     </span>
-                    <span className="shrink-0 text-[11px] text-[#858b9c]">
+                    <span className="shrink-0 text-[11px] text-[#6d6d72]">
                       {active ? `${active.n_pages} 页` : ''}
                       {active?.elapsed_ms ? ` · ${formatMs(active.elapsed_ms)}` : ''}
                     </span>
@@ -670,7 +670,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                       type="button"
                       onClick={() => copyText(allMarkdown, '已复制全部 Markdown')}
                       disabled={!allMarkdown}
-                      className="flex h-[28px] items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] px-[8px] text-[11px] text-[#4f5669] transition-colors hover:border-[#cbd3e6] hover:bg-[#f6f7f9] disabled:opacity-40"
+                      className="flex h-[28px] items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] px-[8px] text-[11px] text-[#4a4a4c] transition-colors hover:border-[#ddd9d2] hover:bg-[#f6f7f9] disabled:opacity-40"
                     >
                       <Copy className="size-[12px]" />
                       复制全部
@@ -681,7 +681,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                         downloadText(`${stripExtension(active?.filename || 'ocr')}.md`, allMarkdown, 'text/markdown;charset=utf-8')
                       }
                       disabled={!allMarkdown}
-                      className="flex h-[28px] items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] px-[8px] text-[11px] text-[#4f5669] transition-colors hover:border-[#cbd3e6] hover:bg-[#f6f7f9] disabled:opacity-40"
+                      className="flex h-[28px] items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] px-[8px] text-[11px] text-[#4a4a4c] transition-colors hover:border-[#ddd9d2] hover:bg-[#f6f7f9] disabled:opacity-40"
                     >
                       <Download className="size-[12px]" />
                       .md
@@ -695,7 +695,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                           'application/json;charset=utf-8',
                         )
                       }
-                      className="flex h-[28px] items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] px-[8px] text-[11px] text-[#4f5669] transition-colors hover:border-[#cbd3e6] hover:bg-[#f6f7f9]"
+                      className="flex h-[28px] items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] px-[8px] text-[11px] text-[#4a4a4c] transition-colors hover:border-[#ddd9d2] hover:bg-[#f6f7f9]"
                     >
                       <Download className="size-[12px]" />
                       .json
@@ -714,14 +714,14 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                           'flex max-w-[220px] items-center gap-[6px] rounded-[8px] border-[0.5px] px-[8px] py-[3px] text-[11px] transition-colors',
                           index === activeFile
                             ? 'border-[#18181a] bg-[#18181a] text-white'
-                            : 'border-[#e3e7f1] text-[#4f5669] hover:border-[#cbd3e6] hover:bg-[#f6f7f9]',
+                            : 'border-[#e6e4df] text-[#4a4a4c] hover:border-[#ddd9d2] hover:bg-[#f6f7f9]',
                         )}
                       >
                         <span className="truncate">{file.filename}</span>
                         <span
                           className={cn(
                             'shrink-0 text-[10px]',
-                            index === activeFile ? 'text-white/70' : 'text-[#a3aab9]',
+                            index === activeFile ? 'text-white/70' : 'text-[#9a9a9f]',
                           )}
                         >
                           {file.n_pages} 页
@@ -736,7 +736,7 @@ export default function OcrWorkspace({ entry, currentUser, onLogout }: OcrWorksp
                   {active ? (
                     <FileBlock file={active} view={pageView} onViewChange={setPageView} />
                   ) : (
-                    <div className="grid place-items-center py-[40px] text-[12px] text-[#a3aab9]">没有结果</div>
+                    <div className="grid place-items-center py-[40px] text-[12px] text-[#9a9a9f]">没有结果</div>
                   )}
                 </div>
               </>

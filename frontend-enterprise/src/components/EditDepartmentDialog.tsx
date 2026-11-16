@@ -82,14 +82,14 @@ export default function EditDepartmentDialog({
         aria-describedby="edit-department-description"
         className="w-[calc(100%-2rem)] max-w-[420px] rounded-[18px] border-0 bg-white p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[24px] py-[20px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[24px] py-[20px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[36px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <Building2 className="size-[16px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">修改部门名</DialogTitle>
-              <DialogDescription id="edit-department-description" className="mt-[4px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="edit-department-description" className="mt-[4px] text-[12px] text-[#6d6d72]">
                 部门会展示给同租户的其他成员，修改后立即生效。
               </DialogDescription>
             </div>

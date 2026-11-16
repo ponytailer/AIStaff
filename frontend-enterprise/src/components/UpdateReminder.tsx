@@ -42,7 +42,7 @@ export function UpdateNotice({
         <p className="text-[14px] font-medium leading-[20px] text-[#18181a]">
           {t('StaffDeck 有新版本')}
         </p>
-        <p className="mt-[1px] text-[12px] leading-[18px] text-[#757f9c]">
+        <p className="mt-[1px] text-[12px] leading-[18px] text-[#6d6d72]">
           {t('v{1} 已发布，你正在使用 v{2}', { 1: latestVersion, 2: currentVersion })}
         </p>
       </div>
@@ -60,7 +60,7 @@ export function UpdateNotice({
         type="button"
         aria-label={t('关闭更新提醒')}
         onClick={onClose}
-        className="absolute right-[8px] top-[7px] grid size-[24px] place-items-center text-[#9aa3ba] transition-colors hover:text-[#464c5e]"
+        className="absolute right-[8px] top-[7px] grid size-[24px] place-items-center text-[#9aa3ba] transition-colors hover:text-[#3d3d3f]"
       >
         <X className="size-[14px]" aria-hidden="true" />
       </button>

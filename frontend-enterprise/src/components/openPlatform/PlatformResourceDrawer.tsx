@@ -55,13 +55,13 @@ export type PlatformResourceDrawerProps = {
 };
 
 const DRAWER_SHEET_CLASS = cn(
-  'platform-resource-drawer flex w-[400px] flex-col gap-[10px] border-[0.5px] border-[#e3e7f1] bg-white p-[16px_20px] shadow-[0_4px_15px_rgba(0,0,0,0.25)] sm:max-w-[400px]',
+  'platform-resource-drawer flex w-[400px] flex-col gap-[10px] border-[0.5px] border-[#e6e4df] bg-white p-[16px_20px] shadow-[0_4px_15px_rgba(0,0,0,0.25)] sm:max-w-[400px]',
   'top-[24px]! right-[24px]! bottom-[24px]! left-auto! h-auto! max-h-[calc(100vh-48px)] rounded-[20px]',
   '',
 );
 
 function DrawerDivider() {
-  return <div className="h-px w-full shrink-0 bg-[#e3e7f1]" />;
+  return <div className="h-px w-full shrink-0 bg-[#e6e4df]" />;
 }
 
 function NavChevron({
@@ -81,7 +81,7 @@ function NavChevron({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid size-[14px] place-items-center text-[#757f9c] transition-colors enabled:hover:text-[#18181a] disabled:cursor-not-allowed disabled:opacity-35"
+      className="grid size-[14px] place-items-center text-[#6d6d72] transition-colors enabled:hover:text-[#18181a] disabled:cursor-not-allowed disabled:opacity-35"
     >
       <IconChevronDown
         className={cn('size-[14px]', direction === 'prev' ? 'rotate-90' : '-rotate-90')}
@@ -143,7 +143,7 @@ export default function PlatformResourceDrawer({
         <div className="flex w-full shrink-0 flex-col gap-[10px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-[4px]">
-              <span className="text-[12px] font-medium capitalize text-[#464c5e]">
+              <span className="text-[12px] font-medium capitalize text-[#3d3d3f]">
                 {platformTitle}
               </span>
               <NavChevron direction="prev" disabled={!hasPrev} onClick={onPrev} label="上一项" />
@@ -153,7 +153,7 @@ export default function PlatformResourceDrawer({
               type="button"
               aria-label="关闭"
               onClick={onClose}
-              className="grid size-[14px] place-items-center text-[#757f9c] transition-colors hover:text-[#18181a]"
+              className="grid size-[14px] place-items-center text-[#6d6d72] transition-colors hover:text-[#18181a]"
             >
               <XIcon className="size-[14px]" strokeWidth={1.75} />
             </button>
@@ -166,10 +166,10 @@ export default function PlatformResourceDrawer({
 
           <div className="flex min-h-[75px] w-full flex-col justify-center gap-[8px] pb-[2px]">
             <div className="flex flex-col gap-[4px]">
-              <p className="text-[16px] font-medium capitalize text-[#464c5e]">
+              <p className="text-[16px] font-medium capitalize text-[#3d3d3f]">
                 {title}
               </p>
-              <p className="text-[12px] leading-[18px] text-[#757f9c]">
+              <p className="text-[12px] leading-[18px] text-[#6d6d72]">
                 {description}
               </p>
             </div>
@@ -184,14 +184,14 @@ export default function PlatformResourceDrawer({
           </div>
 
           <div className="grid grid-cols-2 gap-[10px]">
-            <div className="flex min-h-[60px] flex-col justify-center gap-[4px] rounded-[14px] border-[0.5px] border-[#e3e7f1] px-[16px] py-[8px]">
-              <span className="text-[10px] leading-[13px] text-[#464c5e]">{platformTitleLabel || '所属广场'}</span>
+            <div className="flex min-h-[60px] flex-col justify-center gap-[4px] rounded-[14px] border-[0.5px] border-[#e6e4df] px-[16px] py-[8px]">
+              <span className="text-[10px] leading-[13px] text-[#3d3d3f]">{platformTitleLabel || '所属广场'}</span>
               <strong className="truncate text-[12px] leading-[16px] font-medium text-[#18181a]">
                 {platformTitle}
               </strong>
             </div>
-            <div className="flex min-h-[60px] flex-col justify-center gap-[4px] rounded-[14px] border-[0.5px] border-[#e3e7f1] px-[16px] py-[8px]">
-              <span className="text-[10px] leading-[13px] text-[#464c5e]">{categoryMetaLabel || '分类'}</span>
+            <div className="flex min-h-[60px] flex-col justify-center gap-[4px] rounded-[14px] border-[0.5px] border-[#e6e4df] px-[16px] py-[8px]">
+              <span className="text-[10px] leading-[13px] text-[#3d3d3f]">{categoryMetaLabel || '分类'}</span>
               <strong className={cn('truncate text-[12px] leading-[16px] font-medium', accentStyles.meta)}>
                 {categoryMeta}
               </strong>
@@ -199,10 +199,10 @@ export default function PlatformResourceDrawer({
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-[8px]">
-            <span className="text-[12px] capitalize text-[#464c5e]">说明</span>
+            <span className="text-[12px] capitalize text-[#3d3d3f]">说明</span>
             {/* whitespace-pre-line：允许详情文本用 \n 分行（员工小队要分行写成员名单），
                 其它模块是单行文本，加了这个类不会有任何视觉变化。 */}
-            <p className="whitespace-pre-line text-[12px] leading-[20px] text-[#757f9c]">
+            <p className="whitespace-pre-line text-[12px] leading-[20px] text-[#6d6d72]">
               {detailText}
             </p>
           </div>
@@ -230,7 +230,7 @@ export default function PlatformResourceDrawer({
                 style={downloadProgress.percent !== null && downloadProgress.percent > 0 ? { width: `${downloadProgress.percent}%` } : undefined}
               />
             </div>
-            <p className="mt-[4px] text-[11px] text-[#858b9c]">
+            <p className="mt-[4px] text-[11px] text-[#6d6d72]">
               {downloadProgress.percent !== null && downloadProgress.percent > 0
                 ? `${downloadProgress.percent}%`
                 : downloadProgress.receivedBytes
@@ -246,7 +246,7 @@ export default function PlatformResourceDrawer({
               type="button"
               disabled={downloading}
               onClick={onDownload}
-              className="inline-flex h-[34px] w-[80px] items-center justify-center gap-[4px] rounded-[10px] border-[0.5px] border-[#dfe4ee] bg-white text-[12px] text-[#464c5e] transition-colors hover:bg-[#f4f6fa] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-[34px] w-[80px] items-center justify-center gap-[4px] rounded-[10px] border-[0.5px] border-[#dfe4ee] bg-white text-[12px] text-[#3d3d3f] transition-colors hover:bg-[#f4f6fa] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className="size-[14px]" />
               {downloading ? '下载中' : '下载'}
@@ -261,7 +261,7 @@ export default function PlatformResourceDrawer({
                 'inline-flex h-[34px] shrink-0 items-center justify-center gap-[4px] rounded-[10px] border-[0.5px] bg-white px-[10px] text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-50',
                 // 下架不是销毁：用中性描边，不用红色警示
                 deleteIsUnpublish
-                  ? 'border-[#dfe4ee] text-[#464c5e] hover:bg-[#f4f6fa]'
+                  ? 'border-[#dfe4ee] text-[#3d3d3f] hover:bg-[#f4f6fa]'
                   : 'border-[#d20b0b] text-[#d20b0b] hover:bg-[#fce7e7]',
               )}
             >

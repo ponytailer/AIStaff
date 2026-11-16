@@ -294,23 +294,23 @@ export function ApiKeyApplicationsPanel({
   const mineTab = (
     <section className="flex flex-col gap-[24px] rounded-[20px_20px_0_0] bg-white p-[18px_18px_24px_18px] shadow-[0_-4px_16px_0_rgba(0,0,0,0.05)]">
       <div className="flex flex-col gap-[14px]">
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           <KeyRound className="size-[14px] shrink-0" />
           <span className="text-[14px] font-normal leading-none">我的 API Key</span>
         </div>
 
-        <p className="px-[12px] text-[12px] leading-[18px] text-[#757f9c]">
+        <p className="px-[12px] text-[12px] leading-[18px] text-[#6d6d72]">
           每位用户最多申请 2 个 API Key。提交后由管理员审批，通过后自动分配 API Key 与网关地址。
         </p>
 
         <div className="px-[12px]">
           {loading ? (
-            <div className="flex items-center justify-center gap-[8px] py-[40px] text-[13px] text-[#858b9c]">
+            <div className="flex items-center justify-center gap-[8px] py-[40px] text-[13px] text-[#6d6d72]">
               <LoaderCircle className="size-[16px] animate-spin" />
               加载中
             </div>
           ) : items.length === 0 ? (
-            <div className="py-[40px] text-center text-[13px] text-[#858b9c]">暂无申请记录</div>
+            <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">暂无申请记录</div>
           ) : (
             <div className="flex flex-col gap-[10px]">
               {items.map((item) => {
@@ -329,13 +329,13 @@ export function ApiKeyApplicationsPanel({
                         ? '今日'
                         : '';
                 return (
-                  <div key={item.id} className="rounded-[12px] border border-[#eceef1] bg-white p-[14px]">
+                  <div key={item.id} className="rounded-[12px] border border-[#ecebe7] bg-white p-[14px]">
                     <div className="flex items-start justify-between gap-[10px]">
                       <div className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-medium text-[#18181a]">
                           {item.purpose || '（未填写用途）'}
                         </span>
-                        <span className="mt-[4px] block text-[12px] text-[#858b9c]">
+                        <span className="mt-[4px] block text-[12px] text-[#6d6d72]">
                           申请于 {formatTime(item.created_at)}
                         </span>
                       </div>
@@ -365,7 +365,7 @@ export function ApiKeyApplicationsPanel({
                             title="删除该记录"
                             disabled={deleting}
                             onClick={() => setDeleteTarget(item)}
-                            className="grid size-[26px] place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#fdeeee] hover:text-[#c0392b] disabled:opacity-60"
+                            className="grid size-[26px] place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#fdeeee] hover:text-[#c0392b] disabled:opacity-60"
                           >
                             <Trash2 className="size-[13px]" />
                           </button>
@@ -386,9 +386,9 @@ export function ApiKeyApplicationsPanel({
                           </div>
                         )}
                         <label className="flex flex-col gap-[4px]">
-                          <span className="text-[11px] font-medium text-[#464c5e]">API Key</span>
+                          <span className="text-[11px] font-medium text-[#3d3d3f]">API Key</span>
                           <div className="flex items-center gap-[6px]">
-                            <code className="min-w-0 flex-1 truncate rounded-[8px] bg-[#f6f6f6] px-[10px] py-[7px] font-mono text-[12px] text-[#18181a]">
+                            <code className="min-w-0 flex-1 truncate rounded-[8px] bg-[#f2f1ee] px-[10px] py-[7px] font-mono text-[12px] text-[#18181a]">
                               {revealedIds.has(item.id)
                                 ? item.api_key || item.api_key_masked
                                 : item.api_key_masked || '••••••••••••••••'}
@@ -397,7 +397,7 @@ export function ApiKeyApplicationsPanel({
                               type="button"
                               aria-label={revealedIds.has(item.id) ? '隐藏 API Key' : '显示 API Key'}
                               onClick={() => toggleRevealed(item.id)}
-                              className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-black/5 hover:text-[#18181a]"
+                              className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-black/5 hover:text-[#18181a]"
                             >
                               {revealedIds.has(item.id) ? <EyeOff className="size-[14px]" /> : <Eye className="size-[14px]" />}
                             </button>
@@ -405,7 +405,7 @@ export function ApiKeyApplicationsPanel({
                               type="button"
                               aria-label="复制 API Key"
                               onClick={() => item.api_key && copy(item.api_key, 'API Key')}
-                              className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-black/5 hover:text-[#18181a]"
+                              className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-black/5 hover:text-[#18181a]"
                             >
                               <Copy className="size-[14px]" />
                             </button>
@@ -413,10 +413,10 @@ export function ApiKeyApplicationsPanel({
                         </label>
                         {item.api_url && (
                           <label className="flex flex-col gap-[4px]">
-                            <span className="text-[11px] font-medium text-[#464c5e]">网关地址</span>
+                            <span className="text-[11px] font-medium text-[#3d3d3f]">网关地址</span>
                             <div className="flex items-center gap-[6px]">
                               <code
-                                className="min-w-0 flex-1 truncate rounded-[8px] bg-[#f6f6f6] px-[10px] py-[7px] font-mono text-[12px] text-[#18181a]"
+                                className="min-w-0 flex-1 truncate rounded-[8px] bg-[#f2f1ee] px-[10px] py-[7px] font-mono text-[12px] text-[#18181a]"
                                 title={item.api_url}
                               >
                                 {item.api_url}
@@ -425,7 +425,7 @@ export function ApiKeyApplicationsPanel({
                                 type="button"
                                 aria-label="复制网关地址"
                                 onClick={() => void copy(item.api_url, '网关地址')}
-                                className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-black/5 hover:text-[#18181a]"
+                                className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-black/5 hover:text-[#18181a]"
                               >
                                 <Copy className="size-[14px]" />
                               </button>
@@ -443,7 +443,7 @@ export function ApiKeyApplicationsPanel({
                           return (
                             <div className="flex flex-col gap-[6px] rounded-[10px] bg-[#f8f9fb] px-[12px] py-[10px]">
                               <div className="flex items-center justify-between">
-                                <span className="text-[11px] font-medium text-[#464c5e]">
+                                <span className="text-[11px] font-medium text-[#3d3d3f]">
                                   本期配额使用{periodLabel ? `（${periodLabel}）` : ''}
                                 </span>
                                 <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
@@ -455,9 +455,9 @@ export function ApiKeyApplicationsPanel({
                                     style={{ width: `${Math.min(pct, 100)}%` }}
                                   />
                                 </div>
-                                <span className="text-[12px] tabular-nums text-[#464c5e]">{pct}%</span>
+                                <span className="text-[12px] tabular-nums text-[#3d3d3f]">{pct}%</span>
                               </div>
-                              <div className="flex items-center justify-between text-[11px] text-[#858b9c]">
+                              <div className="flex items-center justify-between text-[11px] text-[#6d6d72]">
                                 <span>
                                   已用{' '}
                                   <span className="font-medium tabular-nums text-[#18181a]">
@@ -489,9 +489,9 @@ export function ApiKeyApplicationsPanel({
           )}
         </div>
 
-        <div className="flex flex-col gap-[10px] border-t border-[#eef0f4] px-[12px] pt-[14px]">
+        <div className="flex flex-col gap-[10px] border-t border-[#ecebe7] px-[12px] pt-[14px]">
           <div className="flex items-center justify-between">
-            <span className="text-[12px] text-[#757f9c]">
+            <span className="text-[12px] text-[#6d6d72]">
               已申请 <span className="font-medium text-[#18181a]">{activeCount}</span> / {MAX_APPLICATIONS}
             </span>
             {!canApply && <span className="text-[12px] text-[#c0392b]">已达申请上限</span>}
@@ -522,7 +522,7 @@ export function ApiKeyApplicationsPanel({
               </div>
             </>
           ) : (
-            <p className="text-[12px] leading-[18px] text-[#858b9c]">
+            <p className="text-[12px] leading-[18px] text-[#6d6d72]">
               如需更多 API Key，请等待现有申请审批或联系管理员吊销已批准的 Key。
             </p>
           )}
@@ -533,11 +533,11 @@ export function ApiKeyApplicationsPanel({
         <DialogContent className="max-w-[400px] gap-[14px] rounded-[14px] p-[20px]">
           <DialogHeader className="gap-[6px]">
             <DialogTitle className="text-[15px] font-medium text-[#18181a]">删除记录</DialogTitle>
-            <DialogDescription className="text-[12px] leading-[18px] text-[#757f9c]">
+            <DialogDescription className="text-[12px] leading-[18px] text-[#6d6d72]">
               删除后该记录将不可恢复，不影响阿里云网关侧的任何配置。
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-[8px] bg-[#f8f9fb] px-[12px] py-[10px] text-[12px] leading-[18px] text-[#464c5e]">
+          <div className="rounded-[8px] bg-[#f8f9fb] px-[12px] py-[10px] text-[12px] leading-[18px] text-[#3d3d3f]">
             <div className="font-medium text-[#18181a]">
               {deleteTarget?.status === 'approved' ? '已失效的 API Key' : '申请记录'}
             </div>
@@ -545,14 +545,14 @@ export function ApiKeyApplicationsPanel({
               {deleteTarget?.purpose || '（未填写用途）'}
             </div>
             {deleteTarget?.api_key_masked && (
-              <div className="mt-[2px] font-mono text-[#858b9c]">{deleteTarget.api_key_masked}</div>
+              <div className="mt-[2px] font-mono text-[#6d6d72]">{deleteTarget.api_key_masked}</div>
             )}
           </div>
           <DialogFooter className="gap-[8px]">
             <UIButton
               disabled={deleting}
               onClick={() => setDeleteTarget(null)}
-              className="h-[32px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] text-[13px] font-normal text-[#464c5e] hover:bg-black/5"
+              className="h-[32px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] text-[13px] font-normal text-[#3d3d3f] hover:bg-black/5"
             >
               取消
             </UIButton>

@@ -37,7 +37,7 @@ export type PlatformEmployeeDrawerProps = {
 };
 
 function DrawerDivider() {
-  return <div className="h-px w-full shrink-0 bg-[#e3e7f1]" />;
+  return <div className="h-px w-full shrink-0 bg-[#e6e4df]" />;
 }
 
 function NavChevron({
@@ -57,7 +57,7 @@ function NavChevron({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid size-[14px] place-items-center text-[#757f9c] transition-colors enabled:hover:text-[#18181a] disabled:cursor-not-allowed disabled:opacity-35"
+      className="grid size-[14px] place-items-center text-[#6d6d72] transition-colors enabled:hover:text-[#18181a] disabled:cursor-not-allowed disabled:opacity-35"
     >
       <IconChevronDown
         className={cn('size-[14px]', direction === 'prev' ? 'rotate-90' : '-rotate-90')}
@@ -99,7 +99,7 @@ export default function PlatformEmployeeDrawer({
         side="right"
         showCloseButton={false}
         className={cn(
-          'platform-employee-drawer flex w-[400px] flex-col gap-[10px] border-[0.5px] border-[#e3e7f1] bg-white p-[16px_20px] shadow-[0_4px_15px_rgba(0,0,0,0.25)] sm:max-w-[400px]',
+          'platform-employee-drawer flex w-[400px] flex-col gap-[10px] border-[0.5px] border-[#e6e4df] bg-white p-[16px_20px] shadow-[0_4px_15px_rgba(0,0,0,0.25)] sm:max-w-[400px]',
           'top-[24px]! right-[24px]! bottom-[24px]! left-auto! h-auto! max-h-[calc(100vh-48px)] rounded-[20px]',
           '',
         )}
@@ -107,7 +107,7 @@ export default function PlatformEmployeeDrawer({
         <div className="flex w-full shrink-0 flex-col gap-[10px]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-[4px]">
-              <span className="text-[12px] font-medium capitalize text-[#464c5e]">
+              <span className="text-[12px] font-medium capitalize text-[#3d3d3f]">
                 {platformTitle}
               </span>
               <NavChevron direction="prev" disabled={!hasPrev} onClick={onPrev} label="上一位员工" />
@@ -117,7 +117,7 @@ export default function PlatformEmployeeDrawer({
               type="button"
               aria-label="关闭"
               onClick={onClose}
-              className="grid size-[14px] place-items-center text-[#757f9c] transition-colors hover:text-[#18181a]"
+              className="grid size-[14px] place-items-center text-[#6d6d72] transition-colors hover:text-[#18181a]"
             >
               <XIcon className="size-[14px]" strokeWidth={1.75} />
             </button>
@@ -139,10 +139,10 @@ export default function PlatformEmployeeDrawer({
             </div>
             <div className="flex min-w-0 flex-1 flex-col justify-center gap-[8px] pb-[2px]">
               <div className="flex flex-col gap-[4px]">
-                <p className="truncate text-[16px] font-medium capitalize text-[#464c5e]">
+                <p className="truncate text-[16px] font-medium capitalize text-[#3d3d3f]">
                   {name}
                 </p>
-                <p className="line-clamp-2 text-[12px] leading-[18px] text-[#757f9c]">
+                <p className="line-clamp-2 text-[12px] leading-[18px] text-[#6d6d72]">
                   {description}
                 </p>
               </div>
@@ -151,7 +151,7 @@ export default function PlatformEmployeeDrawer({
                   'inline-flex w-fit items-center gap-[4px] rounded-[90px] border-[0.5px] px-[10px] py-[4px]',
                   online
                     ? 'border-[#96d9b0] bg-[#e9f7ef] text-[#2cb360]'
-                    : 'border-[#d1d5db] bg-[#f3f4f6] text-[#757f9c]',
+                    : 'border-[#d1d5db] bg-[#f2f1ee] text-[#6d6d72]',
                 )}
               >
                 <i
@@ -168,45 +168,45 @@ export default function PlatformEmployeeDrawer({
               <div
                 key={stat.label}
                 className={cn(
-                  'flex h-[60px] flex-1 flex-col justify-center gap-[4px] border-[0.5px] border-[#e3e7f1] px-[20px] py-[8px]',
+                  'flex h-[60px] flex-1 flex-col justify-center gap-[4px] border-[0.5px] border-[#e6e4df] px-[20px] py-[8px]',
                   index === 0 && 'rounded-l-[14px]',
                   index === stats.length - 1 && 'rounded-r-[14px]',
                   index > 0 && 'border-l-0',
                 )}
               >
                 <strong className="text-[18px] font-medium text-[#18181a]">{stat.value}</strong>
-                <span className="text-[10px] text-[#464c5e]">{stat.label}</span>
+                <span className="text-[10px] text-[#3d3d3f]">{stat.label}</span>
               </div>
             ))}
           </div>
 
           <div className="grid grid-cols-2 gap-[10px]">
-            <div className="flex min-h-[60px] flex-col justify-center gap-[4px] rounded-[14px] border-[0.5px] border-[#e3e7f1] px-[16px] py-[8px]">
-              <span className="text-[10px] leading-[13px] text-[#464c5e]">分类</span>
+            <div className="flex min-h-[60px] flex-col justify-center gap-[4px] rounded-[14px] border-[0.5px] border-[#e6e4df] px-[16px] py-[8px]">
+              <span className="text-[10px] leading-[13px] text-[#3d3d3f]">分类</span>
               <strong className="truncate text-[12px] leading-[16px] font-medium text-[#18181a]">{platformTitle}</strong>
             </div>
-            <div className="flex min-h-[60px] flex-col justify-center gap-[4px] rounded-[14px] border-[0.5px] border-[#e3e7f1] px-[16px] py-[8px]">
-              <span className="text-[10px] leading-[13px] text-[#464c5e]">分类</span>
+            <div className="flex min-h-[60px] flex-col justify-center gap-[4px] rounded-[14px] border-[0.5px] border-[#e6e4df] px-[16px] py-[8px]">
+              <span className="text-[10px] leading-[13px] text-[#3d3d3f]">分类</span>
               <strong className="truncate text-[12px] leading-[16px] font-medium text-[#18181a]">{role}</strong>
             </div>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-[8px]">
-            <span className="text-[12px] capitalize text-[#464c5e]">说明</span>
+            <span className="text-[12px] capitalize text-[#3d3d3f]">说明</span>
             <div className="flex min-h-0 flex-1 flex-col gap-[10px]">
               {workStyles.length > 0 && (
                 <div className="flex flex-wrap gap-[10px]">
                   {workStyles.slice(0, 3).map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-[10px] bg-[#f6f6f6] px-[12px] py-[4px] text-[12px] text-[#757f9c]"
+                      className="rounded-[10px] bg-[#f2f1ee] px-[12px] py-[4px] text-[12px] text-[#6d6d72]"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
               )}
-              <p className="text-[12px] leading-[20px] text-[#757f9c]">
+              <p className="text-[12px] leading-[20px] text-[#6d6d72]">
                 {detailText}
               </p>
             </div>
@@ -215,9 +215,9 @@ export default function PlatformEmployeeDrawer({
           {canManage && onToggleFreeModel && (
             <>
               <DrawerDivider />
-              <div className="flex shrink-0 items-center justify-between gap-[10px] rounded-[14px] bg-[#fafbfd] px-[14px] py-[10px]">
+              <div className="flex shrink-0 items-center justify-between gap-[10px] rounded-[14px] bg-[#f2f1ee] px-[14px] py-[10px]">
                 <div className="flex min-w-0 flex-col gap-[2px]">
-                  <span className="flex items-center gap-[6px] text-[12px] font-medium text-[#464c5e]">
+                  <span className="flex items-center gap-[6px] text-[12px] font-medium text-[#3d3d3f]">
                     免费模型
                     {freeModelEnabled && (
                       <span className="rounded-[6px] bg-[#eafaf3] px-[5px] py-[1px] text-[10px] text-[#0f8a5f]">
@@ -225,7 +225,7 @@ export default function PlatformEmployeeDrawer({
                       </span>
                     )}
                   </span>
-                  <span className="text-[10px] leading-[14px] text-[#757f9c]">
+                  <span className="text-[10px] leading-[14px] text-[#6d6d72]">
                     成员没有自己的模型时自动用全局模型，每人每天 10 问
                   </span>
                 </div>

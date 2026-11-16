@@ -171,18 +171,18 @@ export default function MCPAppView({ descriptor }: { descriptor: MCPAppViewDescr
 
   if (error) {
     return (
-      <div className="mt-2 flex items-start gap-2 rounded-lg border border-[#eceef1] bg-[#fafbfc] px-3 py-2 text-xs text-[#858b9c]">
+      <div className="mt-2 flex items-start gap-2 rounded-lg border border-[#ecebe7] bg-[#f2f1ee] px-3 py-2 text-xs text-[#6d6d72]">
         <StaffdeckIcon name="warning" size={14} />
         <span>MCP App 无法展示，已保留上方文本结果。{error}</span>
       </div>
     );
   }
   if (!resource) {
-    return <div className="mt-2 text-xs text-[#858b9c]">正在加载 MCP App…</div>;
+    return <div className="mt-2 text-xs text-[#6d6d72]">正在加载 MCP App…</div>;
   }
   return (
     <section className="mt-2 overflow-hidden rounded-xl border border-[#dfe5e2] bg-white" aria-label="MCP App">
-      <div className="flex items-center justify-between border-b border-[#eceef1] bg-[#fafbfc] px-3 py-2 text-xs text-[#5f6675]">
+      <div className="flex items-center justify-between border-b border-[#ecebe7] bg-[#f2f1ee] px-3 py-2 text-xs text-[#5f6675]">
         <span className="font-medium">MCP App · {descriptor.tool_name}</span>
         <span>隔离视图</span>
       </div>

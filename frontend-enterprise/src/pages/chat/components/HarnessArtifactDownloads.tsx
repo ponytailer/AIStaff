@@ -98,7 +98,7 @@ export default function HarnessArtifactDownloads({
         {artifacts.length > 1 && (
           <button
             type="button"
-            className="ml-auto inline-flex cursor-pointer items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] py-[4px] text-[11px] text-[#464C5E] transition-colors hover:border-[#c9d2e3] hover:bg-[#f6f7fa] disabled:cursor-not-allowed disabled:opacity-60"
+            className="ml-auto inline-flex cursor-pointer items-center gap-[4px] rounded-[8px] border-[0.5px] border-[rgba(24,24,26,0.08)] bg-white px-[10px] py-[4px] text-[11px] text-[rgba(24,24,26,0.8)] transition-colors hover:border-[#c9d2e3] hover:bg-[#f6f7fa] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={Boolean(downloading) || !sessionId || !tenantId}
             aria-label="打包下载全部生成文件"
             onClick={() => void downloadTaskZip()}
@@ -116,14 +116,14 @@ export default function HarnessArtifactDownloads({
             aria-valuenow={zipProgress.percent > 0 ? zipProgress.percent : undefined}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="h-[5px] w-full overflow-hidden rounded-full bg-[#eef1f7]"
+            className="h-[5px] w-full overflow-hidden rounded-full bg-[#eeece9]"
           >
             <div
               className={zipProgress.percent < 0 ? 'h-full w-1/3 animate-pulse rounded-full bg-[#18181a]' : 'h-full rounded-full bg-[#18181a] transition-[width] duration-150'}
               style={zipProgress.percent >= 0 ? { width: `${zipProgress.percent}%` } : undefined}
             />
           </div>
-          <p className="mt-[4px] text-[11px] text-[#858b9c]">
+          <p className="mt-[4px] text-[11px] text-[#6d6d72]">
             {zipProgress.percent >= 0
               ? `${zipProgress.percent}%`
               : `已接收 ${(zipProgress.received / 1_048_576).toFixed(1)} MB`}

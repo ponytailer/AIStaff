@@ -103,29 +103,29 @@ export default function ShareSkillPage() {
           <span className="grid size-[34px] place-items-center rounded-[12px] bg-[#18181a] text-white">
             <Share2 className="size-[16px]" />
           </span>
-          <p className="text-[14px] font-medium text-[#464C5E]">技能分享</p>
+          <p className="text-[14px] font-medium text-[#3d3d3f]">技能分享</p>
         </header>
 
-        {loading && <p className="rounded-[16px] bg-white p-[24px] text-center text-[13px] text-[#757f9c]">加载中…</p>}
+        {loading && <p className="rounded-[16px] bg-white p-[24px] text-center text-[13px] text-[#6d6d72]">加载中…</p>}
 
         {error && (
           <div className="rounded-[16px] bg-white px-[24px] py-[26px] text-center">
             <p className="text-[14px] font-medium text-[#18181a]">链接无法打开</p>
-            <p className="mt-[6px] text-[12px] text-[#858b9c]">{error || '分享链接不存在或已失效'}</p>
+            <p className="mt-[6px] text-[12px] text-[#6d6d72]">{error || '分享链接不存在或已失效'}</p>
           </div>
         )}
 
         {info && (
           <main className="flex min-h-[560px] flex-col rounded-[20px] bg-white p-[36px] shadow-[0_8px_24px_rgba(0,0,0,0.06)] max-[900px]:min-h-0 max-[900px]:p-[28px]">
             <h1 className="text-[20px] font-semibold leading-[28px] text-[#18181a]">{info.name}</h1>
-            <p className="mt-[4px] text-[12px] text-[#858b9c]">
+            <p className="mt-[4px] text-[12px] text-[#6d6d72]">
               {info.slug}
               {info.owner_name ? ` · 创建者 ${info.owner_name}` : ''}
               {info.total_bytes > 0 ? ` · ${formatBytes(info.total_bytes)}` : ''}
             </p>
 
             {info.description && (
-              <p className="mt-[14px] whitespace-pre-wrap text-[13px] leading-[1.7] text-[#464C5E]">{info.description}</p>
+              <p className="mt-[14px] whitespace-pre-wrap text-[13px] leading-[1.7] text-[#3d3d3f]">{info.description}</p>
             )}
 
             {info.homepage && (
@@ -151,13 +151,13 @@ export default function ShareSkillPage() {
                     style={downloadPercent !== null ? { width: `${downloadPercent}%` } : undefined}
                   />
                 </div>
-                <p className="mt-[6px] text-[12px] text-[#757f9c]">
+                <p className="mt-[6px] text-[12px] text-[#6d6d72]">
                   {downloadPercent !== null ? `${downloadPercent}%` : `已接收 ${formatBytes(receivedBytes)}`}
                 </p>
               </div>
             )}
 
-            <footer className="mt-[24px] flex items-center gap-[12px] border-t border-[#eef0f4] pt-[20px]">
+            <footer className="mt-[24px] flex items-center gap-[12px] border-t border-[#ecebe7] pt-[20px]">
               <UIButton
                 disabled={downloading}
                 onClick={() => void download()}
@@ -170,11 +170,11 @@ export default function ShareSkillPage() {
                 href={`/enterprise/platform/general-skills?q=${encodeURIComponent(info.name || info.slug)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-[40px] items-center rounded-[12px] border-[0.5px] border-[#e3e7f1] bg-white px-[16px] text-[13px] text-[#464C5E] transition-colors hover:border-[#cbd3e6] hover:bg-[#f6f7fa]"
+                className="inline-flex h-[40px] items-center rounded-[12px] border-[0.5px] border-[#e6e4df] bg-white px-[16px] text-[13px] text-[#3d3d3f] transition-colors hover:border-[#ddd9d2] hover:bg-[#f6f7fa]"
               >
                 去技能广场查看 ↗
               </a>
-              {info.total_bytes > 0 && <span className="ml-[4px] text-[12px] text-[#757f9c]">共 {formatBytes(info.total_bytes)}</span>}
+              {info.total_bytes > 0 && <span className="ml-[4px] text-[12px] text-[#6d6d72]">共 {formatBytes(info.total_bytes)}</span>}
             </footer>
           </main>
         )}

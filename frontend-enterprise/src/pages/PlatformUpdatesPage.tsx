@@ -28,7 +28,7 @@ export default function PlatformUpdatesPage({
         description="平台功能更新、优化与问题修复的完整记录"
       />
 
-      <section className="mt-[20px] rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white px-[32px] py-[24px] shadow-[0_2px_12px_rgba(30,45,70,0.04)] max-[900px]:px-[18px]">
+      <section className="mt-[20px] rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white px-[32px] py-[24px] shadow-[0_2px_12px_rgba(30,45,70,0.04)] max-[900px]:px-[18px]">
         <MarkdownMessage content={changelogMarkdown} />
       </section>
     </div>

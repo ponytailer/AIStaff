@@ -122,16 +122,16 @@ export default function AgentShareDialog({
       <DialogContent
         aria-describedby="agent-share-description"
         data-i18n-ignore
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[560px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[560px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[26px] py-[22px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[26px] py-[22px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <Share2 className="size-[18px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">分享 · {displayName}</DialogTitle>
-              <DialogDescription id="agent-share-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="agent-share-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 生成的链接无需登录即可打开对话窗，访客不能更换模型。
               </DialogDescription>
             </div>
@@ -172,7 +172,7 @@ export default function AgentShareDialog({
                     onClick={() => setTtl(option.value)}
                     className={active
                       ? 'rounded-[14px] border border-[#18181a] bg-[#18181a] px-[12px] py-[12px] text-left text-white transition-colors disabled:opacity-60'
-                      : 'rounded-[14px] border border-[#e2e6ee] bg-white px-[12px] py-[12px] text-left text-[#464c5e] transition-colors hover:border-[#cbd3e6] disabled:opacity-60'}
+                      : 'rounded-[14px] border border-[#e2e6ee] bg-white px-[12px] py-[12px] text-left text-[#3d3d3f] transition-colors hover:border-[#ddd9d2] disabled:opacity-60'}
                   >
                     <strong className="block text-[13px] font-semibold">{option.label}</strong>
                     <span className={active ? 'mt-[3px] block text-[10px] text-white/70' : 'mt-[3px] block text-[10px] text-[#8a92a3]'}>

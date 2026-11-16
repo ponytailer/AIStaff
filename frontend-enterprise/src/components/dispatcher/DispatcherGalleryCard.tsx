@@ -59,28 +59,28 @@ export default function DispatcherGalleryCard({
             <span className="min-w-0 truncate text-[14px] font-semibold text-[#18181a]">
               {dispatcher.name}
             </span>
-            <span className="flex-none rounded-[5px] bg-[#f0f1f4] px-[5px] py-[1px] text-[10px] text-[#757f9c]">
+            <span className="flex-none rounded-[5px] bg-[#f0f1f4] px-[5px] py-[1px] text-[10px] text-[#6d6d72]">
               路由
             </span>
             {dispatcher.published_to_gallery && (
-              <span className="flex-none rounded-[5px] bg-[#e1f1ed] px-[5px] py-[1px] text-[10px] text-[#0f7268]">
+              <span className="flex-none rounded-[5px] bg-[#e1f1ed] px-[5px] py-[1px] text-[10px] text-[#0f766e]">
                 广场
               </span>
             )}
           </div>
-          <div className="mt-[1px] truncate text-[11.5px] text-[#9aa1b1]">
+          <div className="mt-[1px] truncate text-[11.5px] text-[#9a9a9f]">
             员工小队 · {members.length}/{MAX_DISPATCH_MEMBERS} 位同事
           </div>
         </div>
       </div>
 
-      <p className="m-0 mt-[10px] line-clamp-2 text-[12.5px] leading-[19px] text-[#5b6274]">
+      <p className="m-0 mt-[10px] line-clamp-2 text-[12.5px] leading-[19px] text-[#55555a]">
         {dispatcher.description || '还没写介绍 —— 写一句「它负责接哪些问题」，同事更容易判断什么时候找它'}
       </p>
 
       <div className="mt-[8px] flex flex-wrap items-center gap-[5px]">
         {memberNames && (
-          <span className="max-w-full truncate rounded-[20px] border border-[#E3E7F1] px-[8px] py-px text-[10px] leading-[13px] text-[#757f9c]">
+          <span className="max-w-full truncate rounded-[20px] border border-[#e6e4df] px-[8px] py-px text-[10px] leading-[13px] text-[#6d6d72]">
             {memberNames}
           </span>
         )}
@@ -91,7 +91,7 @@ export default function DispatcherGalleryCard({
         )}
       </div>
 
-      <div className="mt-auto grid grid-cols-3 rounded-[14px] border border-[#E3E7F1] box-sizing: border-box">
+      <div className="mt-auto grid grid-cols-3 rounded-[14px] border border-[#e6e4df] box-sizing: border-box">
         {stats.map((stat, index) => (
           <div
             key={stat.label}
@@ -108,7 +108,7 @@ export default function DispatcherGalleryCard({
             >
               {stat.value}
             </strong>
-            <em className="text-[10px] not-italic text-[#464C5E]">{stat.label}</em>
+            <em className="text-[10px] not-italic text-[#3d3d3f]">{stat.label}</em>
           </div>
         ))}
       </div>
@@ -131,7 +131,7 @@ export default function DispatcherGalleryCard({
             event.stopPropagation();
             onProfile();
           }}
-          className="inline-flex h-[32px] shrink-0 items-center gap-[4px] whitespace-nowrap rounded-[8px] border border-[#e3e7f1] px-[12px] text-[12px] text-[#757f9c] transition-colors hover:border-[#cbd3e6] hover:text-[#18181a]"
+          className="inline-flex h-[32px] shrink-0 items-center gap-[4px] whitespace-nowrap rounded-[8px] border border-[#e6e4df] px-[12px] text-[12px] text-[#6d6d72] transition-colors hover:border-[#ddd9d2] hover:text-[#18181a]"
         >
           <StaffdeckIcon name="file" size={13} />
           档案

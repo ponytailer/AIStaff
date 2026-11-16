@@ -256,6 +256,8 @@ describe('AppSidebar chat variant group conversations', () => {
               variant="chat"
               sessions={sessions}
               agents={[agent, leaderAgent]}
+              currentAgent={agent}
+              currentRoleName="增长顾问"
               sessionFilter="all"
               onSessionFilterChange={() => {}}
               sessionFilterOptions={[{ value: 'all', label: '全部员工 · 2' }]}
@@ -273,29 +275,45 @@ describe('AppSidebar chat variant group conversations', () => {
     );
   }
 
-  it('logo 点击回到站点首页，而不是数字员工广场（对话端）', async () => {
+  it('「更多」里的「回到开放广场」回站点首页，而不是数字员工广场（对话端）', async () => {
     const user = userEvent.setup();
     const onOpenHome = vi.fn();
     const onOpenGallery = vi.fn();
     renderChatSidebar({ onOpenHome, onOpenGallery });
 
-    await user.click(screen.getByLabelText('返回首页'));
+    // 员工卡右上角的「更多」——品牌 logo 已从左栏移除，回首页入口收进这个菜单。
+    await user.click(screen.getByLabelText('更多'));
+    await user.click(await screen.findByText('回到开放广场'));
 
     expect(onOpenHome).toHaveBeenCalledTimes(1);
     expect(onOpenGallery).not.toHaveBeenCalled();
   });
 
-  it('shows the employee name in a styled tooltip on avatar hover', async () => {
-    const user = userEvent.setup();
+  it('「管理端」在搜索框上方，不跟随会话列表长度漂移', () => {
     renderChatSidebar();
 
-    const employeeRow = screen.getByText('写公告').closest('[role="button"]');
-    const avatar = employeeRow?.querySelector('span');
-    expect(avatar).toBeTruthy();
-    await user.hover(avatar as Element);
+    const adminButton = screen.getByText('管理端').closest('button') as HTMLElement;
+    const searchInput = screen.getByLabelText('搜索对话');
+    const sessionList = screen.getByText('写公告');
 
-    const tooltip = await screen.findByRole('tooltip');
-    expect(tooltip.textContent).toContain('小艾');
+    // 搜索框在管理端之后 → 按钮不在列表下方，列表变长也顶不动它
+    expect(
+      adminButton.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      adminButton.compareDocumentPosition(sessionList) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('会话行只写标题（不再画第二遍头像），历史团队会话标为群聊', async () => {
+    renderChatSidebar();
+
+    const row = screen.getByText('写公告').closest('[role="button"]') as HTMLElement;
+    expect(within(row).queryByRole('img')).toBeNull();
+    expect(screen.getByText('增长团队')).toBeTruthy();
+    // 员工卡才是头像出现的地方：名字 + 岗位副标题
+    expect(screen.getByText('小艾')).toBeTruthy();
+    expect(screen.getByText('增长顾问')).toBeTruthy();
   });
 });
 
@@ -347,5 +365,103 @@ describe('AppSidebar primary navigation', () => {
     renderManagementSidebar(undefined, { isAdmin: true });
     expect(screen.queryByText('账号管理')).toBeNull();
     expect(screen.getByText('API Key 审批')).toBeTruthy();
+  });
+});
+
+/**
+ * 切换器要分「员工」和「员工小队」两段：小队是调度入口，不是一个人，
+ * 混在员工列表里既不显眼也看不出它是小队。
+ */
+describe('AppSidebar chat 员工切换器', () => {
+  const squad = {
+    id: 'dispatcher-1',
+    tenant_id: 'tenant_demo',
+    name: '测试Multi',
+    is_overall: false,
+    kind: 'dispatcher',
+    status: 'active',
+    metadata: { avatar_preset: 'orbit', dispatcher_members: 3 },
+    resources: [],
+    created_at: '2026-08-01T00:00:00Z',
+    updated_at: '2026-08-01T00:00:00Z',
+  } as unknown as AgentProfileRead;
+
+  function renderSwitcher(onSwitchAgent: (id: string) => void) {
+    return render(
+      <I18nProvider>
+        <TooltipProvider>
+          <SidebarProvider>
+            <AppSidebar
+              variant="chat"
+              sessions={[]}
+              agents={[agent]}
+              currentAgent={agent}
+              currentRoleName="增长顾问"
+              switchAgents={[agent]}
+              switchDispatchers={[squad]}
+              onSwitchAgent={onSwitchAgent}
+              sessionFilter="all"
+              onSessionFilterChange={() => {}}
+              sessionFilterOptions={[{ value: 'all', label: '全部会話 · 0' }]}
+              isSessionUnread={() => false}
+              onOpenSession={() => {}}
+              onOpenHome={() => {}}
+              onOpenGallery={() => {}}
+              onRenameSession={() => {}}
+              onDeleteSession={() => {}}
+              onOpenAdmin={() => {}}
+            />
+          </SidebarProvider>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+  }
+
+  it('下拉里「员工小队」单独成组，并点了就对小队开草稿', async () => {
+    const user = userEvent.setup();
+    const onSwitchAgent = vi.fn();
+    renderSwitcher(onSwitchAgent);
+
+    await user.click(screen.getByLabelText('切换当前员工'));
+
+    expect(await screen.findByText('员工小队')).toBeTruthy();
+    expect(screen.getByText('员工小队 · 3 位同事')).toBeTruthy();
+
+    await user.click(screen.getByText('测试Multi'));
+    expect(onSwitchAgent).toHaveBeenCalledWith('dispatcher-1');
+  });
+
+  it('当前是小队时，底部动作改成「打开小队档案」', async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider>
+        <TooltipProvider>
+          <SidebarProvider>
+            <AppSidebar
+              variant="chat"
+              sessions={[]}
+              agents={[agent]}
+              currentAgent={squad}
+              currentRoleName=""
+              switchAgents={[agent]}
+              switchDispatchers={[squad]}
+              sessionFilter="all"
+              onSessionFilterChange={() => {}}
+              sessionFilterOptions={[{ value: 'all', label: '全部会话 · 0' }]}
+              isSessionUnread={() => false}
+              onOpenSession={() => {}}
+              onOpenHome={() => {}}
+              onOpenGallery={() => {}}
+              onRenameSession={() => {}}
+              onDeleteSession={() => {}}
+              onOpenAdmin={() => {}}
+            />
+          </SidebarProvider>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByLabelText('切换当前员工'));
+    expect(await screen.findByText('打开小队档案')).toBeTruthy();
   });
 });

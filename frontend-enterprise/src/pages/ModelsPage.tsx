@@ -622,7 +622,7 @@ export default function ModelsPage({
             {row.is_intent_recognition && <StatusBadge tone="blue">意图识别</StatusBadge>}
             {row.is_global_free && <StatusBadge tone="green">全局免费</StatusBadge>}
           </span>
-          <span className="truncate text-[#858b9c]">
+          <span className="truncate text-[#6d6d72]">
             {row.enabled ? '已启用' : '已停用'} · {row.api_protocol}
           </span>
         </div>
@@ -633,7 +633,7 @@ export default function ModelsPage({
       key: 'base_url',
       title: 'Base URL',
       className: 'whitespace-normal',
-      render: (row) => <span className="line-clamp-1 wrap-break-word text-[#858b9c]">{row.base_url || '-'}</span>,
+      render: (row) => <span className="line-clamp-1 wrap-break-word text-[#6d6d72]">{row.base_url || '-'}</span>,
     },
     {
       key: 'api_key',
@@ -641,7 +641,7 @@ export default function ModelsPage({
       width: 180,
       render: (row) =>
         row.api_key_masked ? (
-          <span className="block truncate font-mono text-[#858b9c]">{row.api_key_masked}</span>
+          <span className="block truncate font-mono text-[#6d6d72]">{row.api_key_masked}</span>
         ) : (
           <span className="block truncate text-[12px] font-medium text-[#e5484d]">密钥失效，请更新</span>
         ),
@@ -657,7 +657,7 @@ export default function ModelsPage({
 
   const renderMobileCard = (row: ModelConfigRead) => (
     <article
-      className="min-w-0 rounded-[8px] border border-[#eceef1] bg-white p-[14px]"
+      className="min-w-0 rounded-[8px] border border-[#ecebe7] bg-white p-[14px]"
       key={row.id}
     >
       <div className="flex min-w-0 items-start justify-between gap-[10px]">
@@ -668,14 +668,14 @@ export default function ModelsPage({
             {row.is_intent_recognition && <StatusBadge tone="blue">意图识别</StatusBadge>}
             {row.is_global_free && <StatusBadge tone="green">全局免费</StatusBadge>}
           </span>
-          <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">
+          <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">
             {row.enabled ? '已启用' : '已停用'} · {row.api_protocol}
           </span>
         </div>
         {renderActions(row)}
       </div>
-      <p className="mt-[8px] line-clamp-1 wrap-break-word text-[12px] text-[#858b9c]">{row.model}</p>
-      <p className="mt-[4px] line-clamp-1 wrap-break-word font-mono text-[12px] text-[#858b9c]">
+      <p className="mt-[8px] line-clamp-1 wrap-break-word text-[12px] text-[#6d6d72]">{row.model}</p>
+      <p className="mt-[4px] line-clamp-1 wrap-break-word font-mono text-[12px] text-[#6d6d72]">
         {row.api_key_masked || (
           <span className="font-medium text-[#e5484d]">密钥失效，请更新</span>
         )}
@@ -692,7 +692,7 @@ export default function ModelsPage({
           variant="outline"
           onClick={() => void load()}
           disabled={loading}
-          className="h-[34px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[20px] text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+          className="h-[34px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[20px] text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
         >
           <IconRefresh className={cn('size-[14px]', loading && 'animate-spin')} />
           刷新
@@ -709,13 +709,13 @@ export default function ModelsPage({
 
       <div className="flex flex-col gap-[24px] rounded-[20px_20px_0_0] bg-white p-[18px_18px_24px_18px] shadow-[0_-4px_16px_0_rgba(0,0,0,0.05)]">
         <div className="flex flex-col gap-[18px]">
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <IconModels className="size-[14px] shrink-0" />
             <span className="text-[14px] font-normal leading-none">模型列表</span>
           </div>
 
-          <label className="flex h-[34px] w-[300px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
-            <IconSearch className="size-[14px] shrink-0 text-[#858b9c]" />
+          <label className="flex h-[34px] w-[300px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
+            <IconSearch className="size-[14px] shrink-0 text-[#6d6d72]" />
             <input
               autoComplete="off"
               data-1p-ignore="true"
@@ -724,14 +724,14 @@ export default function ModelsPage({
               value={searchText}
               placeholder="搜索名称、模型、API 协议或 Base URL"
               onChange={(event) => setSearchText(event.target.value)}
-              className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#c0c6d4]"
+              className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#d6d1c9]"
             />
             {searchText && (
               <button
                 type="button"
                 aria-label="清除搜索"
                 onClick={() => setSearchText('')}
-                className="grid size-[16px] shrink-0 place-items-center text-[#c0c6d4] hover:text-[#858b9c]"
+                className="grid size-[16px] shrink-0 place-items-center text-[#d6d1c9] hover:text-[#6d6d72]"
               >
                 <IconClear className="size-[14px]" />
               </button>
@@ -742,7 +742,7 @@ export default function ModelsPage({
             {filteredRows.length ? (
               pagination.pagedItems.map(renderMobileCard)
             ) : (
-              <div className="py-[40px] text-center text-[13px] text-[#858b9c]">暂无模型</div>
+              <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">暂无模型</div>
             )}
           </div>
 
@@ -781,9 +781,9 @@ export default function ModelsPage({
           aria-describedby={undefined}
           className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[640px]"
         >
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <IconModels className="size-[14px] shrink-0" />
-            <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#757f9c]">
+            <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#6d6d72]">
               {selected ? `编辑模型：${selected.name}` : '新建模型'}
             </DialogTitle>
           </div>
@@ -891,14 +891,14 @@ export default function ModelsPage({
             <div className="mt-[16px] flex flex-wrap items-center gap-[24px]">
               <label className="flex cursor-pointer items-center gap-[8px]">
                 <Switch checked={form.is_default} onCheckedChange={(next) => updateForm('is_default', next)} />
-                <span className="text-[12px] font-medium text-[#464c5e]">设为默认</span>
+                <span className="text-[12px] font-medium text-[#3d3d3f]">设为默认</span>
               </label>
               <label className="flex cursor-pointer items-center gap-[8px]">
                 <Switch
                   checked={form.is_intent_recognition}
                   onCheckedChange={handleIntentSwitchToggle}
                 />
-                <span className="text-[12px] font-medium text-[#464c5e]">用于意图识别</span>
+                <span className="text-[12px] font-medium text-[#3d3d3f]">用于意图识别</span>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -917,7 +917,7 @@ export default function ModelsPage({
               </label>
               <label className="flex cursor-pointer items-center gap-[8px]">
                 <Switch checked={form.enabled} onCheckedChange={(next) => updateForm('enabled', next)} />
-                <span className="text-[12px] font-medium text-[#464c5e]">启用</span>
+                <span className="text-[12px] font-medium text-[#3d3d3f]">启用</span>
               </label>
             </div>
           </div>
@@ -927,7 +927,7 @@ export default function ModelsPage({
               variant="outline"
               disabled={saving}
               onClick={closeEditor}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
             >
               取消
             </UIButton>
@@ -971,7 +971,7 @@ export default function ModelsPage({
 function LabeledField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-[6px]">
-      <span className="text-[12px] font-medium text-[#464c5e]">{label}</span>
+      <span className="text-[12px] font-medium text-[#3d3d3f]">{label}</span>
       {children}
     </label>
   );

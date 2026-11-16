@@ -94,11 +94,11 @@ export default function SearchableSelect({
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            'h-[32px] w-[180px] justify-between rounded-[10px] border-[#e3e7f1] px-[10px] text-[12px] font-normal text-[#18181a] hover:bg-[#f6f6f6]',
+            'h-[32px] w-[180px] justify-between rounded-[10px] border-[#e6e4df] px-[10px] text-[12px] font-normal text-[#18181a] hover:bg-[#f2f1ee]',
             className,
           )}
         >
-          <span className={cn('min-w-0 flex-1 truncate text-left', !selected && 'text-[#858b9c]')}>
+          <span className={cn('min-w-0 flex-1 truncate text-left', !selected && 'text-[#6d6d72]')}>
             {selected ? selected.label : placeholder}
           </span>
           <svg
@@ -109,7 +109,7 @@ export default function SearchableSelect({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={cn('size-[14px] shrink-0 text-[#858b9c] transition-transform', open && 'rotate-180')}
+            className={cn('size-[14px] shrink-0 text-[#6d6d72] transition-transform', open && 'rotate-180')}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
@@ -137,7 +137,7 @@ export default function SearchableSelect({
         />
         <div className="flex max-h-[240px] min-h-[60px] flex-col gap-[2px] overflow-y-auto pt-[2px]">
           {filtered.length === 0 ? (
-            <span className="py-[12px] text-center text-[12px] text-[#858b9c]">{emptyText}</span>
+            <span className="py-[12px] text-center text-[12px] text-[#6d6d72]">{emptyText}</span>
           ) : (
             filtered.map((option, index) => (
               <button
@@ -149,7 +149,7 @@ export default function SearchableSelect({
                 onClick={() => choose(option)}
                 className={cn(
                   'flex w-full items-center justify-between gap-[8px] rounded-[8px] px-[10px] py-[6px] text-left text-[12px] text-[#18181a] outline-none',
-                  index === activeIndex && 'bg-[#f2f3f7]',
+                  index === activeIndex && 'bg-[#f2f1ee]',
                   option.value === value && 'font-medium',
                 )}
               >

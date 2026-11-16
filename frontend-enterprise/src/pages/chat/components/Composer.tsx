@@ -219,42 +219,6 @@ export default function Composer({
             <span className="min-w-0 text-[12px] leading-[18px]">{freeModelNoticeText}</span>
           </div>
         )}
-        {/* 「互联网检索」开关（原员工头像位）：每轮对话的选择，关闭时
-            请求体不带 web_search，后端能力根本不进冻结清单。 */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={webSearchEnabled}
-          aria-label={t('互联网检索')}
-          title={webSearchEnabled
-            ? t('已开启：员工会先查企业知识库，证据不足或涉及时效性问题时自动联网检索')
-            : t('已关闭：仅使用企业知识库回答。开启后知识库证据不足时会联网检索')}
-          onClick={() => setWebSearchEnabled((current) => !current)}
-          className={cn(
-            CHAT_COMPOSER_WEB_SEARCH_CLASS,
-            webSearchEnabled
-              ? 'border-[#0f766e] bg-[#0f766e] text-white shadow-[0_2px_10px_rgba(15,118,110,0.28)]'
-              : 'border-[#e3e7f1] bg-white text-[#5f687b] shadow-[0_2px_10px_rgba(24,24,26,0.06)] hover:border-[#cdd3de]',
-          )}
-        >
-          <Globe className="size-[14px] shrink-0" strokeWidth={1.8} />
-          <span className="shrink-0">{t('互联网检索')}</span>
-          <span
-            className={cn(
-              'relative inline-block h-[14px] w-[24px] shrink-0 rounded-full transition-colors',
-              webSearchEnabled ? 'bg-white/30' : 'bg-[#e3e7f1]',
-            )}
-          >
-            <span
-              className={cn(
-                'absolute top-[2px] size-[10px] rounded-full transition-all',
-                webSearchEnabled
-                  ? 'left-[12px] bg-white'
-                  : 'left-[2px] bg-white shadow-[0_0_0_0.5px_rgba(24,24,26,0.12)]',
-              )}
-            />
-          </span>
-        </button>
         <form
           className={cn(CHAT_COMPOSER_FORM_CLASS, composerDragActive && CHAT_COMPOSER_FORM_DRAG_CLASS)}
           onDragEnter={handleComposerDragEnter}
@@ -314,7 +278,7 @@ export default function Composer({
           {slashMenuOpen && (
             <div
               ref={slashMenuRef}
-              className="absolute bottom-[calc(100%+8px)] left-0 z-30 grid max-h-[320px] w-full overflow-y-auto rounded-[14px] border border-[#e3e7f1] bg-white p-[6px] shadow-[0_18px_42px_rgba(24,24,26,0.16)]"
+              className="absolute bottom-[calc(100%+8px)] left-0 z-30 grid max-h-[320px] w-full overflow-y-auto rounded-[14px] border border-[rgba(24,24,26,0.08)] bg-white p-[6px] shadow-[0_18px_42px_rgba(24,24,26,0.16)]"
               role="listbox"
               aria-label={t('可用斜杠指令')}
             >
@@ -327,13 +291,13 @@ export default function Composer({
                   aria-selected={index === slashSelectionIndex}
                   className={cn(
                     'flex min-w-0 items-center gap-[10px] rounded-[10px] px-[10px] py-[9px] text-left transition-colors',
-                    index === slashSelectionIndex ? 'bg-[#f3f5f8]' : 'hover:bg-[#f7f8fa]',
+                    index === slashSelectionIndex ? 'bg-[#f0efec]' : 'hover:bg-[#f2f1ee]',
                   )}
                   onMouseDown={(event) => event.preventDefault()}
                   onMouseEnter={() => setSlashSelectionIndex(index)}
                   onClick={() => selectSlashCommand(index)}
                 >
-                  <span className="inline-grid size-[30px] shrink-0 place-items-center rounded-[9px] bg-[#eef1f5] text-[#5f687b]">
+                  <span className="inline-grid size-[30px] shrink-0 place-items-center rounded-[9px] bg-[#eef1f5] text-[#4b4b50]">
                     <StaffdeckIcon
                       name={command.kind === 'sop' ? 'branch' : command.kind === 'skill' ? 'spark' : 'tool'}
                       size={15}
@@ -342,15 +306,15 @@ export default function Composer({
                   <span className="grid min-w-0 flex-1 gap-[2px]">
                     <span className="flex min-w-0 items-center gap-[7px]">
                       <strong className="truncate text-[13px] font-medium text-[#18181a]">{command.label}</strong>
-                      <span className="shrink-0 rounded-full bg-[#edf0f4] px-[7px] py-[2px] text-[10px] text-[#687184]">
+                      <span className="shrink-0 rounded-full bg-[#edf0f4] px-[7px] py-[2px] text-[10px] text-[#8f8f93]">
                         {slashCommandKindLabel(command.kind)}
                       </span>
                     </span>
-                    <span className="truncate text-[11px] text-[#858b9c]">
+                    <span className="truncate text-[11px] text-[#6d6d72]">
                       {command.description || command.command}
                     </span>
                   </span>
-                  <code className="shrink-0 text-[11px] text-[#858b9c]">{command.command}</code>
+                  <code className="shrink-0 text-[11px] text-[#6d6d72]">{command.command}</code>
                 </button>
               ))}
             </div>
@@ -455,6 +419,43 @@ export default function Composer({
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+              {/* 「互联网检索」开关：每轮对话的选择，关闭时请求体不带 web_search，
+                  后端能力根本不进冻结清单。原来浮在输入卡上方（原员工头像位），
+                  会话窗口上线后那个位置正好压在窗口的分隔线上，改到工具行内。 */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={webSearchEnabled}
+                aria-label={t('互联网检索')}
+                title={webSearchEnabled
+                  ? t('已开启：员工会先查企业知识库，证据不足或涉及时效性问题时自动联网检索')
+                  : t('已关闭：仅使用企业知识库回答。开启后知识库证据不足时会联网检索')}
+                onClick={() => setWebSearchEnabled((current) => !current)}
+                className={cn(
+                  CHAT_COMPOSER_WEB_SEARCH_CLASS,
+                  webSearchEnabled
+                    ? 'border-transparent bg-[rgba(15,118,110,0.12)] text-[#0b5a55] shadow-[inset_0_0_0_1px_rgba(15,118,110,0.14)]'
+                    : 'border-transparent bg-[rgba(24,24,26,0.05)] text-[#6d6d72] hover:bg-[rgba(24,24,26,0.08)] hover:text-[#18181a]',
+                )}
+              >
+                <Globe className="size-[14px] shrink-0" strokeWidth={1.8} />
+                <span className="shrink-0">{t('互联网检索')}</span>
+                <span
+                  className={cn(
+                    'relative inline-block h-[12px] w-[20px] shrink-0 rounded-full transition-colors',
+                    webSearchEnabled ? 'bg-[#0f766e]' : 'bg-[rgba(24,24,26,0.14)]',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-[2px] size-[8px] rounded-full bg-white transition-all',
+                      webSearchEnabled
+                        ? 'left-[10px]'
+                        : 'left-[2px] shadow-[0_0_0_0.5px_rgba(24,24,26,0.12)]',
+                    )}
+                  />
+                </span>
+              </button>
               {composerIntent === 'scheduled_task' && (
                 <button
                   type="button"
@@ -469,7 +470,7 @@ export default function Composer({
                 >
                   <span className={cn(
                     'relative inline-grid size-[16px] shrink-0 place-items-center rounded-full transition-colors',
-                    scheduleIntentHovered ? 'text-[#18181a]' : 'text-[#858b9c]',
+                    scheduleIntentHovered ? 'text-[#18181a]' : 'text-[#6d6d72]',
                   )}
                   >
                     <StaffdeckIcon

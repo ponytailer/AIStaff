@@ -140,13 +140,13 @@ const TASK_FILTER_TABS: { value: TaskFilter; label: string }[] = [
 const POLL_INTERVAL_MS = 15_000;
 
 const MENU_ITEM_CLASS =
-  'w-[110px] cursor-pointer gap-[4px] rounded-[10px] px-[12px] py-[6px] text-[12px] text-[#858b9c] focus:text-[#18181a] [&_svg]:size-[14px]';
+  'w-[110px] cursor-pointer gap-[4px] rounded-[10px] px-[12px] py-[6px] text-[12px] text-[#6d6d72] focus:text-[#18181a] [&_svg]:size-[14px]';
 const MENU_ITEM_DANGER_CLASS =
   'w-[110px] cursor-pointer gap-[4px] rounded-[10px] px-[12px] py-[6px] text-[12px] text-[#d20b0b] focus:bg-[#fce7e7] focus:text-[#d20b0b] focus:[&_svg]:text-[#d20b0b]! [&_svg]:size-[14px]';
-const PANEL_CLASS = 'rounded-[14px] border border-[#f2f3f7] bg-white p-[16px]';
-const SECTION_HEAD_CLASS = 'mb-[16px] flex flex-wrap items-center gap-[6px] px-[12px] text-[#757f9c]';
+const PANEL_CLASS = 'rounded-[14px] border border-[#f2f1ee] bg-white p-[16px]';
+const SECTION_HEAD_CLASS = 'mb-[16px] flex flex-wrap items-center gap-[6px] px-[12px] text-[#6d6d72]';
 const MOBILE_META_CLASS =
-  'mt-[12px] grid grid-cols-2 gap-[8px] max-[520px]:grid-cols-1 [&>span]:min-w-0 [&>span]:rounded-[10px] [&>span]:border [&>span]:border-[#eef0f4] [&>span]:bg-[#fafbfc] [&>span]:px-[10px] [&>span]:py-[9px] [&>span]:text-[12px] [&>span]:leading-[1.45] [&>span]:text-[#18181a] [&>span]:[overflow-wrap:anywhere] [&_b]:mb-[3px] [&_b]:block [&_b]:text-[11px] [&_b]:font-semibold [&_b]:text-[#858b9c]';
+  'mt-[12px] grid grid-cols-2 gap-[8px] max-[520px]:grid-cols-1 [&>span]:min-w-0 [&>span]:rounded-[10px] [&>span]:border [&>span]:border-[#ecebe7] [&>span]:bg-[#f2f1ee] [&>span]:px-[10px] [&>span]:py-[9px] [&>span]:text-[12px] [&>span]:leading-[1.45] [&>span]:text-[#18181a] [&>span]:[overflow-wrap:anywhere] [&_b]:mb-[3px] [&_b]:block [&_b]:text-[11px] [&_b]:font-semibold [&_b]:text-[#6d6d72]';
 
 /**
  * 「超级管理员 → 任务监控」子页面。
@@ -314,7 +314,7 @@ export default function ScheduledTaskMonitorTab() {
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="flex w-auto min-w-0 flex-col gap-[4px] rounded-[14px] border-0 bg-white p-[4px] shadow-[0px_0px_8px_rgba(0,0,0,0.1)] ring-0 [--accent:#F6F6F6] [--accent-foreground:#18181A]"
+          className="flex w-auto min-w-0 flex-col gap-[4px] rounded-[14px] border-0 bg-white p-[4px] shadow-[0px_0px_8px_rgba(0,0,0,0.1)] ring-0 [--accent:#f2f1ee] [--accent-foreground:#18181A]"
         >
           <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => openTaskRuns(row.id)}>
             <IconListBulleted />
@@ -332,7 +332,7 @@ export default function ScheduledTaskMonitorTab() {
                   {row.status === 'active' ? '暂停' : '启用'}
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator className="my-[2px] bg-[#eef0f4]" />
+              <DropdownMenuSeparator className="my-[2px] bg-[#ecebe7]" />
               <DropdownMenuItem
                 variant="destructive"
                 className={MENU_ITEM_DANGER_CLASS}
@@ -442,7 +442,7 @@ export default function ScheduledTaskMonitorTab() {
             variant="link"
             disabled={!row.session_id}
             onClick={() => openChatSession(row.session_id)}
-            className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#c0c6d4]"
+            className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#d6d1c9]"
           >
             查看会话
           </UIButton>
@@ -459,12 +459,12 @@ export default function ScheduledTaskMonitorTab() {
   ];
 
   const renderTaskMobileCard = (row: MonitorTaskItem) => (
-    <article key={row.id} className="rounded-[14px] border border-[#eef0f4] bg-white p-[14px]">
+    <article key={row.id} className="rounded-[14px] border border-[#ecebe7] bg-white p-[14px]">
       <div className="flex items-start justify-between gap-[10px]">
         <strong className="min-w-0 text-[14px] font-semibold text-[#18181a]">{row.title}</strong>
         <TaskStatusBadge status={row.status} />
       </div>
-      <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#858b9c]">{row.prompt}</p>
+      <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#6d6d72]">{row.prompt}</p>
       <div className={MOBILE_META_CLASS}>
         <span>
           <b>所属员工</b>
@@ -488,7 +488,7 @@ export default function ScheduledTaskMonitorTab() {
   );
 
   const renderRunMobileCard = (row: MonitorRunItem) => (
-    <article key={row.id} className="rounded-[14px] border border-[#eef0f4] bg-white p-[14px]">
+    <article key={row.id} className="rounded-[14px] border border-[#ecebe7] bg-white p-[14px]">
       <div className="flex items-start justify-between gap-[10px]">
         <strong className="min-w-0 text-[14px] font-semibold text-[#18181a]">
           {row.task_title || row.scheduled_task_id}
@@ -505,7 +505,7 @@ export default function ScheduledTaskMonitorTab() {
           {row.duration_ms != null ? formatDuration(row.duration_ms) : '—'}
         </span>
       </div>
-      <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#858b9c]">
+      <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#6d6d72]">
         {row.error || row.result_summary || '暂无结果'}
       </p>
       <div className="mt-[12px] flex justify-end">
@@ -513,7 +513,7 @@ export default function ScheduledTaskMonitorTab() {
           variant="link"
           disabled={!row.session_id}
           onClick={() => openChatSession(row.session_id)}
-          className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#c0c6d4]"
+          className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#d6d1c9]"
         >
           查看会话
         </UIButton>
@@ -556,7 +556,7 @@ export default function ScheduledTaskMonitorTab() {
               onClick={() => setAutoRefresh((prev) => !prev)}
               className={cn(
                 'rounded-full px-[10px] py-[3px] transition-colors',
-                autoRefresh ? 'bg-[#e8f0ff] text-[#1a71ff]' : 'bg-[#f2f3f7] text-[#858b9c]',
+                autoRefresh ? 'bg-[#e8f0ff] text-[#1a71ff]' : 'bg-[#f2f1ee] text-[#6d6d72]',
               )}
             >
               自动刷新 {autoRefresh ? '开' : '关'}
@@ -564,7 +564,7 @@ export default function ScheduledTaskMonitorTab() {
             <button
               type="button"
               onClick={() => void load('manual')}
-              className="rounded-full bg-[#f2f3f7] px-[10px] py-[3px] text-[#464c5e] transition-colors hover:bg-[#e8eaef]"
+              className="rounded-full bg-[#f2f1ee] px-[10px] py-[3px] text-[#3d3d3f] transition-colors hover:bg-[#e8eaef]"
             >
               立即刷新
             </button>
@@ -598,7 +598,7 @@ export default function ScheduledTaskMonitorTab() {
           </div>
 
           <div>
-            <p className="mb-[8px] text-[12px] font-medium text-[#464c5e]">
+            <p className="mb-[8px] text-[12px] font-medium text-[#3d3d3f]">
               {`Worker（${runtime?.workers.length ?? 0} 个在线）`}
             </p>
             {runtime?.workers.length ? (
@@ -606,7 +606,7 @@ export default function ScheduledTaskMonitorTab() {
                 {runtime.workers.map((worker) => (
                   <div
                     key={worker.name || `${worker.hostname}-${worker.pid}`}
-                    className="flex flex-wrap items-center gap-[10px] rounded-[10px] bg-[#fafbfc] px-[12px] py-[9px] text-[12px] text-[#464c5e]"
+                    className="flex flex-wrap items-center gap-[10px] rounded-[10px] bg-[#f2f1ee] px-[12px] py-[9px] text-[12px] text-[#3d3d3f]"
                   >
                     <StatusBadge tone={worker.state === 'busy' ? 'blue' : 'green'}>
                       {worker.state === 'busy' ? '执行中' : '空闲'}
@@ -641,13 +641,13 @@ export default function ScheduledTaskMonitorTab() {
         <div className={SECTION_HEAD_CLASS}>
           <IconAlarm className="size-[14px] shrink-0" />
           <span className="text-[14px] font-normal leading-none">定时任务</span>
-          <label className="ml-auto flex h-[30px] w-[220px] items-center gap-[6px] rounded-[10px] border border-[#e3e7f1] bg-white px-[10px]">
-            <IconSearch className="size-[13px] shrink-0 text-[#858b9c]" />
+          <label className="ml-auto flex h-[30px] w-[220px] items-center gap-[6px] rounded-[10px] border border-[#e6e4df] bg-white px-[10px]">
+            <IconSearch className="size-[13px] shrink-0 text-[#6d6d72]" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="搜索任务 / 员工"
-              className="h-full w-full min-w-0 bg-transparent text-[12px] text-[#18181a] outline-none placeholder:text-[#c0c6d4]"
+              className="h-full w-full min-w-0 bg-transparent text-[12px] text-[#18181a] outline-none placeholder:text-[#d6d1c9]"
             />
           </label>
         </div>
@@ -663,7 +663,7 @@ export default function ScheduledTaskMonitorTab() {
           {visibleTasks.length ? (
             visibleTasks.map(renderTaskMobileCard)
           ) : (
-            <div className="py-[40px] text-center text-[13px] text-[#858b9c]">暂无定时任务</div>
+            <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">暂无定时任务</div>
           )}
         </div>
         <div className="hidden md:block">
@@ -692,7 +692,7 @@ export default function ScheduledTaskMonitorTab() {
           <IconAlignJustify className="size-[14px] shrink-0" />
           <span className="text-[14px] font-normal leading-none">执行记录</span>
           {selectedTask && (
-            <span className="ml-auto flex items-center gap-[8px] text-[11px] text-[#464c5e]">
+            <span className="ml-auto flex items-center gap-[8px] text-[11px] text-[#3d3d3f]">
               已按任务筛选：<b className="text-[#18181a]">{selectedTask.title}</b>
               <button
                 type="button"
@@ -716,7 +716,7 @@ export default function ScheduledTaskMonitorTab() {
           {filteredRuns.length ? (
             filteredRuns.map(renderRunMobileCard)
           ) : (
-            <div className="py-[40px] text-center text-[13px] text-[#858b9c]">暂无执行记录</div>
+            <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">暂无执行记录</div>
           )}
         </div>
         <div className="hidden md:block">
@@ -770,15 +770,15 @@ function RuntimeTile({
   return (
     <div
       className={cn(
-        'rounded-[11px] border border-[#eef0f4] bg-[#fafbfc] px-[12px] py-[10px]',
+        'rounded-[11px] border border-[#ecebe7] bg-[#f2f1ee] px-[12px] py-[10px]',
         danger && 'border-[#f6c9c9] bg-[#fdf3f3]',
       )}
     >
       <div className={cn('text-[20px] font-semibold leading-none', danger ? 'text-[#d20b0b]' : 'text-[#18181a]')}>
         {value}
       </div>
-      <div className="mt-[6px] text-[12px] font-medium text-[#464c5e]">{label}</div>
-      <div className="mt-[2px] text-[11px] leading-[16px] text-[#858b9c]">{hint}</div>
+      <div className="mt-[6px] text-[12px] font-medium text-[#3d3d3f]">{label}</div>
+      <div className="mt-[2px] text-[11px] leading-[16px] text-[#6d6d72]">{hint}</div>
     </div>
   );
 }

@@ -519,7 +519,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
           </DropdownMenuItem>
           {canManageCurrentScope && !isMcpChild && (
             <>
-              <DropdownMenuSeparator className="my-[2px] bg-[#eef0f4]" />
+              <DropdownMenuSeparator className="my-[2px] bg-[#ecebe7]" />
               <DropdownMenuItem
                 variant="destructive"
                 className={MENU_ITEM_DANGER_CLASS}
@@ -546,7 +546,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
           <span className="truncate font-medium leading-[18px] text-[#18181a]" title={row.display_name || row.name}>
             {row.display_name || row.name}
           </span>
-          <span className="truncate text-[#858b9c]" title={row.name}>
+          <span className="truncate text-[#6d6d72]" title={row.name}>
             {row.name}
           </span>
         </div>
@@ -571,7 +571,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
       title: '创建者',
       width: 120,
       render: (row) => (
-        <span className="block truncate text-[#858b9c]" title={resourceCreatorName(row)}>
+        <span className="block truncate text-[#6d6d72]" title={resourceCreatorName(row)}>
           {resourceCreatorName(row) || '-'}
         </span>
       ),
@@ -581,7 +581,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
       key: 'url',
       title: 'URL',
       className: 'whitespace-normal',
-      render: (row) => <span className="line-clamp-1 wrap-break-word text-[#858b9c]">{row.url}</span>,
+      render: (row) => <span className="line-clamp-1 wrap-break-word text-[#6d6d72]">{row.url}</span>,
     },
     {
       key: 'enabled',
@@ -623,7 +623,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
               <StatusBadge tone="blue">工具集</StatusBadge>
             </span>
           </span>
-          <span className="truncate text-[#858b9c]" title={row.name}>
+          <span className="truncate text-[#6d6d72]" title={row.name}>
             {row.name}
           </span>
         </div>
@@ -658,14 +658,14 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
       title: '端点',
       className: 'whitespace-normal',
       render: (row) => (
-        <span className="line-clamp-1 wrap-break-word text-[#858b9c]">{serverEndpoint(row.connection)}</span>
+        <span className="line-clamp-1 wrap-break-word text-[#6d6d72]">{serverEndpoint(row.connection)}</span>
       ),
     },
     {
       key: 'tool_count',
       title: '工具数',
       width: 110,
-      render: (row) => <span className="text-[#858b9c]">{serverToolCount(row)} 个工具</span>,
+      render: (row) => <span className="text-[#6d6d72]">{serverToolCount(row)} 个工具</span>,
     },
     {
       key: 'enabled',
@@ -714,8 +714,8 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
           <strong className="block truncate text-[14px] font-semibold text-[#18181a]">
             {row.display_name || row.name}
           </strong>
-          <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.name}</span>
-          <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">创建者：{resourceCreatorName(row) || '-'}</span>
+          <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{row.name}</span>
+          <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">创建者：{resourceCreatorName(row) || '-'}</span>
         </div>
         {renderActions(row)}
       </div>
@@ -732,7 +732,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
           </StatusBadge>
         )}
       </div>
-      <p className="mt-[8px] line-clamp-1 wrap-break-word text-[12px] text-[#858b9c]">
+      <p className="mt-[8px] line-clamp-1 wrap-break-word text-[12px] text-[#6d6d72]">
         {row.method} · {row.url}
       </p>
     </article>
@@ -753,7 +753,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
           variant="outline"
           onClick={() => void load()}
           disabled={loading}
-          className="h-[34px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[20px] text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+          className="h-[34px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[20px] text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
         >
           <IconRefresh className={cn('size-[14px]', loading && 'animate-spin')} />
           刷新
@@ -798,7 +798,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
 
         {visibleServers.length > 0 && (
           <div className="flex flex-col gap-[18px]">
-            <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+            <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
               <ApiOutlined className="size-[14px] shrink-0" />
               <span className="text-[14px] font-normal leading-none">MCP 服务器（工具集）</span>
             </div>
@@ -820,7 +820,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
                       <strong className="block truncate text-[14px] font-semibold text-[#18181a]">
                         {row.display_name || row.name}
                       </strong>
-                      <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.name}</span>
+                      <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{row.name}</span>
                     </div>
                     <span className="shrink-0">
                       <StatusBadge tone="blue">工具集</StatusBadge>
@@ -832,7 +832,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
                     <StatusBadge tone={row.enabled ? 'green' : 'gray'}>{row.enabled ? '已启用' : '已停用'}</StatusBadge>
                     <StatusBadge tone="gray">{serverToolCount(row)} 个工具</StatusBadge>
                   </div>
-                  <p className="mt-[8px] line-clamp-1 wrap-break-word text-[12px] text-[#858b9c]">
+                  <p className="mt-[8px] line-clamp-1 wrap-break-word text-[12px] text-[#6d6d72]">
                     {serverEndpoint(row.connection)}
                   </p>
                   <div className="mt-[10px] flex items-center gap-[8px]">
@@ -863,14 +863,14 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
         )}
 
         <div className="flex flex-col gap-[18px]">
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <IconBriefcase className="size-[14px] shrink-0" />
             <span className="text-[14px] font-normal leading-none">{listLabel}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-[16px]">
-            <label className="flex h-[34px] w-[300px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
-              <IconSearch className="size-[14px] shrink-0 text-[#858b9c]" />
+            <label className="flex h-[34px] w-[300px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
+              <IconSearch className="size-[14px] shrink-0 text-[#6d6d72]" />
               <input
                 autoComplete="off"
                 data-1p-ignore="true"
@@ -879,14 +879,14 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
                 value={searchText}
                 placeholder="搜索工具名称、描述、URL 或分组"
                 onChange={(event) => setSearchText(event.target.value)}
-                className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#c0c6d4]"
+                className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#d6d1c9]"
               />
               {searchText && (
                 <button
                   type="button"
                   aria-label="清除搜索"
                   onClick={() => setSearchText('')}
-                  className="grid size-[16px] shrink-0 place-items-center text-[#c0c6d4] hover:text-[#858b9c]"
+                  className="grid size-[16px] shrink-0 place-items-center text-[#d6d1c9] hover:text-[#6d6d72]"
                 >
                   <IconClear className="size-[14px]" />
                 </button>
@@ -910,7 +910,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
             {filteredRows.length ? (
               pagination.pagedItems.map(renderMobileCard)
             ) : (
-              <div className="py-[40px] text-center text-[13px] text-[#858b9c]">{listEmptyText}</div>
+              <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">{listEmptyText}</div>
             )}
           </div>
 
@@ -958,7 +958,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
           label: (
             <>
               {item.display_name || item.name}
-              <span className="text-[#858b9c]"> · {item.name}</span>
+              <span className="text-[#6d6d72]"> · {item.name}</span>
             </>
           ),
         }))}
@@ -1068,14 +1068,14 @@ function ToolTypeSwitcher({ active, onProtocolChange }: { active: 'http' | 'mcp'
                 'relative flex min-w-[200px] flex-1 items-start gap-[10px] rounded-[12px] border px-[16px] py-[12px] text-left transition-all',
                 isActive
                   ? 'border-[#18181a] bg-[#18181a] shadow-[0_4px_12px_0_rgba(24,24,26,0.18)]'
-                  : 'border-[#e3e7f1] bg-white hover:border-[#cbd3e6] hover:bg-[#fafbfc]',
+                  : 'border-[#e6e4df] bg-white hover:border-[#ddd9d2] hover:bg-[#f2f1ee]',
               )}
               aria-pressed={isActive}
             >
               <span
                 className={cn(
                   'flex size-[28px] shrink-0 items-center justify-center rounded-[8px]',
-                  isActive ? 'bg-white/15 text-white' : 'bg-[#f2f3f7] text-[#757f9c]',
+                  isActive ? 'bg-white/15 text-white' : 'bg-[#f2f1ee] text-[#6d6d72]',
                 )}
               >
                 {option.value === 'mcp' ? <ApiOutlined className="size-[15px] shrink-0" /> : <IconTool className="size-[15px] shrink-0" />}
@@ -1084,7 +1084,7 @@ function ToolTypeSwitcher({ active, onProtocolChange }: { active: 'http' | 'mcp'
                 <span className={cn('text-[13px] font-semibold', isActive ? 'text-white' : 'text-[#18181a]')}>
                   {option.label}
                 </span>
-                <span className={cn('text-[12px] leading-[1.5]', isActive ? 'text-white/70' : 'text-[#858b9c]')}>
+                <span className={cn('text-[12px] leading-[1.5]', isActive ? 'text-white/70' : 'text-[#6d6d72]')}>
                   {option.hint}
                 </span>
               </span>
@@ -1246,14 +1246,14 @@ function ToolEditorPage({ mode, currentUser, onLogout }: { mode: 'new' | 'edit' 
 }
 
 const CARD_CLASS =
-  'rounded-[14px] border border-[#eceef1] bg-white';
+  'rounded-[14px] border border-[#ecebe7] bg-white';
 const CARD_TITLE_CLASS = 'text-[14px] font-medium text-[#18181a]';
 const FIELD_LABEL_CLASS = 'text-[13px] font-medium text-[#18181a]';
 const SUBSECTION_TITLE_CLASS = 'text-[13px] font-medium text-[#18181a]';
-const HINT_CLASS = 'text-[12px] leading-[1.55] text-[#858b9c]';
+const HINT_CLASS = 'text-[12px] leading-[1.55] text-[#6d6d72]';
 const MONO_INPUT_CLASS = 'font-mono text-[12px] leading-[1.65]';
 const RETURN_BUTTON_CLASS =
-  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-5 text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]';
+  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-5 text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]';
 const PRIMARY_BUTTON_CLASS =
   'h-8 gap-1 rounded-[10px] bg-[#18181a] px-5 text-[12px] font-normal text-white hover:bg-[#303030]';
 
@@ -1275,14 +1275,14 @@ function SectionCard({
   return (
     <section className={cn(CARD_CLASS, 'overflow-hidden', className)}>
       {(title || extra) && (
-        <div className="flex min-h-[54px] items-center justify-between gap-[12px] border-b border-[#eceef1] px-[20px] py-[10px]">
+        <div className="flex min-h-[54px] items-center justify-between gap-[12px] border-b border-[#ecebe7] px-[20px] py-[10px]">
           <div className={cn('min-w-0', CARD_TITLE_CLASS)}>{title}</div>
           {extra ? <div className="shrink-0">{extra}</div> : null}
         </div>
       )}
       <div className={cn('p-[20px]', bodyClassName)}>
         {loading ? (
-          <div className="py-[24px] text-center text-[13px] text-[#858b9c]">加载中…</div>
+          <div className="py-[24px] text-center text-[13px] text-[#6d6d72]">加载中…</div>
         ) : (
           children
         )}
@@ -1365,8 +1365,8 @@ export function ToolTestPage({ currentUser, onLogout }: ToolPageProps = {}) {
         <SectionCard title="工具信息" loading={loading && !tool} bodyClassName="flex flex-col gap-[16px]">
           {tool && (
             <>
-              <div className="grid grid-cols-[58px_minmax(0,1fr)] items-start gap-[16px] rounded-[14px] border border-[#eceef1] bg-[#fafbfc] p-[16px]">
-                <div className="grid size-[58px] place-items-center rounded-[16px] border border-[#eceef1] bg-white text-[24px] text-[#18181a]">
+              <div className="grid grid-cols-[58px_minmax(0,1fr)] items-start gap-[16px] rounded-[14px] border border-[#ecebe7] bg-[#f2f1ee] p-[16px]">
+                <div className="grid size-[58px] place-items-center rounded-[16px] border border-[#ecebe7] bg-white text-[24px] text-[#18181a]">
                   <ToolOutlined />
                 </div>
                 <div className="min-w-0">
@@ -1374,7 +1374,7 @@ export function ToolTestPage({ currentUser, onLogout }: ToolPageProps = {}) {
                   <h4 className="my-[4px] text-[18px] font-semibold wrap-break-word text-[#18181a]">
                     {tool.display_name || tool.name}
                   </h4>
-                  <p className="mb-[10px] text-[13px] leading-[1.65] wrap-break-word text-[#858b9c]">
+                  <p className="mb-[10px] text-[13px] leading-[1.65] wrap-break-word text-[#6d6d72]">
                     {tool.description || '暂无描述'}
                   </p>
                   <div className="flex flex-wrap items-center gap-[6px]">
@@ -1394,9 +1394,9 @@ export function ToolTestPage({ currentUser, onLogout }: ToolPageProps = {}) {
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="flex min-h-[78px] flex-col gap-[8px] rounded-[12px] border border-[#eceef1] bg-white px-[14px] py-[13px]"
+                    className="flex min-h-[78px] flex-col gap-[8px] rounded-[12px] border border-[#ecebe7] bg-white px-[14px] py-[13px]"
                   >
-                    <span className="text-[12px] font-semibold text-[#858b9c]">{item.label}</span>
+                    <span className="text-[12px] font-semibold text-[#6d6d72]">{item.label}</span>
                     <strong
                       className="min-w-0 truncate text-[14px] leading-[1.35] text-[#18181a]"
                       title={String(item.value)}
@@ -1407,8 +1407,8 @@ export function ToolTestPage({ currentUser, onLogout }: ToolPageProps = {}) {
                 ))}
               </div>
 
-              <div className="flex flex-col gap-[8px] rounded-[12px] border border-[#eceef1] bg-[#fafbfc] px-[16px] py-[14px]">
-                <span className="text-[12px] font-semibold text-[#858b9c]">调用地址</span>
+              <div className="flex flex-col gap-[8px] rounded-[12px] border border-[#ecebe7] bg-[#f2f1ee] px-[16px] py-[14px]">
+                <span className="text-[12px] font-semibold text-[#6d6d72]">调用地址</span>
                 <code className="block font-mono text-[13px] leading-[1.6] wrap-break-word text-[#18181a]">
                   {tool.method} {tool.url}
                 </code>
@@ -1708,7 +1708,7 @@ function McpServerEditorPage({ mode, currentUser, onLogout }: { mode: 'new' | 'e
       title: '描述',
       className: 'whitespace-normal',
       render: (row) => (
-        <span className="block wrap-break-word text-[#858b9c]">{row.description || '暂无描述'}</span>
+        <span className="block wrap-break-word text-[#6d6d72]">{row.description || '暂无描述'}</span>
       ),
     },
     {
@@ -1806,7 +1806,7 @@ function McpServerEditorPage({ mode, currentUser, onLogout }: { mode: 'new' | 'e
                 'rounded-[14px] border px-[16px] py-[14px] transition-colors',
                 values.apps_mode === 'auto'
                   ? 'border-[#b9ded4] bg-[#f1faf7]'
-                  : 'border-[#e5e7eb] bg-[#fafbfc]',
+                  : 'border-[#e5e7eb] bg-[#f2f1ee]',
               )}
             >
               <div className="flex items-center justify-between gap-[18px]">
@@ -1930,7 +1930,7 @@ function McpServerEditorPage({ mode, currentUser, onLogout }: { mode: 'new' | 'e
               </>
             )}
 
-            <div className="flex items-center justify-between rounded-[12px] border border-[#eceef1] bg-[#fafbfc] px-[14px] py-[12px]">
+            <div className="flex items-center justify-between rounded-[12px] border border-[#ecebe7] bg-[#f2f1ee] px-[14px] py-[12px]">
               <div className="flex flex-col gap-[2px]">
                 <span className={FIELD_LABEL_CLASS}>启用工具集</span>
                 <span className={HINT_CLASS}>停用后其下工具将无法被员工调用。</span>
@@ -1970,7 +1970,7 @@ function McpServerEditorPage({ mode, currentUser, onLogout }: { mode: 'new' | 'e
               emptyText="未发现工具"
             />
           ) : (
-            <div className="grid min-h-[180px] place-items-center rounded-[12px] border border-dashed border-[#eceef1] p-[20px] text-center text-[13px] text-[#858b9c]">
+            <div className="grid min-h-[180px] place-items-center rounded-[12px] border border-dashed border-[#ecebe7] p-[20px] text-center text-[13px] text-[#6d6d72]">
               点击「发现工具」后，这里会列出该 MCP Server 提供的工具。
             </div>
           )}
@@ -1996,7 +1996,7 @@ function ToolFormFields({
       <div className="grid grid-cols-1 gap-[16px] sm:grid-cols-2">
         <Field label="工具名称" htmlFor="tool-name">
           <div className="relative">
-            <ToolOutlined className="pointer-events-none absolute left-[10px] top-1/2 -translate-y-1/2 text-[#858b9c]" />
+            <ToolOutlined className="pointer-events-none absolute left-[10px] top-1/2 -translate-y-1/2 text-[#6d6d72]" />
             <Input
               id="tool-name"
               className="pl-[30px]"
@@ -2279,8 +2279,8 @@ function SavedToolTestCard({
         </UIButton>
       )}
     >
-      <div className="flex items-start justify-between gap-[12px] rounded-[12px] border border-[#eceef1] bg-[#fafbfc] px-[14px] py-[12px]">
-        <span className="min-w-0 flex-1 wrap-break-word text-[13px] leading-[1.65] text-[#858b9c]">
+      <div className="flex items-start justify-between gap-[12px] rounded-[12px] border border-[#ecebe7] bg-[#f2f1ee] px-[14px] py-[12px]">
+        <span className="min-w-0 flex-1 wrap-break-word text-[13px] leading-[1.65] text-[#6d6d72]">
           调用已保存的「{tool.display_name || tool.name}」，用于验证员工实际可用的工具返回。
         </span>
         <span className="shrink-0">
@@ -2301,7 +2301,7 @@ function SavedToolTestCard({
         {testResult ? (
           <CodeBlock className="max-h-[340px] whitespace-pre-wrap wrap-break-word" code={testResult} language="json" />
         ) : (
-          <div className="grid min-h-[180px] place-items-center rounded-[12px] border border-dashed border-[#eceef1] p-[20px] text-center text-[13px] text-[#858b9c]">
+          <div className="grid min-h-[180px] place-items-center rounded-[12px] border border-dashed border-[#ecebe7] p-[20px] text-center text-[13px] text-[#6d6d72]">
             点击调用后，这里会显示工具返回、错误信息和原始 data。
           </div>
         )}

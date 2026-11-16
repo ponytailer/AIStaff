@@ -272,7 +272,7 @@ export default function ModelSetupDialog({
 function LabeledField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex min-w-0 flex-col gap-[6px]">
-      <span className="text-[12px] font-medium text-[#464c5e]">{label}</span>
+      <span className="text-[12px] font-medium text-[rgba(24,24,26,0.8)]">{label}</span>
       {children}
     </label>
   );

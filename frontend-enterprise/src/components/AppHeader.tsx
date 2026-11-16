@@ -260,10 +260,10 @@ export default function AppHeader({
     (title !== undefined || description !== undefined) ? (
       <div className="flex min-h-[40px] flex-col justify-center gap-[4px]">
         {title !== undefined && (
-          <p className="text-[16px] font-medium leading-[normal] text-[#464c5e]">{title}</p>
+          <p className="text-[16px] font-medium leading-[normal] text-[#3d3d3f]">{title}</p>
         )}
         {description !== undefined && (
-          <p className="text-[14px] leading-[normal] text-[#757f9c]">{description}</p>
+          <p className="text-[14px] leading-[normal] text-[#6d6d72]">{description}</p>
         )}
       </div>
     ) : null
@@ -295,11 +295,11 @@ export default function AppHeader({
                   />
                 )}
               </span>
-              <IconChevronDown className="size-[14px] shrink-0 text-[#757F9C]" />
+              <IconChevronDown className="size-[14px] shrink-0 text-[#6d6d72]" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-fit min-w-0 rounded-[14px] border-0 bg-white p-[6px] shadow-[0px_16px_15px_rgba(0,0,0,0.1)] ring-0 [--accent:#F6F6F6] [--accent-foreground:#18181A]"
+              className="w-fit min-w-0 rounded-[14px] border-0 bg-white p-[6px] shadow-[0px_16px_15px_rgba(0,0,0,0.1)] ring-0 [--accent:#f2f1ee] [--accent-foreground:#18181A]"
             >
               {user && (
                 <>
@@ -348,13 +348,13 @@ export default function AppHeader({
                           {displayName}
                         </span>
                         {user.username && user.username !== displayName && (
-                          <span className="truncate text-[12px] text-[#858b9c]">
+                          <span className="truncate text-[12px] text-[#6d6d72]">
                             @{user.username}
                           </span>
                         )}
                         <span className="mt-[2px] flex min-w-0 items-center gap-[4px]">
-                          <span className="shrink-0 text-[12px] text-[#858b9c]">部门</span>
-                          <span className="truncate text-[12px] text-[#464c5e]">
+                          <span className="shrink-0 text-[12px] text-[#6d6d72]">部门</span>
+                          <span className="truncate text-[12px] text-[#3d3d3f]">
                             {user?.department || '未设置'}
                           </span>
                           <button
@@ -376,7 +376,7 @@ export default function AppHeader({
                             'inline-flex items-center rounded-full px-[12px] py-[4px] text-[10px] leading-none whitespace-nowrap',
                             isAdmin
                               ? 'bg-[#e8f0ff] text-[#1a71ff]'
-                              : 'bg-[#f2f3f7] text-[#858b9c]',
+                              : 'bg-[#f2f1ee] text-[#6d6d72]',
                           )}
                         >
                           {isAdmin ? '管理员' : '成员'}
@@ -399,13 +399,13 @@ export default function AppHeader({
                       )}
                     </div>
                   </div>
-                  <div className="mx-[6px] mb-[6px] h-px bg-[#eef0f4]" />
+                  <div className="mx-[6px] mb-[6px] h-px bg-[#ecebe7]" />
                 </>
               )}
               {user && (
                 <DropdownMenuItem
                   onSelect={() => setNotificationsOpen(true)}
-                  className="h-[36px] cursor-pointer gap-2 rounded-[10px] px-[12px] text-[14px] text-[#464C5E]"
+                  className="h-[36px] cursor-pointer gap-2 rounded-[10px] px-[12px] text-[14px] text-[#3d3d3f]"
                 >
                   <span className="relative inline-flex size-[16px] shrink-0 items-center justify-center">
                     <Bell className="size-[16px]" />
@@ -427,7 +427,7 @@ export default function AppHeader({
               {user && (
                 <DropdownMenuItem
                   onSelect={() => setApiKeyOpen(true)}
-                  className="h-[36px] cursor-pointer gap-2 rounded-[10px] px-[12px] text-[14px] text-[#464C5E]"
+                  className="h-[36px] cursor-pointer gap-2 rounded-[10px] px-[12px] text-[14px] text-[#3d3d3f]"
                 >
                   <KeyRound className="size-[16px]" />
                   API 全量密钥
@@ -436,7 +436,7 @@ export default function AppHeader({
               {user && (
                 <DropdownMenuItem
                   onSelect={() => navigate(EnterpriseRoute.BrowserExtension)}
-                  className="h-[36px] cursor-pointer gap-2 rounded-[10px] px-[12px] text-[14px] text-[#464C5E]"
+                  className="h-[36px] cursor-pointer gap-2 rounded-[10px] px-[12px] text-[14px] text-[#3d3d3f]"
                 >
                   <Puzzle className="size-[16px]" />
                   浏览器插件
@@ -444,7 +444,7 @@ export default function AppHeader({
               )}
               <DropdownMenuItem
                 onSelect={() => onLogout?.()}
-                className="h-[36px] cursor-pointer gap-2 rounded-[10px] px-[12px] text-[14px] text-[#464C5E]"
+                className="h-[36px] cursor-pointer gap-2 rounded-[10px] px-[12px] text-[14px] text-[#3d3d3f]"
               >
                 <IconLogout className="size-[16px]" />
                 退出登录

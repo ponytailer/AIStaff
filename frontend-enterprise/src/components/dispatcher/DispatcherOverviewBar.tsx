@@ -98,9 +98,9 @@ export default function DispatcherOverviewBar({
               <span className="text-[26px] font-semibold leading-none text-[#18181a]">
                 {stat.value === null ? (dash ? '·' : '—') : stat.value}
               </span>
-              <span className="text-[13px] text-[#464c5e]">{stat.label}</span>
+              <span className="text-[13px] text-[#3d3d3f]">{stat.label}</span>
             </span>
-            <span className="whitespace-nowrap text-[11.5px] text-[#858b9c]">{stat.sub}</span>
+            <span className="whitespace-nowrap text-[11.5px] text-[#6d6d72]">{stat.sub}</span>
           </div>
         ))}
       </div>

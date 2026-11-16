@@ -99,16 +99,16 @@ export default function DecisionApiDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         aria-describedby="decision-api-description"
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[820px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[820px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[26px] py-[22px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[26px] py-[22px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <Code2 className="size-[18px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">API 接入 · 决策助手</DialogTitle>
-              <DialogDescription id="decision-api-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="decision-api-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 用账号 API 密钥直接调用同一个 Laya 决策头，无需打开这个页面。
               </DialogDescription>
             </div>
@@ -121,7 +121,7 @@ export default function DecisionApiDialog({
               <KeyRound className="size-[15px] text-[#207451]" />
               第一步 · 拿到账号 API 全量密钥
             </div>
-            <ol className="mt-[10px] grid gap-[6px] text-[12px] leading-[19px] text-[#464c5e]">
+            <ol className="mt-[10px] grid gap-[6px] text-[12px] leading-[19px] text-[#3d3d3f]">
               <li>1. 点击右上角头像，选择「API 全量密钥」。</li>
               <li>2. 创建密钥并复制明文（仅显示一次，页面关掉就看不到）。</li>
               <li>
@@ -133,7 +133,7 @@ export default function DecisionApiDialog({
             </p>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="text-[13px] font-semibold text-[#18181a]">第二步 · 调用端点</div>
             <div className="mt-[10px] flex flex-wrap items-center gap-[8px]">
               <span className="rounded-[6px] bg-[#18181a] px-[8px] py-[3px] font-mono text-[10px] font-semibold text-white">
@@ -144,24 +144,24 @@ export default function DecisionApiDialog({
               </code>
             </div>
             <dl className="mt-[12px] grid gap-[8px] text-[12px] sm:grid-cols-[84px_minmax(0,1fr)]">
-              <dt className="text-[#757f9c]">请求头</dt>
+              <dt className="text-[#6d6d72]">请求头</dt>
               <dd>
-                <code className="font-mono text-[11.5px] text-[#464c5e]">Authorization: Bearer sd_live_…</code>
+                <code className="font-mono text-[11.5px] text-[#3d3d3f]">Authorization: Bearer sd_live_…</code>
               </dd>
-              <dt className="text-[#757f9c]">所需权限</dt>
+              <dt className="text-[#6d6d72]">所需权限</dt>
               <dd>
-                <code className="font-mono text-[11.5px] text-[#464c5e]">{requiredScope}</code>
+                <code className="font-mono text-[11.5px] text-[#3d3d3f]">{requiredScope}</code>
               </dd>
-              <dt className="text-[#757f9c]">请求体</dt>
-              <dd className="text-[#464c5e]">与本页表单一致：state.background + questions（key 自取，回包按同一 key 返回）。</dd>
+              <dt className="text-[#6d6d72]">请求体</dt>
+              <dd className="text-[#3d3d3f]">与本页表单一致：state.background + questions（key 自取，回包按同一 key 返回）。</dd>
             </dl>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="flex flex-wrap items-center justify-between gap-[10px]">
               <span className="text-[13px] font-semibold text-[#18181a]">第三步 · 复制示例代码</span>
               <div className="flex items-center gap-[6px]">
-                <span className="text-[11px] text-[#a3aaba]">请求体来源</span>
+                <span className="text-[11px] text-[#9a9a9f]">请求体来源</span>
                 <div className="flex items-center gap-[3px] rounded-[9px] bg-[#f4f5f8] p-[3px]">
                   <button
                     type="button"
@@ -169,7 +169,7 @@ export default function DecisionApiDialog({
                     title={formReady ? undefined : '当前表单未填写完整，先用官方示例演示'}
                     onClick={() => setSource('form')}
                     className={`rounded-[7px] px-[10px] py-[4px] text-[11.5px] transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-                      source === 'form' ? 'bg-white text-[#18181a] shadow-[0_1px_2px_rgba(24,31,46,0.10)]' : 'text-[#757f9c] hover:text-[#18181a]'
+                      source === 'form' ? 'bg-white text-[#18181a] shadow-[0_1px_2px_rgba(24,31,46,0.10)]' : 'text-[#6d6d72] hover:text-[#18181a]'
                     }`}
                   >
                     当前表单
@@ -178,7 +178,7 @@ export default function DecisionApiDialog({
                     type="button"
                     onClick={() => setSource('sample')}
                     className={`rounded-[7px] px-[10px] py-[4px] text-[11.5px] transition-colors ${
-                      source === 'sample' ? 'bg-white text-[#18181a] shadow-[0_1px_2px_rgba(24,31,46,0.10)]' : 'text-[#757f9c] hover:text-[#18181a]'
+                      source === 'sample' ? 'bg-white text-[#18181a] shadow-[0_1px_2px_rgba(24,31,46,0.10)]' : 'text-[#6d6d72] hover:text-[#18181a]'
                     }`}
                   >
                     官方示例
@@ -188,7 +188,7 @@ export default function DecisionApiDialog({
             </div>
 
             {!formReady && (
-              <p className="mt-[8px] text-[11px] text-[#a3aaba]">当前表单未填写完整，示例先用官方工单场景；填好后可切回「当前表单」。</p>
+              <p className="mt-[8px] text-[11px] text-[#9a9a9f]">当前表单未填写完整，示例先用官方工单场景；填好后可切回「当前表单」。</p>
             )}
 
             <Tabs value={language} onValueChange={(value) => setLanguage(value as SampleLanguage)} className="mt-[12px] gap-0">
@@ -227,9 +227,9 @@ export default function DecisionApiDialog({
             </Tabs>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="text-[13px] font-semibold text-[#18181a]">请求体与回包</div>
-            <div className="mt-[10px] grid gap-[8px] text-[12px] leading-[18px] text-[#464c5e]">
+            <div className="mt-[10px] grid gap-[8px] text-[12px] leading-[18px] text-[#3d3d3f]">
               <p>
                 <code className="font-mono text-[11.5px] text-[#18181a]">state.background</code>
                 ：决策背景，模型据此推理（必填）。
@@ -250,7 +250,7 @@ export default function DecisionApiDialog({
                 <code className="font-mono text-[11.5px] text-[#18181a]">score</code>
                 ：评分题，criteria 是档位文案数组，回包给期望档位、图例与各档位概率。
               </p>
-              <p className="text-[11.5px] text-[#757f9c]">
+              <p className="text-[11.5px] text-[#6d6d72]">
                 confidence 是判定把握：noul 取 max(p, 1-p)；choice / score 取赢家概率，偏低时建议人工复核。
               </p>
             </div>

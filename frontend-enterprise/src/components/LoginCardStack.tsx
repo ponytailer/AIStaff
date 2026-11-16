@@ -18,9 +18,9 @@ const BACK_CARDS = [
 ] as const;
 
 const TONE_CLASS: Record<string, string> = {
-  teal: 'bg-[rgba(15,118,110,0.10)] text-[#0f7268]',
+  teal: 'bg-[rgba(15,118,110,0.10)] text-[#0f766e]',
   orange: 'bg-[rgba(194,112,62,0.12)] text-[#c2703e]',
-  plain: 'bg-[#eef1f6] text-[#757f9c]',
+  plain: 'bg-[#eef1f6] text-[#6d6d72]',
 };
 
 /** 卡片骨架条的公共样式。 */
@@ -178,7 +178,7 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
                 <span className={`rounded-[7px] px-[10px] py-[3px] text-[11px] ${TONE_CLASS[card.tone]}`}>
                   数字员工
                 </span>
-                <span className="rounded-[7px] bg-[#eef1f6] px-[10px] py-[3px] text-[11px] text-[#757f9c]">
+                <span className="rounded-[7px] bg-[#eef1f6] px-[10px] py-[3px] text-[11px] text-[#6d6d72]">
                   执行记录
                 </span>
               </div>

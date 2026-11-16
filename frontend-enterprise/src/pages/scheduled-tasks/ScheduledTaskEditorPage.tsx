@@ -50,7 +50,7 @@ export function ScheduledTaskEditPage(props: ScheduledTaskPageProps = {}) {
 type FormErrors = Partial<Record<'title' | 'prompt' | 'run_at' | 'time' | 'weekdays', string>>;
 
 const CARD_CLASS =
-  'rounded-[14px] border border-[#eceef1] bg-white p-[20px]';
+  'rounded-[14px] border border-[#ecebe7] bg-white p-[20px]';
 const CARD_TITLE_CLASS = 'mb-[16px] text-[14px] font-medium text-[#18181a]';
 const FIELD_LABEL_CLASS = 'text-[13px] font-medium text-[#18181a]';
 const FIELD_ERROR_CLASS = 'text-[12px] leading-none text-[#d20b0b]';
@@ -224,7 +224,7 @@ function ScheduledTaskEditorPage({
         <Button
           variant="outline"
           onClick={() => navigate('/enterprise/scheduled-tasks')}
-          className="h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-5 text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+          className="h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-5 text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
         >
           <IconArrowRight className="size-3.5 rotate-180" />
           返回定时任务
@@ -247,7 +247,7 @@ function ScheduledTaskEditorPage({
                 任务名称
               </Label>
               <div className="relative">
-                <IconAlarm className="pointer-events-none absolute left-[10px] top-1/2 size-[14px] -translate-y-1/2 text-[#858b9c]" />
+                <IconAlarm className="pointer-events-none absolute left-[10px] top-1/2 size-[14px] -translate-y-1/2 text-[#6d6d72]" />
                 <Input
                   id="task-title"
                   className={cn('pl-[30px]', errors.title && 'border-destructive')}
@@ -279,7 +279,7 @@ function ScheduledTaskEditorPage({
                 ) : (
                   <span />
                 )}
-                <span className="text-[12px] leading-none text-[#858b9c]">
+                <span className="text-[12px] leading-none text-[#6d6d72]">
                   {values.prompt.length}/10000
                 </span>
               </div>
@@ -310,7 +310,7 @@ function ScheduledTaskEditorPage({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-[12px] leading-[18px] text-[#858b9c]">
+              <p className="text-[12px] leading-[18px] text-[#6d6d72]">
                 选择后每次唤醒都会由 Harness v2 强制启动该 SOP；未选择时仍由模型按任务判断。
               </p>
             </div>
@@ -332,7 +332,7 @@ function ScheduledTaskEditorPage({
                     <SelectItem value="pinned">固定使用保存时版本</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[12px] leading-[18px] text-[#858b9c]">
+                <p className="text-[12px] leading-[18px] text-[#6d6d72]">
                   {values.sop_version_policy === 'latest'
                     ? '每次运行前重新读取当前员工可用的最新已发布 SOP。'
                     : `保存时锁定主 SOP 及其嵌套子 SOP${
@@ -372,7 +372,7 @@ function ScheduledTaskEditorPage({
                   checked={values.status !== 'paused'}
                   onCheckedChange={(checked) => update('status', checked ? 'active' : 'paused')}
                 />
-                <span className="text-[13px] text-[#858b9c]">
+                <span className="text-[13px] text-[#6d6d72]">
                   {values.status !== 'paused' ? '启用' : '暂停'}
                 </span>
               </div>
@@ -484,7 +484,7 @@ function ScheduledTaskEditorPage({
               />
             </div>
 
-            <div className="rounded-[12px] border border-[#eef0f4] bg-[#fafbfc] px-[14px] py-[12px] text-[13px] leading-[1.6] text-[#858b9c]">
+            <div className="rounded-[12px] border border-[#ecebe7] bg-[#f2f1ee] px-[14px] py-[12px] text-[13px] leading-[1.6] text-[#6d6d72]">
               默认使用 forbid 并发策略：上一轮未结束时跳过本次唤醒，避免同一员工重复处理同一批任务。
             </div>
           </div>

@@ -158,7 +158,7 @@ export default function EvolutionPanel({ agentId }: { agentId: string }) {
         value={instruction}
         onChange={(event) => setInstruction(event.target.value)}
         placeholder="可选：补充本次改进目标，例如“只修复确认节点，不修改工具绑定”"
-        className="mt-4 min-h-[66px] w-full resize-y rounded-xl border border-[#e4e8f0] bg-[#fafbfc] px-3 py-2 text-[13px] leading-5 text-[#313642] outline-none focus:border-[#8fd6bb]"
+        className="mt-4 min-h-[66px] w-full resize-y rounded-xl border border-[#e4e8f0] bg-[#f2f1ee] px-3 py-2 text-[13px] leading-5 text-[#313642] outline-none focus:border-[#8fd6bb]"
       />
 
       <div className="mt-4 grid gap-3">
@@ -242,7 +242,7 @@ export default function EvolutionPanel({ agentId }: { agentId: string }) {
                   </div>
                   <div>
                     <strong className="text-[#394150]">结构化 Diff</strong>
-                    <div className="mt-1 max-h-[240px] overflow-auto rounded-lg bg-[#f7f8fa] p-2 font-mono text-[11px]">
+                    <div className="mt-1 max-h-[240px] overflow-auto rounded-lg bg-[#f2f1ee] p-2 font-mono text-[11px]">
                       {(proposal.diff ?? []).length === 0 ? '无修改' : (proposal.diff ?? []).map((item, index) => (
                         <div key={`${item.path}-${index}`} className="border-b border-[#e9edf3] py-1 last:border-0">
                           <span className="mr-2 text-[#12805c]">{item.op || 'change'}</span>

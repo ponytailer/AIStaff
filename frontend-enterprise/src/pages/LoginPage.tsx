@@ -205,7 +205,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             <span
               ref={brandRef}
               style={hiddenFrom(14)}
-              className="mr-[-4px] text-[20px] font-medium leading-[30px] tracking-[4px] text-[#757f9c]"
+              className="mr-[-4px] text-[20px] font-medium leading-[30px] tracking-[4px] text-[#6d6d72]"
             >
               地中海度假集团
             </span>
@@ -222,7 +222,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <p
             ref={subtitleRef}
             style={hiddenFrom(16)}
-            className="mt-[18px] max-w-[560px] text-[16px] leading-[26px] text-[#5b6274]"
+            className="mt-[18px] max-w-[560px] text-[16px] leading-[26px] text-[#55555a]"
           >
             把经验、流程与判断标准，沉淀成持续在岗的数字员工
           </p>
@@ -247,7 +247,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   <span className="shrink-0 text-[13px] font-medium text-[#18181a]">
                     {item.role}
                   </span>
-                  <span className="truncate text-[12.5px] text-[#757f9c]">{item.duty}</span>
+                  <span className="truncate text-[12.5px] text-[#6d6d72]">{item.duty}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-[6px] text-[12px] text-[#138a55]">
                   <i data-live-dot className="size-[6px] rounded-full bg-[#138a55]" />

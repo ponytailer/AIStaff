@@ -76,9 +76,9 @@ const ENTERPRISE_AGENT_STORAGE_KEY = 'ultrarag_enterprise_agent_scope';
  * 在对比范围内；两处各写一份 class 迟早会漂。
  */
 const HERO_PRIMARY_BUTTON_CLASS =
-  'inline-flex items-center justify-center gap-[7px] h-[40px] px-[20px] rounded-[12px] border-0 bg-[#0f7268] text-[13.5px] font-semibold text-white shadow-[0_10px_22px_-10px_rgba(15,114,104,0.85)] transition-all hover:bg-[#0c6158] hover:-translate-y-[1px] hover:shadow-[0_14px_26px_-10px_rgba(15,114,104,0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f7268]/35 focus-visible:ring-offset-2';
+  'inline-flex items-center justify-center gap-[7px] h-[40px] px-[20px] rounded-[12px] border-0 bg-[#0f766e] text-[13.5px] font-semibold text-white shadow-[0_10px_22px_-10px_rgba(15,114,104,0.85)] transition-all hover:bg-[#0c6158] hover:-translate-y-[1px] hover:shadow-[0_14px_26px_-10px_rgba(15,114,104,0.9)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/35 focus-visible:ring-offset-2';
 const HERO_SECONDARY_BUTTON_CLASS =
-  'inline-flex items-center justify-center gap-[4px] py-[8px] px-[12px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white text-[12px] font-normal text-[#858b9c] shadow-[0px_6px_6px_rgba(0,0,0,0.05)] hover:bg-[#f6f6f6] hover:text-[#858b9c]';
+  'inline-flex items-center justify-center gap-[4px] py-[8px] px-[12px] rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white text-[12px] font-normal text-[#6d6d72] shadow-[0px_6px_6px_rgba(0,0,0,0.05)] hover:bg-[#f2f1ee] hover:text-[#6d6d72]';
 
 export default function DashboardPage({
   currentUser,
@@ -481,27 +481,27 @@ export default function DashboardPage({
                 <h2 className="m-0 text-[22px] leading-none font-semibold text-[#18181a]">
                   {employeeDisplayName(selectedAgent)}
                 </h2>
-                <span className="text-[13px] leading-none text-[#757f9c]">{employee.roleName || employeeDisplayName(selectedAgent)}</span>
+                <span className="text-[13px] leading-none text-[#6d6d72]">{employee.roleName || employeeDisplayName(selectedAgent)}</span>
               </div>
 
               <div className="flex flex-wrap items-center gap-4">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f6f6f6] px-2.5 py-0.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f2f1ee] px-2.5 py-0.5">
                   <span
                     className="size-1.5 rounded-full ring-[1.5px] ring-white"
                     style={{ background: selectedAgent.status === 'active' ? '#22c55e' : '#c4c9d4' }}
                   />
-                  <span className="text-[12px] text-[#757f9c]">
+                  <span className="text-[12px] text-[#6d6d72]">
                     {selectedAgent.status === 'active' ? '在线' : '下线'}
                   </span>
                 </span>
-                <span className="text-[12px] text-[#757f9c]">创建者：{employeeCreator}</span>
-                <span className="text-[12px] text-[#757f9c]">入职时间：{employee.onboardedAt}</span>
+                <span className="text-[12px] text-[#6d6d72]">创建者：{employeeCreator}</span>
+                <span className="text-[12px] text-[#6d6d72]">入职时间：{employee.onboardedAt}</span>
                 <div className="flex flex-wrap items-center gap-3">
                   {employee.workStyles.slice(0, 3).map((item) => (
                     <Badge
                       key={item}
                       variant="outline"
-                      className="h-auto rounded-[10px] border-[0.5px] border-[#e3e7f1] px-4 py-1 text-[12px] font-normal text-[#757f9c]"
+                      className="h-auto rounded-[10px] border-[0.5px] border-[#e6e4df] px-4 py-1 text-[12px] font-normal text-[#6d6d72]"
                     >
                       {item}
                     </Badge>
@@ -509,7 +509,7 @@ export default function DashboardPage({
                 </div>
               </div>
 
-              <p className="m-0 line-clamp-2 max-w-[720px] text-[14px] leading-[22px] text-[#757f9c]">
+              <p className="m-0 line-clamp-2 max-w-[720px] text-[14px] leading-[22px] text-[#6d6d72]">
                 {systemSummary}
               </p>
 
@@ -667,7 +667,7 @@ function DispatcherProfileView({
                 <h2 className="m-0 text-[22px] leading-none font-semibold text-[#18181a]">
                   {dispatcher.name}
                 </h2>
-                <span className="whitespace-nowrap rounded-[5px] bg-[#e1f1ed] px-[6px] py-[2px] text-[11px] leading-none text-[#0f7268]">
+                <span className="whitespace-nowrap rounded-[5px] bg-[#e1f1ed] px-[6px] py-[2px] text-[11px] leading-none text-[#0f766e]">
                   员工小队 · 纯路由
                 </span>
                 {missingRule > 0 && (
@@ -679,7 +679,7 @@ function DispatcherProfileView({
 
               {/* 状态行：在线 / 兜底 / 模型 / 累计转接，统一用「分隔点」串起来，
                   不再是一个个散落的灰色文本。模型名从原来那张独立卡片挪到这里。 */}
-              <div className="flex flex-wrap items-center gap-x-[10px] gap-y-[6px] text-[12px] text-[#757f9c]">
+              <div className="flex flex-wrap items-center gap-x-[10px] gap-y-[6px] text-[12px] text-[#6d6d72]">
                 <span className="inline-flex items-center gap-[6px]">
                   <span
                     className="size-[6px] rounded-full"
@@ -692,7 +692,7 @@ function DispatcherProfileView({
                 <span aria-hidden className="text-[#d5d9e3]">·</span>
                 <span className="inline-flex min-w-0 items-center gap-[5px]">
                   <span className="shrink-0">路由模型</span>
-                  <span className="min-w-0 truncate rounded-[5px] bg-[#f2f3f6] px-[6px] py-[1px] text-[11.5px] text-[#464c5e]">
+                  <span className="min-w-0 truncate rounded-[5px] bg-[#f2f3f6] px-[6px] py-[1px] text-[11.5px] text-[#3d3d3f]">
                     {dispatcher.model_name || '未配置'}
                   </span>
                 </span>
@@ -701,14 +701,14 @@ function DispatcherProfileView({
                 {dispatcher.published_to_gallery && (
                   <>
                     <span aria-hidden className="text-[#d5d9e3]">·</span>
-                    <span className="whitespace-nowrap rounded-[5px] bg-[#e1f1ed] px-[6px] py-[1px] text-[11px] leading-none text-[#0f7268]">
+                    <span className="whitespace-nowrap rounded-[5px] bg-[#e1f1ed] px-[6px] py-[1px] text-[11px] leading-none text-[#0f766e]">
                       已发布到广场
                     </span>
                   </>
                 )}
               </div>
 
-              <p className="m-0 line-clamp-2 max-w-[720px] text-[14px] leading-[22px] text-[#757f9c]">
+              <p className="m-0 line-clamp-2 max-w-[720px] text-[14px] leading-[22px] text-[#6d6d72]">
                 {dispatcher.description
                   || '我是员工小队：先说需求，我来判断本轮该交给谁，再把问题转给最合适的同事。'}
               </p>
@@ -832,7 +832,7 @@ function DispatcherCardShell({
         <span className="flex min-w-0 items-baseline gap-[6px]">
           <span className="truncate text-[13px] font-medium text-[#18181a]">{title}</span>
           {count && (
-            <span className="shrink-0 text-[11.5px] leading-none text-[#9aa1b1]">{count}</span>
+            <span className="shrink-0 text-[11.5px] leading-none text-[#9a9a9f]">{count}</span>
           )}
         </span>
         {action}
@@ -862,14 +862,14 @@ function DispatcherActivityCard({
       <div className="flex items-center justify-between gap-[12px]">
         <span className="flex min-w-0 items-baseline gap-[6px]">
           <span className="text-[13px] font-medium text-[#18181a]">活动记录</span>
-          <span className="shrink-0 text-[11.5px] leading-none text-[#9aa1b1]">
+          <span className="shrink-0 text-[11.5px] leading-none text-[#9a9a9f]">
             近 {events.length} 条事件
           </span>
         </span>
         <button
           type="button"
           onClick={onOpenLogs}
-          className="shrink-0 whitespace-nowrap text-[12px] text-[#0f7268] hover:underline"
+          className="shrink-0 whitespace-nowrap text-[12px] text-[#0f766e] hover:underline"
         >
           查看全部对话
         </button>
@@ -904,7 +904,7 @@ function DispatcherMembersCard({
         <button
           type="button"
           onClick={onConfigure}
-          className="shrink-0 whitespace-nowrap text-[12px] text-[#0f7268] hover:underline"
+          className="shrink-0 whitespace-nowrap text-[12px] text-[#0f766e] hover:underline"
         >
           去配置
         </button>
@@ -923,18 +923,18 @@ function DispatcherMembersCard({
             <span
               className={cn(
                 'mt-[1px] grid size-[20px] shrink-0 place-items-center rounded-[6px] text-[10.5px] font-medium',
-                offline ? 'bg-[#f2f3f6] text-[#b4bac8]' : 'bg-[#e1f1ed] text-[#0f7268]',
+                offline ? 'bg-[#f2f3f6] text-[#b4bac8]' : 'bg-[#e1f1ed] text-[#0f766e]',
               )}
             >
               {index + 1}
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
               <span className="flex min-w-0 flex-wrap items-center gap-[6px] text-[13px] text-[#18181a]">
-                <span className={cn('min-w-0 truncate', offline && 'text-[#9aa1b1]')}>
+                <span className={cn('min-w-0 truncate', offline && 'text-[#9a9a9f]')}>
                   {member.agent_name}
                 </span>
                 {member.has_own_model && (
-                  <span className="shrink-0 whitespace-nowrap rounded-[4px] bg-[#f2f9f7] px-[4px] py-[1px] text-[10px] text-[#0f7268]">
+                  <span className="shrink-0 whitespace-nowrap rounded-[4px] bg-[#f2f9f7] px-[4px] py-[1px] text-[10px] text-[#0f766e]">
                     自有模型
                   </span>
                 )}
@@ -945,14 +945,14 @@ function DispatcherMembersCard({
                 )}
               </span>
               {member.agent_description && (
-                <span className="line-clamp-1 min-w-0 text-[11.5px] leading-[1.5] text-[#9aa1b1]">
+                <span className="line-clamp-1 min-w-0 text-[11.5px] leading-[1.5] text-[#9a9a9f]">
                   {member.agent_description}
                 </span>
               )}
               <span
                 className={cn(
                   'min-w-0 break-words text-[12px] leading-[1.5]',
-                  noRule ? 'text-[#8a5a12]' : 'text-[#5b6274]',
+                  noRule ? 'text-[#8a5a12]' : 'text-[#55555a]',
                 )}
               >
                 {noRule ? '还没写「什么情况交给他」，这一位基本选不中。' : member.routing_rule}
@@ -989,33 +989,33 @@ function DispatcherFallbackCard({
         <button
           type="button"
           onClick={onConfigure}
-          className="shrink-0 whitespace-nowrap text-[12px] text-[#0f7268] hover:underline"
+          className="shrink-0 whitespace-nowrap text-[12px] text-[#0f766e] hover:underline"
         >
           调整
         </button>
       )}
     >
       <div className="flex flex-col gap-[2px]">
-        <span className="text-[11.5px] leading-none text-[#9aa1b1]">无法匹配时</span>
+        <span className="text-[11.5px] leading-none text-[#9a9a9f]">无法匹配时</span>
         <span className="text-[13px] leading-[1.5] text-[#18181a]">
           {dispatchFallbackLabel(config.fallback_mode)}
           {config.fallback_mode === 'default_member' && (
-            <span className="text-[#5b6274]">
+            <span className="text-[#55555a]">
               {defaultMember ? ` · ${defaultMember.agent_name}` : ' · 未指定默认同事'}
             </span>
           )}
         </span>
       </div>
       {config.fallback_mode === 'reply' && config.fallback_reply.trim() && (
-        <p className="m-0 rounded-[10px] bg-[#f7f8fa] px-[10px] py-[8px] text-[12px] leading-[1.6] text-[#5b6274]">
+        <p className="m-0 rounded-[10px] bg-[#f2f1ee] px-[10px] py-[8px] text-[12px] leading-[1.6] text-[#55555a]">
           {config.fallback_reply}
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-[6px] text-[11px] leading-none text-[#9aa1b1]">
-        <span className="rounded-[5px] bg-[#f7f8fa] px-[6px] py-[3px]">
+      <div className="flex flex-wrap items-center gap-[6px] text-[11px] leading-none text-[#9a9a9f]">
+        <span className="rounded-[5px] bg-[#f2f1ee] px-[6px] py-[3px]">
           置信度门槛 {config.min_confidence}
         </span>
-        <span className="rounded-[5px] bg-[#f7f8fa] px-[6px] py-[3px]">
+        <span className="rounded-[5px] bg-[#f2f1ee] px-[6px] py-[3px]">
           {config.offer_candidates ? '会列出候选同事' : '不列候选'}
         </span>
       </div>
@@ -1037,8 +1037,8 @@ function DispatcherMetaCard({ dispatcher }: { dispatcher: DispatcherRead }) {
       <dl className="m-0 flex flex-col gap-[7px]">
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-baseline justify-between gap-[12px]">
-            <dt className="shrink-0 text-[11.5px] leading-none text-[#9aa1b1]">{label}</dt>
-            <dd className="m-0 min-w-0 truncate text-right text-[12px] leading-[1.5] text-[#5b6274]">
+            <dt className="shrink-0 text-[11.5px] leading-none text-[#9a9a9f]">{label}</dt>
+            <dd className="m-0 min-w-0 truncate text-right text-[12px] leading-[1.5] text-[#55555a]">
               {value}
             </dd>
           </div>
@@ -1137,9 +1137,9 @@ function EmployeeProfileTabs({ value, onChange }: { value: ProfileTabKey; onChan
 
 function HeroMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-1 items-end gap-1 rounded-[10px] bg-[#f6f6f6] px-5 py-2">
+    <div className="flex flex-1 items-end gap-1 rounded-[10px] bg-[#f2f1ee] px-5 py-2">
       <strong className="text-[14px] leading-none font-medium text-[#18181a]">{value}</strong>
-      <span className="text-[12px] leading-none text-[#464c5e]">{label}</span>
+      <span className="text-[12px] leading-none text-[#3d3d3f]">{label}</span>
     </div>
   );
 }

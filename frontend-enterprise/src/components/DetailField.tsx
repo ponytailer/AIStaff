@@ -16,11 +16,11 @@ export function DetailField({ label, children, className }: DetailFieldProps) {
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-col gap-[6px] rounded-[10px] border border-[#eef0f4] bg-[#fafbfc] px-[12px] py-[10px]',
+        'flex min-w-0 flex-col gap-[6px] rounded-[10px] border border-[#ecebe7] bg-[#f2f1ee] px-[12px] py-[10px]',
         className,
       )}
     >
-      <span className="text-[11px] font-semibold text-[#858b9c]">{label}</span>
+      <span className="text-[11px] font-semibold text-[#6d6d72]">{label}</span>
       <div className="min-w-0 wrap-break-word text-[12px] text-[#18181a]">{children}</div>
     </div>
   );

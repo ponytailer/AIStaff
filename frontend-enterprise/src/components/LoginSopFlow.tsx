@@ -4,7 +4,7 @@ import { animate, createTimeline, stagger, svg, utils } from 'animejs';
 
 /** 一条光路串起的四步核心能力（与产品能力清单一一对应）。 */
 const SOP_NODES = [
-  { x: 200, y: 300, name: '流程 SOP', desc: '把经验写成可执行步骤', color: '#0f7268', icon: 'flow' },
+  { x: 200, y: 300, name: '流程 SOP', desc: '把经验写成可执行步骤', color: '#0f766e', icon: 'flow' },
   { x: 480, y: 130, name: '知识检索', desc: '让判断有据可依', color: '#c2703e', icon: 'search' },
   { x: 760, y: 300, name: '自主执行', desc: '跨系统推进到结果', color: '#6f7b42', icon: 'bolt' },
   { x: 1000, y: 130, name: '长期记忆', desc: '越用越懂你的业务', color: '#5b6fa8', icon: 'memory' },
@@ -168,7 +168,7 @@ export default function LoginSopFlow() {
             <path data-sop-travel d={WAVE_PATH} stroke="none" />
             <g data-sop-pulse opacity="0">
               <circle r="13" fill="rgba(15,118,110,0.20)" />
-              <circle r="5.5" fill="#0f7268" />
+              <circle r="5.5" fill="#0f766e" />
             </g>
           </svg>
 
@@ -199,7 +199,7 @@ export default function LoginSopFlow() {
                   />
                 </span>
                 <span className="text-[13px] font-semibold text-[#18181a]">{node.name}</span>
-                <span className="-mt-[2px] whitespace-nowrap text-[11px] text-[#757f9c]">{node.desc}</span>
+                <span className="-mt-[2px] whitespace-nowrap text-[11px] text-[#6d6d72]">{node.desc}</span>
               </div>
             );
           })}

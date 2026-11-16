@@ -20,7 +20,7 @@ const ACCENT_STYLES: Record<PlatformResourceAccent, { meta: string; tag: string;
   // Agent 广场：与其它模块区分开的紫罗兰色（同一 232:4634 色阶体系内新增）
   violet: { meta: 'text-[#6d3fd4]', tag: 'bg-[#f1eaff] text-[#6d3fd4]', glow: 'rgba(109, 63, 212, 0.22)' },
   // 员工小队（多智能体）：沿用入口本身的品牌青，和 Agent 广场的紫、员工的默认白拉开
-  teal: { meta: 'text-[#0f7268]', tag: 'bg-[#e1f1ed] text-[#0f7268]', glow: 'rgba(15, 114, 104, 0.22)' },
+  teal: { meta: 'text-[#0f766e]', tag: 'bg-[#e1f1ed] text-[#0f766e]', glow: 'rgba(15, 114, 104, 0.22)' },
 };
 
 export const platformResourceAccentStyles = ACCENT_STYLES;
@@ -64,7 +64,7 @@ export default function PlatformResourceCard({
       onClick={onClick}
       style={{ '--pointer-fx-glow': accentStyles.glow } as React.CSSProperties}
       className={cn(
-        'relative flex h-[150px] w-full shrink-0 flex-col items-center justify-center overflow-hidden rounded-[14px] border-[0.5px] border-[#dfe4ee] bg-white p-[6px] text-left backdrop-blur-[1.835px] transition-[box-shadow,border-color] hover:border-[#cbd3e6] hover:shadow-[0_14px_30px_rgba(15,23,42,0.10)]',
+        'relative flex h-[150px] w-full shrink-0 flex-col items-center justify-center overflow-hidden rounded-[14px] border-[0.5px] border-[#dfe4ee] bg-white p-[6px] text-left backdrop-blur-[1.835px] transition-[box-shadow,border-color] hover:border-[#ddd9d2] hover:shadow-[0_14px_30px_rgba(15,23,42,0.10)]',
         '',
         className,
       )}
@@ -79,12 +79,12 @@ export default function PlatformResourceCard({
             </span>
           )}
           <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
-            <p className="truncate text-[14px] font-medium text-[#464c5e]">{title}</p>
+            <p className="truncate text-[14px] font-medium text-[#3d3d3f]">{title}</p>
             <p className={cn('truncate text-[12px]', accentStyles.meta)}>{meta}</p>
           </div>
         </div>
 
-        <p className="line-clamp-2 h-[36px] w-full text-[12px] leading-[18px] text-[#757f9c]">
+        <p className="line-clamp-2 h-[36px] w-full text-[12px] leading-[18px] text-[#6d6d72]">
           {description}
         </p>
 

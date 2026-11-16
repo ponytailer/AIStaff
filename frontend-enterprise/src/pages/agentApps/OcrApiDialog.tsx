@@ -74,16 +74,16 @@ export default function OcrApiDialog({ open, onClose }: { open: boolean; onClose
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         aria-describedby="ocr-api-description"
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[820px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[820px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[26px] py-[22px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[26px] py-[22px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <Code2 className="size-[18px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">API 接入 · OCR 助手</DialogTitle>
-              <DialogDescription id="ocr-api-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="ocr-api-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 用账号 API 密钥直接调用同一个识别服务，无需打开这个页面。
               </DialogDescription>
             </div>
@@ -96,7 +96,7 @@ export default function OcrApiDialog({ open, onClose }: { open: boolean; onClose
               <KeyRound className="size-[15px] text-[#207451]" />
               第一步 · 拿到账号 API 全量密钥
             </div>
-            <ol className="mt-[10px] grid gap-[6px] text-[12px] leading-[19px] text-[#464c5e]">
+            <ol className="mt-[10px] grid gap-[6px] text-[12px] leading-[19px] text-[#3d3d3f]">
               <li>1. 点击右上角头像，选择「API 全量密钥」。</li>
               <li>2. 创建密钥并复制明文（仅显示一次，页面关掉就看不到）。</li>
               <li>
@@ -110,7 +110,7 @@ export default function OcrApiDialog({ open, onClose }: { open: boolean; onClose
             </p>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="text-[13px] font-semibold text-[#18181a]">第二步 · 调用端点</div>
             <div className="mt-[10px] flex flex-wrap items-center gap-[8px]">
               <span className="rounded-[6px] bg-[#18181a] px-[8px] py-[3px] font-mono text-[10px] font-semibold text-white">
@@ -121,26 +121,26 @@ export default function OcrApiDialog({ open, onClose }: { open: boolean; onClose
               </code>
             </div>
             <dl className="mt-[12px] grid gap-[8px] text-[12px] sm:grid-cols-[84px_minmax(0,1fr)]">
-              <dt className="text-[#757f9c]">请求头</dt>
+              <dt className="text-[#6d6d72]">请求头</dt>
               <dd>
-                <code className="font-mono text-[11.5px] text-[#464c5e]">Authorization: Bearer sd_live_…</code>
+                <code className="font-mono text-[11.5px] text-[#3d3d3f]">Authorization: Bearer sd_live_…</code>
               </dd>
-              <dt className="text-[#757f9c]">内容类型</dt>
+              <dt className="text-[#6d6d72]">内容类型</dt>
               <dd>
-                <code className="font-mono text-[11.5px] text-[#464c5e]">multipart/form-data</code>
+                <code className="font-mono text-[11.5px] text-[#3d3d3f]">multipart/form-data</code>
               </dd>
-              <dt className="text-[#757f9c]">所需权限</dt>
+              <dt className="text-[#6d6d72]">所需权限</dt>
               <dd>
-                <code className="font-mono text-[11.5px] text-[#464c5e]">{requiredScope}</code>
+                <code className="font-mono text-[11.5px] text-[#3d3d3f]">{requiredScope}</code>
               </dd>
-              <dt className="text-[#757f9c]">请求体</dt>
-              <dd className="text-[#464c5e]">
+              <dt className="text-[#6d6d72]">请求体</dt>
+              <dd className="text-[#3d3d3f]">
                 <code className="font-mono text-[11.5px]">files</code> 可传多个，其余字段见下方「接口说明」。
               </dd>
             </dl>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="flex flex-wrap items-center justify-between gap-[10px]">
               <span className="text-[13px] font-semibold text-[#18181a]">第三步 · 复制示例代码</span>
               <div className="flex items-center gap-[6px]">
@@ -181,9 +181,9 @@ export default function OcrApiDialog({ open, onClose }: { open: boolean; onClose
             </Tabs>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="text-[13px] font-semibold text-[#18181a]">接口说明</div>
-            <div className="mt-[10px] grid gap-[8px] text-[12px] leading-[18px] text-[#464c5e]">
+            <div className="mt-[10px] grid gap-[8px] text-[12px] leading-[18px] text-[#3d3d3f]">
               <p>
                 <code className="font-mono text-[11.5px] text-[#18181a]">files</code>
                 ：PDF / PNG / JPEG / TIFF / BMP / WebP，单次多个，字段名重复即可。
@@ -205,7 +205,7 @@ export default function OcrApiDialog({ open, onClose }: { open: boolean; onClose
                 <code className="font-mono text-[11.5px]">include_lines</code> /
                 <code className="font-mono text-[11.5px]">include_blocks</code> 默认开启 —— 与工作台取值一致，一般不用传。
               </p>
-              <p className="text-[11.5px] text-[#757f9c]">
+              <p className="text-[11.5px] text-[#6d6d72]">
                 回包按文件、按页给出：<code className="font-mono text-[11px]">source</code> 说明这页走的文本层 / OCR / 混合，
                 单页失败写在 <code className="font-mono text-[11px]">note</code> 里，其它页照常返回。
               </p>

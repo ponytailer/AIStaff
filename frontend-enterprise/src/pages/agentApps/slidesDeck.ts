@@ -312,7 +312,7 @@ export function renderDeckDocument(deck: SlidesDeck): string {
     '<meta name="viewport" content="width=device-width, initial-scale=1" />',
     `<title>${escapeHtml(title)}</title>`,
     '<style>',
-    `body{margin:0;padding:24px;background:#eef0f4}`,
+    `body{margin:0;padding:24px;background:#ecebe7}`,
     DECK_STYLE.trim(),
     '</style>',
     '</head>',

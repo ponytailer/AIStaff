@@ -31,6 +31,7 @@ import {
 } from '@/lib/agent-scope-storage';
 import {
   getDispatcher,
+  listDispatchers,
   dispatchFallbackShortLabel,
   type DispatcherRead,
 } from '@/lib/dispatcher';
@@ -351,6 +352,11 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   const [agents, setAgents] = useState<AgentProfileRead[]>([]);
   const [agentsLoaded, setAgentsLoaded] = useState(false);
   /**
+   * 员工小队清单。`/api/chat/agents` 是员工口径（后端不一定回 dispatcher），
+   * 小队要单独从 `/api/enterprise/dispatchers` 拿，切换器才有「小队」这一段。
+   */
+  const [dispatchers, setDispatchers] = useState<DispatcherRead[]>([]);
+  /**
    * 多智能体（kind=dispatcher）的详情：/api/chat/agents 只回普通员工口径的
    * AgentProfileRead，**不含 members / config**，而对话端空状态要展示「成员有谁」
    * 与「无法匹配时怎么办」，所以按需单独拉一次详情。
@@ -594,7 +600,36 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   }, [userId]);
 
   const currentSession = sessionId ? sessions.find((item) => item.id === sessionId) || null : null;
-  const availableAgents = shareMode ? agents : visibleChatEmployees(agents, auth?.user);
+  /**
+   * 小队也转成 AgentProfileRead 并进可选清单：
+   * 切换器点小队会 navigate 到草稿页，`displayedAgent` 是从 availableAgents 里找的
+   * —— 不并进来就会落到「没有这个员工」的空白草稿。
+   */
+  const dispatcherAgents = useMemo<AgentProfileRead[]>(
+    () => dispatchers.map((row) => ({
+      id: row.id,
+      tenant_id: row.tenant_id,
+      name: row.name,
+      description: row.description || '',
+      is_overall: false,
+      status: row.status,
+      kind: 'dispatcher',
+      metadata: {
+        ...(row.avatar_preset ? { avatar_preset: row.avatar_preset } : {}),
+        dispatcher_members: row.members?.length ?? 0,
+      },
+      resources: [],
+      created_at: row.created_at || '',
+      updated_at: row.updated_at || '',
+    })),
+    [dispatchers],
+  );
+  const availableAgents = useMemo(() => {
+    const base = shareMode ? agents : visibleChatEmployees(agents, auth?.user);
+    if (dispatcherAgents.length === 0) return base;
+    const known = new Set(base.map((item) => item.id));
+    return [...base, ...dispatcherAgents.filter((item) => !known.has(item.id))];
+  }, [agents, auth?.user, dispatcherAgents, shareMode]);
   const explicitDraftAgentId = draftAgentId || '';
   const routeDraftAgent = explicitDraftAgentId
     ? availableAgents.find((agent) => agent.id === explicitDraftAgentId) || null
@@ -807,6 +842,19 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   useEffect(() => {
     void loadAgents();
   }, [loadAgents]);
+
+  // 小队清单：拉不到就静默降级（切换器少一段，不影响员工对话）
+  const loadDispatchers = useCallback(async () => {
+    try {
+      setDispatchers(await listDispatchers(tenantId));
+    } catch {
+      setDispatchers([]);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    void loadDispatchers();
+  }, [loadDispatchers]);
 
   // 免费员工对话完成后回填「今日剩余 X 问」：只刷新 free_model_remaining，不打扰花名册其余状态
   const refreshFreeQuota = useCallback(async () => {
@@ -3974,6 +4022,8 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     sessionsLoading,
     visibleSidebarSessions,
     agents,
+    /** 小队（AgentProfileRead 形态，仅供切换器分组渲染）。 */
+    dispatcherAgents,
     sessionId,
     sessionReadTimes,
     sessionAgentFilter,

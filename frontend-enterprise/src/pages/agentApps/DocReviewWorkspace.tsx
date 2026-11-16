@@ -606,20 +606,20 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
             {!hasDoc ? (
               <label
                 className={cn(
-                  'flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-[10px] rounded-[14px] border-[1.5px] border-dashed border-[#d8dfeb] bg-[#fafbfd] px-[20px] py-[36px] text-center transition-colors hover:border-[#b9c5dd] hover:bg-[#f4f6fa]',
+                  'flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-center gap-[10px] rounded-[14px] border-[1.5px] border-dashed border-[#d8dfeb] bg-[#f2f1ee] px-[20px] py-[36px] text-center transition-colors hover:border-[#b9c5dd] hover:bg-[#f4f6fa]',
                   parsing && 'pointer-events-none opacity-70',
                 )}
               >
                 <input ref={importInputRef} type="file" accept=".docx" data-testid="doc-import-input" className="hidden" onChange={onFileChange} />
                 {parsing ? (
-                  <LoaderCircle className="size-[26px] animate-spin text-[#858b9c]" />
+                  <LoaderCircle className="size-[26px] animate-spin text-[#6d6d72]" />
                 ) : (
-                  <Upload className="size-[26px] text-[#858b9c]" />
+                  <Upload className="size-[26px] text-[#6d6d72]" />
                 )}
                 <span className="text-[13px] font-medium text-[#18181a]">
                   {parsing ? '正在解析文档…' : '上传 Word 文档'}
                 </span>
-                <span className="max-w-[240px] text-[11px] leading-[17px] text-[#858b9c]">
+                <span className="max-w-[240px] text-[11px] leading-[17px] text-[#6d6d72]">
                   拖拽或点击选择 .docx 文件；解析后可一键审阅、对话修改，并导出保留原格式的 Word。
                 </span>
               </label>
@@ -636,7 +636,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                     aria-label="重新上传"
                     title="重新上传"
                     onClick={() => importInputRef.current?.click()}
-                    className="grid size-[28px] shrink-0 place-items-center rounded-[8px] text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+                    className="grid size-[28px] shrink-0 place-items-center rounded-[8px] text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
                   >
                     <Upload className="size-[14px]" />
                   </button>
@@ -644,7 +644,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                     type="button"
                     onClick={() => void exportDocx()}
                     disabled={exporting}
-                    className="h-[30px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] text-[12px] font-normal text-[#4f5669] hover:bg-[#f6f6f6] disabled:opacity-60"
+                    className="h-[30px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] text-[12px] font-normal text-[#4a4a4c] hover:bg-[#f2f1ee] disabled:opacity-60"
                   >
                     {exporting ? <LoaderCircle className="size-[13px] animate-spin" /> : <Download className="size-[13px]" />}
                     导出 Word
@@ -658,7 +658,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                     entryItem.kind === 'review' ? (
                       <div key={entryItem.id} className="flex flex-col gap-[8px]">
                         <div className="flex items-center justify-between gap-[8px]">
-                          <span className="text-[11px] font-medium text-[#757f9c]">
+                          <span className="text-[11px] font-medium text-[#6d6d72]">
                             审阅结果 · {entryItem.issues.length} 个问题
                           </span>
                           {entryItem.issues.some(
@@ -679,7 +679,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                           </p>
                         ))}
                         {entryItem.issues.length === 0 && (
-                          <p className="text-[12px] leading-[18px] text-[#858b9c]">没有发现明显问题，文档状态不错。</p>
+                          <p className="text-[12px] leading-[18px] text-[#6d6d72]">没有发现明显问题，文档状态不错。</p>
                         )}
                         {entryItem.issues.map((issue) => {
                           const status = issueStatus[issue.id] ?? 'open';
@@ -688,9 +688,9 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                               key={issue.id}
                               className={cn(
                                 'flex flex-col gap-[6px] rounded-[12px] border-[0.5px] px-[10px] py-[9px]',
-                                status === 'open' && 'border-[#e3e7f1] bg-white',
+                                status === 'open' && 'border-[#e6e4df] bg-white',
                                 status === 'applied' && 'border-[#bfe6cd] bg-[#f2fbf5]',
-                                status === 'dismissed' && 'border-[#eef0f4] bg-[#fafbfd] opacity-70',
+                                status === 'dismissed' && 'border-[#ecebe7] bg-[#f2f1ee] opacity-70',
                               )}
                             >
                               {issue.block_ids.length > 0 ? (
@@ -714,7 +714,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                                 </div>
                               )}
                               {issue.detail && (
-                                <p className="pl-[2px] text-[11px] leading-[16px] text-[#858b9c]">{issue.detail}</p>
+                                <p className="pl-[2px] text-[11px] leading-[16px] text-[#6d6d72]">{issue.detail}</p>
                               )}
                               {status === 'open' && issue.fixes.length > 0 && (
                                 <div className="flex items-center gap-[8px]">
@@ -728,7 +728,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                                   <button
                                     type="button"
                                     onClick={() => dismissIssue(issue.id)}
-                                    className="rounded-[6px] px-[8px] py-[2px] text-[11px] text-[#858b9c] transition-colors hover:bg-[#f6f6f6]"
+                                    className="rounded-[6px] px-[8px] py-[2px] text-[11px] text-[#6d6d72] transition-colors hover:bg-[#f2f1ee]"
                                   >
                                     忽略
                                   </button>
@@ -740,7 +740,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                                   {trackChanges ? '已加批注' : '已应用'}
                                 </span>
                               )}
-                              {status === 'dismissed' && <span className="text-[11px] text-[#a3aaba]">已忽略</span>}
+                              {status === 'dismissed' && <span className="text-[11px] text-[#9a9a9f]">已忽略</span>}
                             </div>
                           );
                         })}
@@ -767,16 +767,16 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                     ),
                   )}
                   {chatting && (
-                    <div className="flex items-center gap-[6px] text-[11px] text-[#858b9c]">
+                    <div className="flex items-center gap-[6px] text-[11px] text-[#6d6d72]">
                       <LoaderCircle className="size-[12px] animate-spin" />
                       AI 正在处理文档…
                     </div>
                   )}
                   {chatEntries.length > 0 && (
-                    <div className="flex items-center gap-[10px] py-[2px] text-[10px] text-[#c0c6d4]">
-                      <span className="h-[0.5px] flex-1 bg-[#eef0f4]" />
+                    <div className="flex items-center gap-[10px] py-[2px] text-[10px] text-[#d6d1c9]">
+                      <span className="h-[0.5px] flex-1 bg-[#ecebe7]" />
                       以上是历史对话
-                      <span className="h-[0.5px] flex-1 bg-[#eef0f4]" />
+                      <span className="h-[0.5px] flex-1 bg-[#ecebe7]" />
                     </div>
                   )}
                   <div ref={messagesEndRef} />
@@ -806,7 +806,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                           <p className="truncate text-[10px] text-[#8a4b00]" title={item.reason}>
                             建议：{item.reason}
                           </p>
-                          <p className="truncate text-[11px] leading-[16px] text-[#464c5e]" title={item.newText}>
+                          <p className="truncate text-[11px] leading-[16px] text-[#3d3d3f]" title={item.newText}>
                             {item.newText}
                           </p>
                         </div>
@@ -820,7 +820,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                         <button
                           type="button"
                           onClick={() => dismissSuggestion(item.key)}
-                          className="shrink-0 rounded-[5px] px-[7px] py-[2px] text-[10px] text-[#858b9c] hover:bg-[#f6f6f6]"
+                          className="shrink-0 rounded-[5px] px-[7px] py-[2px] text-[10px] text-[#6d6d72] hover:bg-[#f2f1ee]"
                         >
                           放弃
                         </button>
@@ -830,18 +830,18 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                 )}
 
                 {/* 输入区 */}
-                <div className="flex shrink-0 flex-col gap-[8px] border-t-[0.5px] border-[#eef0f4] pt-[10px]">
+                <div className="flex shrink-0 flex-col gap-[8px] border-t-[0.5px] border-[#ecebe7] pt-[10px]">
                   <textarea
                     value={input}
                     rows={2}
                     placeholder="描述修改、写作要求，或直接提问（⌘/Ctrl + Enter 发送）"
                     onChange={(event) => setInput(event.target.value)}
                     onKeyDown={onInputKeyDown}
-                    className="w-full resize-none rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] py-[8px] text-[12px] leading-[1.6] text-[#18181a] outline-none transition-colors placeholder:text-[#a3aab9] focus:border-[#18181a]"
+                    className="w-full resize-none rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] py-[8px] text-[12px] leading-[1.6] text-[#18181a] outline-none transition-colors placeholder:text-[#9a9a9f] focus:border-[#18181a]"
                   />
                   <div className="flex items-center justify-between gap-[8px]">
                     <div className="flex items-center gap-[8px]">
-                      <span className="text-[11px] text-[#4f5669]">修订追踪</span>
+                      <span className="text-[11px] text-[#4a4a4c]">修订追踪</span>
                       <Switch
                         checked={trackChanges}
                         onCheckedChange={(checked) => setTrackChanges(checked)}
@@ -854,7 +854,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                             <button
                               type="button"
                               aria-label="修订追踪说明"
-                              className="grid size-[16px] place-items-center rounded-full border-[0.5px] border-[#c8cede] text-[10px] leading-none text-[#858b9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+                              className="grid size-[16px] place-items-center rounded-full border-[0.5px] border-[#c8cede] text-[10px] leading-none text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
                             >
                               ?
                             </button>
@@ -873,10 +873,10 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                           type="button"
                           aria-label="选择模型"
                           disabled={models.length === 0}
-                          className="flex h-[26px] w-[150px] min-w-0 shrink-0 items-center justify-between gap-[5px] rounded-[8px] border-[0.5px] border-[#e3e7f1] px-[8px] text-[12px] text-[#4f5669] transition-colors hover:border-[#cbd3e6] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex h-[26px] w-[150px] min-w-0 shrink-0 items-center justify-between gap-[5px] rounded-[8px] border-[0.5px] border-[#e6e4df] px-[8px] text-[12px] text-[#4a4a4c] transition-colors hover:border-[#ddd9d2] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <span className="truncate">{selectedModel?.name || (modelsLoading ? '加载中…' : '选择模型')}</span>
-                          <IconChevronDown className="size-[11px] shrink-0 text-[#858b9c]" />
+                          <IconChevronDown className="size-[11px] shrink-0 text-[#6d6d72]" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="max-h-[260px] min-w-[200px] overflow-y-auto">
@@ -899,7 +899,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                       onClick={() => void runReview()}
                       disabled={reviewing || chatting || models.length === 0}
                       title="一键审阅"
-                      className="h-[30px] shrink-0 gap-[5px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] text-[12px] font-normal text-[#4f5669] hover:bg-[#f6f6f6] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-[30px] shrink-0 gap-[5px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] text-[12px] font-normal text-[#4a4a4c] hover:bg-[#f2f1ee] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {reviewing ? <LoaderCircle className="size-[13px] animate-spin" /> : <ScanSearch className="size-[13px]" />}
                       {reviewing ? '审阅中…' : '一键审阅'}
@@ -922,7 +922,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
           {/* 右栏：docx-preview 高保真文档视图 */}
           <div className="flex min-h-0 flex-1 flex-col gap-[10px]">
             {hasDoc && (
-              <div className="flex flex-wrap items-center justify-between gap-[10px] px-[2px] text-[11px] text-[#858b9c]">
+              <div className="flex flex-wrap items-center justify-between gap-[10px] px-[2px] text-[11px] text-[#6d6d72]">
                 <div className="flex items-center gap-[10px]">
                   <span>共 {blocks.length} 段</span>
                   {changedCount > 0 && (
@@ -950,7 +950,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                   <button
                     type="button"
                     onClick={restoreAll}
-                    className="flex items-center gap-[4px] rounded-[6px] px-[8px] py-[2px] text-[11px] text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+                    className="flex items-center gap-[4px] rounded-[6px] px-[8px] py-[2px] text-[11px] text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
                   >
                     <RotateCcw className="size-[12px]" />
                     恢复全部原文
@@ -967,7 +967,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                   return (
                     <div key={block.id} className="flex items-center gap-[8px]">
                       <span
-                        className="min-w-0 flex-1 truncate text-[11px] leading-[16px] text-[#464c5e]"
+                        className="min-w-0 flex-1 truncate text-[11px] leading-[16px] text-[#3d3d3f]"
                         title={block.comment || block.text}
                       >
                         {block.comment ? `批注：${block.comment}` : block.text}
@@ -991,12 +991,12 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
               </div>
             )}
 
-            <div className="relative min-h-0 flex-1 overflow-auto rounded-[14px] bg-[#f1f2f5] p-[16px]">
+            <div className="relative min-h-0 flex-1 overflow-auto rounded-[14px] bg-[#ecebe7] p-[16px]">
               {hasDoc ? (
                 <>
                   <div ref={paperRef} data-testid="docx-preview-container" className="min-h-full" />
                   {previewLoading && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center gap-[8px] rounded-[14px] bg-white/60 text-[12px] text-[#858b9c]">
+                    <div className="absolute inset-0 z-10 flex items-center justify-center gap-[8px] rounded-[14px] bg-white/60 text-[12px] text-[#6d6d72]">
                       <LoaderCircle className="size-[14px] animate-spin" />
                       正在渲染文档…
                     </div>
@@ -1011,7 +1011,7 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                           renderSeqRef.current += 1;
                           setBlocks((current) => [...current]);
                         }}
-                        className="h-[28px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] text-[11px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+                        className="h-[28px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] text-[11px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
                       >
                         <IconRefresh className="size-[12px]" />
                         重试
@@ -1021,9 +1021,9 @@ export default function DocReviewWorkspace({ entry, currentUser, onLogout }: Doc
                 </>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-[10px] text-center">
-                  <FileText className="size-[30px] text-[#c0c6d4]" />
-                  <span className="text-[13px] text-[#858b9c]">左侧上传 Word 文档后，这里会按原格式展示全文</span>
-                  <span className="max-w-[300px] text-[11px] leading-[17px] text-[#a3aab9]">
+                  <FileText className="size-[30px] text-[#d6d1c9]" />
+                  <span className="text-[13px] text-[#6d6d72]">左侧上传 Word 文档后，这里会按原格式展示全文</span>
+                  <span className="max-w-[300px] text-[11px] leading-[17px] text-[#9a9a9f]">
                     一键审阅找出错别字、语病与表述问题；对话可直接修改、归纳总结，导出保留原格式。
                   </span>
                 </div>

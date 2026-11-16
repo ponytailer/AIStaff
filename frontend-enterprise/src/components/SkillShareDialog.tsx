@@ -92,16 +92,16 @@ export function SkillShareDialog({
       <DialogContent
         aria-describedby="skill-share-description"
         data-i18n-ignore
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[520px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[520px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[26px] py-[22px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[26px] py-[22px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <Share2 className="size-[18px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">分享技能 · {skill?.name || ''}</DialogTitle>
-              <DialogDescription id="skill-share-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="skill-share-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 生成的链接无需登录即可查看技能描述并下载技能包；技能停用后链接自动失效。
               </DialogDescription>
             </div>
@@ -109,10 +109,10 @@ export function SkillShareDialog({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-[14px] overflow-y-auto px-[26px] py-[22px]">
-          {creating && <p className="text-[13px] text-[#757f9c]">正在生成分享链接…</p>}
+          {creating && <p className="text-[13px] text-[#6d6d72]">正在生成分享链接…</p>}
           {shareUrl && (
             <>
-              <div className="rounded-[12px] border border-[#e3e7f1] bg-white px-[14px] py-[12px]">
+              <div className="rounded-[12px] border border-[#e6e4df] bg-white px-[14px] py-[12px]">
                 <code className="block break-all text-[12px] leading-[20px] text-[#18181a] select-all">{shareUrl}</code>
               </div>
               <div className="flex items-center justify-end gap-[8px]">

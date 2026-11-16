@@ -4,9 +4,9 @@ import { cn } from '@/lib/utils';
  * Tailwind class tokens for the migrated chat conversation page.
  *
  * Palette + metrics are derived from the SD1 Figma (nodes 38:3773 empty state
- * and 38:4962 active conversation): background #fcfcfc, 220px sidebar with a
- * #f4f4f4 right border, ink #18181a, muted #858b9c / #757f9c, hairline borders
- * #e3e7f1 (0.5px), user bubble #f6f6f6, 56px header, and a white composer card
+ * and 38:4962 active conversation): background #f7f7f6, 220px sidebar with a
+ * rgba(24,24,26,0.06) right border, ink #18181a, muted #6d6d72 / #6d6d72, hairline borders
+ * rgba(24,24,26,0.08) (0.5px), user bubble #e5e4e0, 56px header, and a white composer card
  * with a #18181a 0.5px border, 14px radius and a dark send button.
  */
 
@@ -15,51 +15,86 @@ import { cn } from '@/lib/utils';
 // component; see AppSidebar.tsx `variant="chat"`).
 // ---------------------------------------------------------------------------
 export const CHAT_ICON_BUTTON_CLASS =
-  'inline-grid size-[30px] shrink-0 place-items-center rounded-[8px] border-0 bg-transparent p-0 text-[#757f9c] transition-colors hover:bg-[#f1f2f5] hover:text-[#18181a]';
+  'inline-grid size-[30px] shrink-0 place-items-center rounded-[8px] border-0 bg-transparent p-0 text-[#6d6d72] transition-colors hover:bg-[#f0efec] hover:text-[#18181a]';
 
 // ---------------------------------------------------------------------------
 // Main column + header
 // ---------------------------------------------------------------------------
-export const CHAT_MAIN_CLASS = 'flex min-h-0 min-w-0 flex-col bg-[#fcfcfc]';
+export const CHAT_MAIN_CLASS = 'flex min-h-0 min-w-0 flex-col bg-[#f7f7f6]';
 export const CHAT_HEADER_CLASS =
-  'flex h-[88px] shrink-0 items-center justify-between gap-[12px] border-b border-[#f4f4f4] pt-[32px] pl-[18px] pr-[24px]';
+  // h-[88px] + pt-[32px] 是桌面外壳的拖拽区约束（顶部 32px 留给原生标题栏），
+  // 不能压缩：ChatHeader.test 里有对应回归用例。这里只去掉分隔线、放开左右内边距。
+  'flex h-[88px] shrink-0 items-center justify-between gap-[12px] pt-[32px] pl-[20px] pr-[20px]';
 export const CHAT_HEADER_TITLE_STACK_CLASS = 'flex min-w-0 items-end gap-[8px]';
-export const CHAT_HEADER_TITLE_NAME_CLASS = 'truncate text-[14px] capitalize text-[#18181a]';
-export const CHAT_HEADER_TITLE_META_CLASS = 'shrink-0 truncate text-[10px] text-[#757f9c]';
+export const CHAT_HEADER_TITLE_NAME_CLASS = 'truncate text-[15px] font-medium tracking-[-0.01em] text-[#18181a]';
+export const CHAT_HEADER_TITLE_META_CLASS = 'shrink-0 truncate text-[11.5px] text-[#9a9a9f]';
 export const CHAT_HEADER_ACTIONS_CLASS = 'flex shrink-0 items-center gap-[6px]';
 
 // ---------------------------------------------------------------------------
 // Message scroller
 // ---------------------------------------------------------------------------
 export const CHAT_MESSAGES_CLASS =
-  'min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-[24px] pt-[22px] pb-[62px]';
-export const CHAT_MESSAGE_STACK_CLASS = 'mx-auto flex min-w-0 w-full max-w-[820px] flex-col gap-[20px]';
+  'min-h-0 flex-1 overflow-x-hidden overflow-y-auto pt-[20px] pb-[22px] [scrollbar-width:thin] [scrollbar-color:rgba(24,24,26,0.16)_transparent]';
+// 808 = 768 阅读列 + 左右各 20 内边距。
+//
+// 关键：输入区外壳本身有 px-[20px]，所以它的内容区宽度是 C-40，居中放一张
+// max-w-[808px] 的卡后，卡左缘正好等于 (C-808)/2 —— 与这里的消息列左缘
+// 同一条竖线。之前给输入卡写 816（以为是「768 + 24×2」），外壳的 20px 是
+// 叠加在居中之后的，结果卡片比消息列左偏 24px、右偏 36px，上面文字和下面
+// 输入框明显错位。
+// 间距交给「组」控制：默认 4px（同一轮的连续消息贴紧），换组时由
+// CHAT_TURN_SPACED_CLASS 的 mt-[18px] 拉开。整列不再一条一个 18px 的沟。
+export const CHAT_MESSAGE_STACK_CLASS =
+  'mx-auto flex min-w-0 w-full max-w-[808px] flex-col gap-[4px] px-[20px]';
 
-export const CHAT_MESSAGE_ITEM_CLASS = 'flex min-w-0 w-full flex-col';
+export const CHAT_MESSAGE_ITEM_CLASS = 'group flex min-w-0 w-full flex-col';
 export const CHAT_QUEUED_MESSAGE_ITEM_CLASS = 'order-last';
 export const CHAT_MESSAGE_ROW_BASE_CLASS = 'flex min-w-0 w-full';
 export const CHAT_MESSAGE_ROW_USER_CLASS = 'justify-end';
 export const CHAT_MESSAGE_ROW_ASSISTANT_CLASS = 'justify-start';
 export const CHAT_GROUP_MESSAGE_ROW_CLASS = 'items-start gap-[10px]';
 export const CHAT_GROUP_MESSAGE_AVATAR_CLASS =
-  'mt-[2px] size-[36px] shrink-0 overflow-hidden rounded-[10px] bg-white ring-1 ring-[#e3e7f1]';
-export const CHAT_GROUP_MESSAGE_CONTENT_CLASS = 'flex min-w-0 flex-1 flex-col gap-[5px]';
-export const CHAT_GROUP_MESSAGE_SENDER_CLASS =
-  'inline-flex items-center gap-[6px] px-[2px] text-[11px] font-medium leading-[1.4] text-[#757f9c]';
+  'mt-0 size-[28px] shrink-0 overflow-hidden rounded-full bg-[rgba(15,118,110,0.12)] text-[#0f766e]';
+export const CHAT_GROUP_MESSAGE_CONTENT_CLASS = 'flex min-w-0 flex-1 flex-col gap-[6px]';
 export const CHAT_GROUP_MESSAGE_LEADER_BADGE_CLASS =
   'rounded-full bg-[#edf3ff] px-[6px] py-px text-[9px] font-medium leading-[1.4] text-[#1a71ff]';
 
+// ---------------------------------------------------------------------------
+// Turn grouping（参考 tuffui ai-chat：一次「发言」= 头像 + 姓名行 + 内容）
+//
+// 连续同角色的消息共享一个组头：只有组首出头像与姓名，后续消息在头像列宽处
+// 留白对齐。组与组之间用 mt 呼吸，组内只隔 4px —— 这样一眼能看出「哪几句是
+// 同一轮说的」，而不是每条都被 18px 的空隙切成独立卡片。
+// ---------------------------------------------------------------------------
+export const CHAT_TURN_SPACED_CLASS = 'mt-[20px]';
+/** 组内后续消息：占住头像那一列，内容仍在同一条竖线上。 */
+export const CHAT_TURN_SPACER_CLASS = 'w-[28px] shrink-0';
+export const CHAT_TURN_HEAD_CLASS = 'mb-[5px] flex min-w-0 items-center gap-[7px]';
+export const CHAT_TURN_AUTHOR_CLASS =
+  'inline-flex min-w-0 items-center gap-[6px] text-[13px] font-medium leading-[1.4] tracking-[-0.005em] text-[#18181a]';
+/** 时间：默认隐藏，hover / 键盘聚焦该轮时才出现（和 tuffui 一致）。 */
+export const CHAT_TURN_TIME_CLASS =
+  'shrink-0 text-[11.5px] leading-[1.4] tabular-nums text-[#9a9a9f] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100';
+/** 日期分隔：居中胶囊，不用横线（thread 里不出现线）。 */
+export const CHAT_DAY_DIVIDER_CLASS = 'my-[14px] flex justify-center';
+export const CHAT_DAY_DIVIDER_PILL_CLASS =
+  'rounded-full bg-[rgba(24,24,26,0.05)] px-[10px] py-[2px] text-[11px] font-medium leading-[1.5] text-[#6d6d72]';
+
+// 正文基准 14.5px（tuffui ai-chat 用 text-sm + leading-relaxed，中文再抬半档），
+// 助手侧裸文本、不加卡片；用户侧只留一个暖米气泡。
 export const CHAT_BUBBLE_BASE_CLASS =
-  'relative box-border min-w-0 max-w-[min(680px,92%)] text-[14px] leading-[1.7] wrap-anywhere text-[#18181a]';
-export const CHAT_BUBBLE_ASSISTANT_CLASS =
-  'w-full max-w-full rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white px-[18px] py-[14px] shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
+  'relative box-border min-w-0 max-w-[min(680px,92%)] text-[14.5px] leading-[1.7] wrap-anywhere text-[#18181a]';
+export const CHAT_BUBBLE_ASSISTANT_CLASS = 'w-full max-w-full';
 export const CHAT_BUBBLE_USER_CLASS =
-  'rounded-[14px] bg-[#f6f6f6] px-[16px] py-[11px] text-[#18181a]';
+  'rounded-[16px] rounded-tr-[6px] bg-[#e5e4e0] px-[14px] py-[8px] text-[#18181a]';
 export const CHAT_BUBBLE_ERROR_CLASS = 'border-[#f38989] bg-[#fce7e7] text-[#d20b0b]';
 export const CHAT_QUEUED_BUBBLE_CLASS =
-  'border border-dashed border-[#c9d2e4] bg-[#fafbfc] pr-[42px] text-[#464c5e]';
+  'border border-dashed border-[rgba(24,24,26,0.12)] bg-[#f2f1ee] pr-[42px] text-[rgba(24,24,26,0.8)]';
 export const CHAT_QUEUED_DELETE_BTN_CLASS =
-  'absolute right-[8px] top-[8px] inline-grid size-[24px] place-items-center rounded-[7px] border-0 bg-transparent p-0 text-[#a2a8b8] transition-colors hover:bg-[#eef0f4] hover:text-[#18181a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c9d2e4]';
+  'absolute right-[8px] top-[8px] inline-grid size-[24px] place-items-center rounded-[7px] border-0 bg-transparent p-0 text-[#9a9a9f] transition-colors hover:bg-[#eeece9] hover:text-[#18181a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(24,24,26,0.12)]';
+/** 流式输出的光标：2px 竖条缀在最后一个字后面，跟 tuffui 的 streaming caret 同款。 */
+export const CHAT_STREAM_CURSOR_CLASS =
+  'ml-[2px] inline-block h-[1.05em] w-[2px] translate-y-[2px] rounded-full bg-[#0f766e] animate-pulse motion-reduce:animate-none';
 export function chatRowClass(role: 'user' | 'assistant' | 'system' | 'tool'): string {
   return cn(
     CHAT_MESSAGE_ROW_BASE_CLASS,
@@ -82,7 +117,7 @@ export const CHAT_SLASH_COMMAND_MESSAGE_CLASS =
 export const CHAT_SLASH_COMMAND_REQUEST_CLASS =
   'min-w-0 whitespace-pre-wrap text-[14px] leading-[1.7] text-[#18181a]';
 export const CHAT_MESSAGE_MODE_CHIP_CLASS =
-  'inline-flex items-center gap-[4px] rounded-full bg-[#eef0f4] px-[9px] py-[2px] text-[11px] font-medium text-[#464c5e]';
+  'inline-flex items-center gap-[4px] rounded-full bg-[#eeece9] px-[9px] py-[2px] text-[11px] font-medium text-[rgba(24,24,26,0.8)]';
 // 排队态只靠虚线边框 + 删除按钮表达，不再有「排队中」文案行
 // （用户明确要求；原 CHAT_QUEUED_STATUS_* 两个常量已随文案一起下线）。
 
@@ -92,17 +127,17 @@ export const CHAT_MESSAGE_MODE_CHIP_CLASS =
 // ---------------------------------------------------------------------------
 export const CHAT_DISPATCH_NOTICE_ROW_CLASS = 'flex justify-start';
 export const CHAT_DISPATCH_NOTICE_CLASS =
-  'inline-flex max-w-[min(680px,92%)] flex-wrap items-center gap-[7px] rounded-[12px] border-[0.5px] border-[#d8ece7] bg-[#f2faf8] px-[13px] py-[9px] text-[13px] leading-[1.6] text-[#40615b]';
+  'inline-flex max-w-[min(680px,92%)] flex-wrap items-center gap-[7px] rounded-[12px] border-[0.5px] border-[rgba(15,118,110,0.16)] bg-[rgba(15,118,110,0.06)] px-[13px] py-[9px] text-[13px] leading-[1.6] text-[#3f5b57]';
 export const CHAT_DISPATCH_NOTICE_ROUTE_BADGE_CLASS =
-  'inline-flex shrink-0 items-center gap-[4px] rounded-[6px] bg-[#e1f1ed] px-[6px] py-[1px] text-[11px] font-medium leading-[1.5] text-[#0f7268]';
-export const CHAT_DISPATCH_NOTICE_TARGET_CLASS = 'font-medium text-[#0f7268]';
+  'inline-flex shrink-0 items-center gap-[4px] rounded-[6px] bg-[#dceee9] px-[6px] py-[1px] text-[11px] font-medium leading-[1.5] text-[#0f766e]';
+export const CHAT_DISPATCH_NOTICE_TARGET_CLASS = 'font-medium text-[#0f766e]';
 export const CHAT_DISPATCH_NOTICE_INTENT_CLASS =
-  'min-w-0 truncate text-[11.5px] leading-[1.5] text-[#8b9c98]';
+  'min-w-0 truncate text-[11.5px] leading-[1.5] text-[#8f8f93]';
 // ---------------------------------------------------------------------------
 // Markdown answer (styled via child selectors, code delegates to CodeBlock)
 // ---------------------------------------------------------------------------
 export const CHAT_MARKDOWN_CLASS = cn(
-  'min-w-0 max-w-full text-[14px] leading-[1.75] text-[#18181a]',
+  'min-w-0 max-w-full text-[14.5px] leading-[1.7] text-[#18181a]',
   '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
   '[&_p]:my-[8px] [&_p]:wrap-anywhere',
   '[&_h1]:mt-[16px] [&_h1]:mb-[8px] [&_h1]:text-[18px] [&_h1]:font-semibold',
@@ -112,48 +147,47 @@ export const CHAT_MARKDOWN_CLASS = cn(
   '[&_ul]:my-[8px] [&_ul]:pl-[22px] [&_ul]:list-disc',
   '[&_ol]:my-[8px] [&_ol]:pl-[22px] [&_ol]:list-decimal',
   '[&_li]:my-[3px]',
-  '[&_a]:text-[#0b6cf5] [&_a]:underline [&_a]:underline-offset-2',
-  '[&_.md-link-label]:text-[#0b6cf5] [&_.md-link-label]:underline [&_.md-link-label]:underline-offset-2',
-  '[&_blockquote]:my-[10px] [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#dfe5f2] [&_blockquote]:pl-[12px] [&_blockquote]:text-[#5b6273]',
-  '[&_hr]:my-[12px] [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-[#e3e7f1]',
+  '[&_a]:text-[#0f766e] [&_a]:underline [&_a]:underline-offset-2',
+  '[&_.md-link-label]:text-[#0f766e] [&_.md-link-label]:underline [&_.md-link-label]:underline-offset-2',
+  '[&_blockquote]:my-[10px] [&_blockquote]:border-l-[3px] [&_blockquote]:border-[rgba(24,24,26,0.10)] [&_blockquote]:pl-[12px] [&_blockquote]:text-[#4b4b50]',
+  '[&_hr]:my-[12px] [&_hr]:border-0 [&_hr]:border-t [&_hr]:border-[rgba(24,24,26,0.08)]',
   '[&_strong]:font-semibold',
-  '[&_code]:rounded-[5px] [&_code]:bg-[#f1f2f5] [&_code]:px-[5px] [&_code]:py-[1px] [&_code]:font-mono [&_code]:text-[12.5px]',
+  '[&_code]:rounded-[5px] [&_code]:bg-[#f0efec] [&_code]:px-[5px] [&_code]:py-[1px] [&_code]:font-mono [&_code]:text-[12.5px]',
   '[&_.code-block-vscode]:my-[10px]',
 );
 export const CHAT_MARKDOWN_IMAGE_LINK_CLASS =
-  'my-[10px] block w-fit max-w-full overflow-hidden rounded-[12px] border border-[#e3e7f1] bg-[#f7f8fa] no-underline shadow-[0_8px_24px_rgba(30,45,70,0.08)] transition hover:border-[#c9d2e4] hover:shadow-[0_10px_28px_rgba(30,45,70,0.12)]';
+  'my-[10px] block w-fit max-w-full overflow-hidden rounded-[12px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] no-underline shadow-[0_8px_24px_rgba(30,45,70,0.08)] transition hover:border-[rgba(24,24,26,0.12)] hover:shadow-[0_10px_28px_rgba(30,45,70,0.12)]';
 export const CHAT_MARKDOWN_IMAGE_CLASS =
   'block max-h-[420px] max-w-full object-contain';
 export const CHAT_MD_TABLE_SCROLL_CLASS = 'my-[10px] max-w-full overflow-x-auto';
 export const CHAT_MD_TABLE_CLASS =
-  'w-full border-collapse text-[13px] [&_th]:border [&_th]:border-[#e3e7f1] [&_th]:bg-[#f7f8fa] [&_th]:px-[10px] [&_th]:py-[6px] [&_th]:font-semibold [&_td]:border [&_td]:border-[#e3e7f1] [&_td]:px-[10px] [&_td]:py-[6px]';
+  'w-full border-collapse text-[13px] [&_th]:border [&_th]:border-[rgba(24,24,26,0.08)] [&_th]:bg-[#f2f1ee] [&_th]:px-[10px] [&_th]:py-[6px] [&_th]:font-semibold [&_td]:border [&_td]:border-[rgba(24,24,26,0.08)] [&_td]:px-[10px] [&_td]:py-[6px]';
 
 // ---------------------------------------------------------------------------
 // Execution record (执行记录 trace panel)
 // ---------------------------------------------------------------------------
-export const CHAT_TRACE_WRAP_CLASS = 'mb-[10px] min-w-0';
+export const CHAT_TRACE_WRAP_CLASS = 'mb-[10px] min-w-0 max-w-[560px] rounded-[14px] bg-[rgba(24,24,26,0.035)] px-[10px] py-[8px]';
 export const CHAT_TRACE_SUMMARY_CLASS =
-  'inline-flex cursor-pointer items-center gap-[7px] border-0 bg-transparent p-0 text-[13px] font-semibold leading-[1.5] text-[#464c5e] transition-colors hover:text-[#18181a]';
+  'inline-flex w-full cursor-pointer items-center gap-[7px] border-0 bg-transparent p-0 text-[12.5px] font-medium leading-[1.5] text-[#6d6d72] transition-colors hover:text-[#18181a]';
 export const CHAT_TRACE_SUMMARY_RUNNING_CLASS = 'text-[#18181a]';
 export const CHAT_TRACE_SUMMARY_FAILED_CLASS = 'text-[#d20b0b]';
 export const CHAT_TRACE_ICON_CLASS =
-  'inline-flex size-[18px] shrink-0 items-center justify-center text-[#858b9c] [&>svg]:block [&>svg]:size-[14px]';
+  'inline-flex size-[18px] shrink-0 items-center justify-center text-[#6d6d72] [&>svg]:block [&>svg]:size-[14px]';
 export const CHAT_TRACE_CHEVRON_CLASS = 'transition-transform duration-150';
 export const CHAT_TRACE_CHEVRON_EXPANDED_CLASS = 'rotate-90';
-export const CHAT_TRACE_DETAILS_CLASS =
-  'mt-[8px] grid gap-[8px] border-l-[1.5px] border-[#eef0f4] pl-[14px]';
+export const CHAT_TRACE_DETAILS_CLASS = 'mt-[6px] grid gap-[2px]';
 export const CHAT_TRACE_LINE_CLASS = 'grid grid-cols-[18px_minmax(0,1fr)] items-start gap-[8px]';
 export const CHAT_TRACE_LINE_CONTENT_CLASS = 'grid grid-cols-[minmax(0,1fr)] min-w-0 gap-[4px]';
-export const CHAT_TRACE_LINE_TEXT_CLASS = 'text-[13px] leading-[1.5] text-[#464c5e] wrap-anywhere';
+export const CHAT_TRACE_LINE_TEXT_CLASS = 'text-[13px] leading-[1.5] text-[rgba(24,24,26,0.8)] wrap-anywhere';
 export const CHAT_TRACE_FLOW_TEXT_CLASS = 'sd1-trace-flow-text';
 export const CHAT_TRACE_LINE_TEXT_FAILED_CLASS = 'text-[#d20b0b]';
-export const CHAT_TRACE_LINE_DETAIL_CLASS = 'text-[12px] leading-[1.5] text-[#858b9c] wrap-anywhere';
+export const CHAT_TRACE_LINE_DETAIL_CLASS = 'text-[12px] leading-[1.5] text-[#6d6d72] wrap-anywhere';
 export const CHAT_TRACE_LINE_DURATION_CLASS =
-  'ml-[7px] inline-block align-baseline text-[11px] font-medium leading-[1.5] tabular-nums text-[#a2a8b8]';
+  'ml-[7px] inline-block align-baseline text-[11px] font-medium leading-[1.5] tabular-nums text-[#9a9a9f]';
 export const CHAT_TRACE_TOTAL_DURATION_CLASS =
-  'ml-[6px] whitespace-nowrap text-[11px] leading-[1.4] tabular-nums text-[#a2a8b8]';
+  'ml-[6px] whitespace-nowrap text-[11px] leading-[1.4] tabular-nums text-[#9a9a9f]';
 export const CHAT_TRACE_CODE_SUMMARY_CLASS =
-  'cursor-pointer text-[12px] font-medium text-[#757f9c] hover:text-[#18181a]';
+  'cursor-pointer text-[12px] font-medium text-[#6d6d72] hover:text-[#18181a]';
 export const CHAT_TRACE_CODE_DETAILS_CLASS = 'block min-w-0 max-w-full overflow-hidden';
 export const CHAT_TRACE_CODE_BLOCK_CLASS =
   'mt-[6px] max-h-[420px] w-full max-w-full overflow-auto overscroll-contain';
@@ -162,64 +196,64 @@ export const CHAT_TRACE_CODE_BLOCK_CLASS =
 // Citations
 // ---------------------------------------------------------------------------
 export const CHAT_CITATIONS_CLASS =
-  'mt-[12px] grid min-w-0 max-w-full gap-[8px] overflow-hidden border-t border-[#f0f1f4] pt-[10px]';
+  'mt-[12px] grid min-w-0 max-w-full gap-[8px] overflow-hidden border-t border-[#f0efec] pt-[10px]';
 export const CHAT_CITATION_HEADING_CLASS =
-  'inline-flex items-center gap-[6px] text-[12px] font-semibold text-[#757f9c]';
+  'inline-flex items-center gap-[6px] text-[12px] font-semibold text-[#6d6d72]';
 export const CHAT_CITATION_LIST_CLASS = 'flex min-w-0 max-w-full flex-wrap gap-[6px] overflow-hidden';
 export const CHAT_CITATION_CHIP_CLASS =
-  'inline-flex min-w-0 max-w-full items-center gap-[6px] overflow-hidden rounded-[8px] border border-[#e3e7f1] bg-[#fafbfc] px-[9px] py-[5px] text-left text-[12px] text-[#464c5e] transition-colors hover:border-[#c9d2e4] hover:bg-white';
+  'inline-flex min-w-0 max-w-full items-center gap-[6px] overflow-hidden rounded-[8px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] px-[9px] py-[5px] text-left text-[12px] text-[rgba(24,24,26,0.8)] transition-colors hover:border-[rgba(24,24,26,0.12)] hover:bg-white';
 export const CHAT_CITATION_INDEX_CLASS = 'shrink-0 font-semibold text-[#18181a]';
 export const CHAT_CITATION_TITLE_CLASS = 'min-w-0 truncate';
 export const CHAT_CITATION_COUNT_CLASS =
-  'shrink-0 rounded-full bg-[#eef1f7] px-[6px] py-[1px] text-[10px] font-semibold text-[#6b7280]';
+  'shrink-0 rounded-full bg-[#eeece9] px-[6px] py-[1px] text-[10px] font-semibold text-[#6d6d72]';
 
 // ---------------------------------------------------------------------------
 // Message attachments (in-bubble)
 // ---------------------------------------------------------------------------
 export const CHAT_ATTACHMENT_LIST_CLASS = 'mt-[10px] grid gap-[8px]';
 export const CHAT_ATTACHMENT_CARD_CLASS =
-  'grid min-h-[46px] w-[min(280px,100%)] grid-cols-[36px_minmax(0,1fr)] items-center gap-[10px] rounded-[10px] border border-[#e3e7f1] bg-[#fafbfc] p-[7px]';
+  'grid min-h-[46px] w-[min(280px,100%)] grid-cols-[36px_minmax(0,1fr)] items-center gap-[10px] rounded-[10px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] p-[7px]';
 export const CHAT_ATTACHMENT_IMG_CLASS = 'size-[36px] rounded-[8px] object-cover';
 export const CHAT_ATTACHMENT_FILE_ICON_CLASS =
-  'inline-grid size-[36px] place-items-center rounded-[8px] bg-[#eef0f4] text-[#464c5e]';
+  'inline-grid size-[36px] place-items-center rounded-[8px] bg-[#eeece9] text-[rgba(24,24,26,0.8)]';
 export const CHAT_ATTACHMENT_COPY_CLASS = 'grid min-w-0 gap-px';
 export const CHAT_ATTACHMENT_NAME_CLASS = 'truncate text-[12px] font-medium text-[#18181a]';
-export const CHAT_ATTACHMENT_META_CLASS = 'truncate text-[11px] text-[#858b9c]';
+export const CHAT_ATTACHMENT_META_CLASS = 'truncate text-[11px] text-[#6d6d72]';
 
 // ---------------------------------------------------------------------------
 // Harness-generated artifacts
 // ---------------------------------------------------------------------------
 export const CHAT_ARTIFACTS_CLASS =
-  'mt-[12px] grid min-w-0 max-w-full gap-[8px] border-t border-[#f0f1f4] pt-[10px]';
+  'mt-[12px] grid min-w-0 max-w-full gap-[8px] border-t border-[#f0efec] pt-[10px]';
 export const CHAT_ARTIFACT_HEADING_CLASS =
-  'inline-flex items-center gap-[6px] text-[12px] font-semibold text-[#757f9c]';
+  'inline-flex items-center gap-[6px] text-[12px] font-semibold text-[#6d6d72]';
 export const CHAT_ARTIFACT_LIST_CLASS = 'grid min-w-0 max-w-[560px] gap-[6px]';
 export const CHAT_ARTIFACT_BUTTON_CLASS =
-  'grid min-h-[46px] w-full max-w-[320px] grid-cols-[32px_minmax(0,1fr)_24px] items-center gap-[9px] rounded-[10px] border border-[#e3e7f1] bg-[#fafbfc] px-[8px] py-[6px] text-left text-[#464c5e] transition-colors hover:border-[#c9d2e4] hover:bg-white disabled:cursor-wait disabled:opacity-60';
+  'grid min-h-[46px] w-full max-w-[320px] grid-cols-[32px_minmax(0,1fr)_24px] items-center gap-[9px] rounded-[10px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] px-[8px] py-[6px] text-left text-[rgba(24,24,26,0.8)] transition-colors hover:border-[rgba(24,24,26,0.12)] hover:bg-white disabled:cursor-wait disabled:opacity-60';
 export const CHAT_ARTIFACT_ICON_CLASS =
-  'inline-grid size-[32px] place-items-center rounded-[8px] bg-[#eef0f4] text-[#464c5e]';
+  'inline-grid size-[32px] place-items-center rounded-[8px] bg-[#eeece9] text-[rgba(24,24,26,0.8)]';
 export const CHAT_ARTIFACT_COPY_CLASS = 'grid min-w-0 gap-px';
 export const CHAT_ARTIFACT_NAME_CLASS = 'truncate text-[12px] font-medium text-[#18181a]';
-export const CHAT_ARTIFACT_META_CLASS = 'truncate text-[11px] text-[#858b9c]';
+export const CHAT_ARTIFACT_META_CLASS = 'truncate text-[11px] text-[#6d6d72]';
 export const CHAT_ARTIFACT_IMAGE_CARD_CLASS =
-  'grid w-[min(560px,100%)] min-w-0 overflow-hidden rounded-[12px] border border-[#e3e7f1] bg-[#fafbfc] shadow-[0_8px_24px_rgba(30,45,70,0.06)]';
+  'grid w-[min(560px,100%)] min-w-0 overflow-hidden rounded-[12px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] shadow-[0_8px_24px_rgba(30,45,70,0.06)]';
 export const CHAT_ARTIFACT_IMAGE_LINK_CLASS =
-  'group relative grid min-h-[120px] max-h-[420px] place-items-center overflow-hidden bg-[linear-gradient(45deg,#f3f4f7_25%,transparent_25%),linear-gradient(-45deg,#f3f4f7_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f3f4f7_75%),linear-gradient(-45deg,transparent_75%,#f3f4f7_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0]';
+  'group relative grid min-h-[120px] max-h-[420px] place-items-center overflow-hidden bg-[linear-gradient(45deg,#f0efec_25%,transparent_25%),linear-gradient(-45deg,#f0efec_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f0efec_75%),linear-gradient(-45deg,transparent_75%,#f0efec_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0]';
 export const CHAT_ARTIFACT_IMAGE_CLASS =
   'block max-h-[420px] max-w-full object-contain transition duration-200 group-hover:scale-[1.01]';
 export const CHAT_ARTIFACT_IMAGE_PLACEHOLDER_CLASS =
-  'grid min-h-[140px] w-full place-items-center px-[20px] text-center text-[12px] text-[#858b9c]';
+  'grid min-h-[140px] w-full place-items-center px-[20px] text-center text-[12px] text-[#6d6d72]';
 export const CHAT_ARTIFACT_IMAGE_FOOTER_CLASS =
-  'grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-[10px] border-t border-[#eef0f4] bg-white px-[10px] py-[8px]';
+  'grid min-w-0 grid-cols-[minmax(0,1fr)_32px] items-center gap-[10px] border-t border-[#eeece9] bg-white px-[10px] py-[8px]';
 export const CHAT_ARTIFACT_IMAGE_DOWNLOAD_CLASS =
-  'inline-grid size-[32px] place-items-center rounded-[8px] border border-[#e3e7f1] bg-white text-[#464c5e] transition hover:border-[#c9d2e4] hover:bg-[#f7f8fa] disabled:cursor-wait disabled:opacity-60';
+  'inline-grid size-[32px] place-items-center rounded-[8px] border border-[rgba(24,24,26,0.08)] bg-white text-[rgba(24,24,26,0.8)] transition hover:border-[rgba(24,24,26,0.12)] hover:bg-[#f2f1ee] disabled:cursor-wait disabled:opacity-60';
 
 // ---------------------------------------------------------------------------
 // Feedback actions
 // ---------------------------------------------------------------------------
-export const CHAT_FEEDBACK_CLASS = 'mt-[10px] flex items-center gap-[4px]';
+export const CHAT_FEEDBACK_CLASS = 'mt-[4px] flex items-center gap-[2px]';
 export const CHAT_FEEDBACK_BTN_CLASS =
-  'inline-grid size-[28px] place-items-center rounded-[8px] border-0 bg-transparent p-0 text-[#a2a8b8] transition-colors hover:bg-[#f1f2f5] hover:text-[#18181a]';
+  'inline-grid size-[26px] place-items-center rounded-[8px] border-0 bg-transparent p-0 text-[#9a9a9f] transition-colors hover:bg-[#f0efec] hover:text-[#18181a]';
 export const CHAT_FEEDBACK_BTN_ACTIVE_CLASS =
   'bg-[#ffe1e1] text-[#d11a1a] hover:bg-[#ffe1e1] hover:text-[#d11a1a]';
 export const CHAT_FEEDBACK_BTN_DISLIKE_ACTIVE_CLASS =
@@ -228,107 +262,123 @@ export const CHAT_FEEDBACK_BTN_DISLIKE_ACTIVE_CLASS =
 // ---------------------------------------------------------------------------
 // Empty state (Hello {name})
 // ---------------------------------------------------------------------------
+// 空态不再自己带 8vh 顶距：现在它被窗口包着，由 MessageList 的
+// `min-h-full + justify-center` 在窗口里垂直居中（下方再留 4vh 抵消视觉重心）。
 export const CHAT_EMPTY_CLASS =
-  'mx-auto flex w-full max-w-[640px] flex-col gap-[16px] pt-[8vh]';
+  'mx-auto flex w-full max-w-[640px] flex-col gap-[16px]';
 export const CHAT_EMPTY_GREETING_CARD_CLASS =
-  'flex w-full items-end justify-between rounded-[20px] bg-[#f6f6f6] pl-[8px] pr-[16px]';
-export const CHAT_EMPTY_TITLE_CLASS = 'text-[36px] font-semibold leading-none text-[#18181a]';
-export const CHAT_EMPTY_SUBTITLE_CLASS = 'text-[18px] font-medium text-[#464c5e]';
+  'flex w-full items-end justify-between rounded-[20px] bg-[#e5e4e0] pl-[8px] pr-[16px]';
+export const CHAT_EMPTY_TITLE_CLASS = 'text-[26px] font-semibold leading-[1.25] tracking-[-0.02em] text-[#18181a]';
+export const CHAT_EMPTY_SUBTITLE_CLASS = 'text-[13.5px] font-normal text-[#6d6d72]';
 export const CHAT_EMPTY_CARD_CLASS =
-  'flex w-full items-stretch gap-[8px] rounded-[20px] bg-[#f6f6f6] p-[16px]';
-export const CHAT_EMPTY_ROLE_CLASS = 'line-clamp-2 text-[12px] capitalize leading-[1.5] text-[#757f9c]';
+  'flex w-full items-stretch gap-[8px] rounded-[20px] bg-[#e5e4e0] p-[16px]';
+export const CHAT_EMPTY_ROLE_CLASS = 'line-clamp-2 text-[12px] capitalize leading-[1.5] text-[#6d6d72]';
 export const CHAT_EMPTY_TAGS_CLASS =
-  'flex flex-wrap items-center gap-[10px] [&>span]:rounded-[10px] [&>span]:border-[0.5px] [&>span]:border-[#e3e7f1] [&>span]:px-[10px] [&>span]:py-[4px] [&>span]:text-[10px] [&>span]:capitalize [&>span]:text-[#757f9c]';
+  'flex flex-wrap items-center gap-[6px] [&>span]:rounded-full [&>span]:bg-[rgba(24,24,26,0.05)] [&>span]:px-[9px] [&>span]:py-[3px] [&>span]:text-[11px] [&>span]:capitalize [&>span]:text-[#6d6d72]';
 export const CHAT_EMPTY_STAT_CELL_CLASS =
-  'flex flex-1 flex-col justify-center gap-[4px] border-[0.5px] border-[#e3e7f1] px-[20px] py-[8px] capitalize text-[#464c5e] first:rounded-l-[14px] last:rounded-r-[14px] [&:not(:first-child)]:ml-[-0.5px]';
+  'flex flex-1 flex-col justify-center gap-[4px] px-[16px] py-[8px] capitalize text-[rgba(24,24,26,0.8)] [&:not(:first-child)]:border-l-[0.5px] [&:not(:first-child)]:border-[rgba(24,24,26,0.08)]';
 
 // ---------------------------------------------------------------------------
 // Composer
 // ---------------------------------------------------------------------------
-export const CHAT_INPUT_SHELL_CLASS = 'shrink-0 px-[24px] pb-[20px] pt-[6px]';
-export const CHAT_COMPOSER_STAGE_CLASS = 'relative mx-auto w-full max-w-[820px]';
-// 「互联网检索」开关胶囊（原员工头像位，输入框左上角悬浮）。开/关两态的
-// 配色在 Composer 内拼：关 = 白底灰字，开 = 品牌青绿底白字（高对比）。
+// 原来是上卡的页脚（border-t 分段）。改成上下两张独立卡后，它自己就是一张
+// 完整的卡：同宽、同圆角、同描边，只靠 10px 间隙和底色区分层级。
+// 下卡：输入坞。和上卡同宽同圆角同描边，但底色用暖白 —— 里面还要放一张纯白
+// 输入框，三层（纸背景 → 暖白坞 → 白输入框）才不会糊成一片白。
+export const CHAT_INPUT_SHELL_CLASS =
+  'relative shrink-0 overflow-hidden rounded-[16px] border border-[#e6e2da] bg-[#faf9f6] px-[20px] pb-[14px] pt-[13px] shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
+// 768 = 消息列 808 - 左右各 20 内边距。
+//
+// 外壳已经有 px-[20px]，这里只要再对齐消息列的**内容列**（808 减去自身 20 内边距），
+// 输入卡的左右边框就分别落在头像左缘、用户气泡右缘上：
+//   窄屏（C-40 <= 768）：卡片 = 外壳内容区，左缘 = C 内 20，与消息列 px-20 同一条线；
+//   宽屏：卡片居中于 C-40，左缘 = 20 + (C-40-768)/2 = 消息内容左缘。
+// 写 808 会让宽屏下卡片比头像多出 20px（写 816 则是 24px + 右侧还多 36px）。
+export const CHAT_COMPOSER_STAGE_CLASS = 'relative mx-auto w-full max-w-[768px]';
+// 「互联网检索」开关胶囊：坐在输入卡的工具行里（加号右侧）。开/关两态的配色
+// 在 Composer 内拼：关 = 浅墨底灰字，开 = 品牌青绿底深青字（高对比）。
 export const CHAT_COMPOSER_WEB_SEARCH_CLASS =
-  'absolute bottom-full left-[16px] z-10 mb-[8px] inline-flex h-[30px] shrink-0 cursor-pointer items-center gap-[7px] rounded-full border px-[12px] text-[12px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/30';
+  'inline-flex h-[27px] shrink-0 cursor-pointer items-center gap-[6px] rounded-full border px-[9px] text-[12px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/30';
 export const CHAT_COMPOSER_FORM_CLASS =
-  'relative flex min-w-0 flex-1 flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#18181a] bg-white p-[12px] shadow-[0_6px_24px_rgba(24,24,26,0.08)] transition-colors';
-export const CHAT_COMPOSER_FORM_DRAG_CLASS = 'border-dashed border-[#0b6cf5] bg-[#f5f9ff]';
+  'relative flex min-w-0 flex-1 flex-col gap-[8px] rounded-[18px] bg-white p-[10px] shadow-[0_1px_3px_rgba(24,24,26,0.06)] ring-[0.5px] ring-[rgba(24,24,26,0.14)] transition-colors';
+export const CHAT_COMPOSER_FORM_DRAG_CLASS = 'bg-[rgba(15,118,110,0.05)] ring-[1px] ring-[#0f766e]';
 export const CHAT_COMPOSER_DROP_HINT_CLASS =
-  'pointer-events-none absolute inset-0 z-[2] grid place-items-center rounded-[14px] bg-white/85 text-[14px] font-medium text-[#18181a] backdrop-blur-sm';
+  'pointer-events-none absolute inset-0 z-[2] grid place-items-center rounded-[20px] bg-white/85 text-[14px] font-medium text-[#18181a] backdrop-blur-sm';
+// 卡内水平内边距 10（form）+ 10（textarea）= 20，正好等于消息列的 px-20：
+// 输入的文字与上方消息正文、头像落在同一条竖线上。
 export const CHAT_COMPOSER_TEXTAREA_CLASS =
-  'min-h-[48px] min-w-0 max-h-[200px] w-full flex-1 resize-none border-0 bg-transparent px-[4px] py-[2px] text-[14px] leading-[1.7] text-[#18181a] shadow-none outline-none placeholder:text-[#b3b8c4] focus-visible:ring-0';
+  'min-h-[46px] min-w-0 max-h-[200px] w-full flex-1 resize-none border-0 bg-transparent px-[10px] py-[4px] text-[14.5px] leading-[1.7] text-[#18181a] shadow-none outline-none placeholder:text-[#9a9a9f] focus-visible:ring-0';
 export const CHAT_COMPOSER_TEXTAREA_WITH_COMMAND_CLASS =
   'min-h-[32px] py-[4px] leading-[24px]';
 export const CHAT_COMPOSER_INPUT_ROW_CLASS = 'flex min-w-0 items-start gap-[8px]';
 export const CHAT_COMPOSER_COMMAND_CHIP_CLASS =
-  'group/command inline-flex h-[32px] max-w-[min(300px,100%)] shrink-0 items-center gap-[7px] rounded-[9px] border border-[#dfe4ec] bg-[#f7f8fa] py-[4px] pl-[6px] pr-[5px] text-[#464c5e] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-colors hover:border-[#cdd3de] hover:bg-[#f3f5f8]';
+  'group/command inline-flex h-[32px] max-w-[min(300px,100%)] shrink-0 items-center gap-[7px] rounded-[9px] border border-[rgba(24,24,26,0.10)] bg-[#f2f1ee] py-[4px] pl-[6px] pr-[5px] text-[rgba(24,24,26,0.8)] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-colors hover:border-[rgba(24,24,26,0.16)] hover:bg-[#f0efec]';
 export const CHAT_COMPOSER_COMMAND_ICON_CLASS =
-  'inline-grid size-[22px] shrink-0 place-items-center rounded-[6px] bg-white text-[#5f687b] shadow-[inset_0_0_0_1px_rgba(227,231,241,0.92)]';
+  'inline-grid size-[22px] shrink-0 place-items-center rounded-[6px] bg-white text-[#4b4b50] shadow-[inset_0_0_0_1px_rgba(227,231,241,0.92)]';
 export const CHAT_COMPOSER_COMMAND_LABEL_CLASS =
-  'min-w-0 truncate text-[12px] font-medium text-[#2f3440]';
+  'min-w-0 truncate text-[12px] font-medium text-[#3a3a3e]';
 export const CHAT_COMPOSER_COMMAND_KIND_CLASS =
-  'shrink-0 rounded-full bg-[#e9edf2] px-[6px] py-px text-[9px] font-medium leading-[1.4] text-[#687184]';
+  'shrink-0 rounded-full bg-[rgba(24,24,26,0.08)] px-[6px] py-px text-[9px] font-medium leading-[1.4] text-[#8f8f93]';
 export const CHAT_COMPOSER_COMMAND_REMOVE_CLASS =
-  'inline-grid size-[18px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[15px] leading-none text-[#9aa1af] transition-colors hover:bg-[#18181a] hover:text-white focus-visible:bg-[#18181a] focus-visible:text-white focus-visible:outline-none';
+  'inline-grid size-[18px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[15px] leading-none text-[#9a9a9f] transition-colors hover:bg-[#18181a] hover:text-white focus-visible:bg-[#18181a] focus-visible:text-white focus-visible:outline-none';
 export const CHAT_COMPOSER_ATTACHMENTS_CLASS = 'flex flex-wrap gap-[8px]';
 export const CHAT_COMPOSER_ATTACHMENT_CHIP_CLASS =
-  'inline-flex max-w-[240px] items-center gap-[7px] rounded-[10px] border border-[#e3e7f1] bg-[#fafbfc] py-[5px] pl-[7px] pr-[6px] text-[12px] text-[#464c5e]';
+  'inline-flex max-w-[240px] items-center gap-[7px] rounded-[9px] border-0 bg-[rgba(24,24,26,0.05)] py-[5px] pl-[7px] pr-[6px] text-[12px] text-[rgba(24,24,26,0.8)]';
 export const CHAT_COMPOSER_ATTACHMENT_ERROR_CLASS = 'border-[#f38989] bg-[#fce7e7] text-[#d20b0b]';
 export const CHAT_COMPOSER_ATTACHMENT_IMG_CLASS = 'size-[24px] rounded-[6px] object-cover';
 export const CHAT_COMPOSER_ATTACHMENT_COPY_CLASS = 'grid min-w-0 gap-px';
 export const CHAT_COMPOSER_ATTACHMENT_NAME_CLASS = 'truncate text-[12px] font-medium text-[#18181a]';
-export const CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS = 'truncate text-[11px] text-[#858b9c]';
+export const CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS = 'truncate text-[11px] text-[#6d6d72]';
 export const CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS =
-  'inline-grid size-[18px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[15px] leading-none text-[#a2a8b8] hover:text-[#18181a]';
+  'inline-grid size-[18px] shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-[15px] leading-none text-[#9a9a9f] hover:text-[#18181a]';
 
 export const CHAT_COMPOSER_TOOLBAR_CLASS = 'flex items-center justify-between gap-[10px]';
 export const CHAT_COMPOSER_CONTEXT_ROW_CLASS = 'flex min-w-0 items-center gap-[8px]';
 export const CHAT_COMPOSER_ACTIONS_ROW_CLASS = 'flex shrink-0 items-center gap-[8px]';
 export const CHAT_COMPOSER_PLUS_BTN_CLASS =
-  'inline-grid size-[32px] place-items-center rounded-[9px] border border-[#e3e7f1] bg-white p-0 text-[#464c5e] transition-colors hover:border-[#c9d2e4] hover:text-[#18181a] disabled:cursor-not-allowed disabled:opacity-45';
+  'inline-grid size-[30px] place-items-center rounded-full border-0 bg-transparent p-0 text-[#6d6d72] transition-colors hover:bg-[rgba(24,24,26,0.06)] hover:text-[#18181a] disabled:cursor-not-allowed disabled:opacity-45';
 export const CHAT_COMPOSER_INTENT_CHIP_CLASS =
-  'inline-flex cursor-pointer items-center gap-[5px] rounded-full border border-[#e3e7f1] bg-[#f4f5f7] py-[4px] pl-[6px] pr-[10px] text-[12px] font-medium text-[#464c5e] transition-colors hover:border-[#c9d2e4] hover:text-[#18181a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c9d2e4] focus-visible:ring-offset-1';
-export const CHAT_COMPOSER_HINT_CLASS = 'truncate text-[11px] text-[#b3b8c4] max-[560px]:hidden';
+  'inline-flex cursor-pointer items-center gap-[5px] rounded-full border border-[rgba(24,24,26,0.08)] bg-[#f0efec] py-[4px] pl-[6px] pr-[10px] text-[12px] font-medium text-[rgba(24,24,26,0.8)] transition-colors hover:border-[rgba(24,24,26,0.12)] hover:text-[#18181a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(24,24,26,0.12)] focus-visible:ring-offset-1';
+export const CHAT_COMPOSER_HINT_CLASS = 'truncate text-[11px] text-[#9a9a9f] max-[560px]:hidden';
 export const CHAT_COMPOSER_MODEL_BTN_CLASS =
-  'inline-flex h-[32px] max-w-[200px] items-center gap-[5px] rounded-[9px] border border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#757f9c] shadow-none transition-colors hover:border-[#c9d2e4] hover:text-[#18181a] disabled:cursor-not-allowed disabled:opacity-45 aria-expanded:border-[#c9d2e4] aria-expanded:text-[#18181a] [&>span:first-child]:min-w-0 [&>span:first-child]:truncate';
+  'inline-flex h-[30px] max-w-[200px] items-center gap-[5px] rounded-full border-0 bg-transparent px-[10px] text-[11.5px] font-normal text-[#6d6d72] shadow-none transition-colors hover:bg-[rgba(24,24,26,0.06)] hover:text-[#18181a] disabled:cursor-not-allowed disabled:opacity-45 aria-expanded:bg-[rgba(24,24,26,0.06)] aria-expanded:text-[#18181a] [&>span:first-child]:min-w-0 [&>span:first-child]:truncate';
 export const CHAT_COMPOSER_SEND_BTN_CLASS =
-  'inline-grid size-[36px] place-items-center rounded-[10px] bg-[#18181a] p-0 text-white transition-colors hover:bg-[#303030] disabled:cursor-not-allowed disabled:opacity-40';
+  'inline-grid size-[32px] place-items-center rounded-full bg-[#18181a] p-0 text-white transition-colors hover:bg-[#2e2e32] disabled:cursor-not-allowed disabled:opacity-40';
 export const CHAT_COMPOSER_STOP_BTN_CLASS = 'bg-[#d20b0b] hover:bg-[#b40a0a]';
 
 export const CHAT_MENU_CONTENT_CLASS =
-  'flex flex-col gap-[6px] rounded-[14px] border-0 bg-white p-[6px] shadow-[0px_16px_15px_rgba(0,0,0,0.1)] ring-0 [--accent:#F6F6F6] [--accent-foreground:#18181A]';
+  'flex flex-col gap-[6px] rounded-[14px] border-0 bg-white p-[6px] shadow-[0px_16px_15px_rgba(0,0,0,0.1)] ring-0 [--accent:#e5e4e0] [--accent-foreground:#18181A]';
 export const CHAT_MENU_ITEM_CLASS =
-  'h-[36px] cursor-pointer gap-[8px] rounded-[10px] px-[12px] text-[14px] text-[#464C5E]';
+  'h-[36px] cursor-pointer gap-[8px] rounded-[10px] px-[12px] text-[14px] text-[rgba(24,24,26,0.8)]';
 
 export const CHAT_MODEL_MENU_ITEM_CLASS =
-  'flex h-auto cursor-pointer items-center justify-between gap-[16px] rounded-[10px] px-[12px] py-[8px] text-[#464C5E]';
+  'flex h-auto cursor-pointer items-center justify-between gap-[16px] rounded-[10px] px-[12px] py-[8px] text-[rgba(24,24,26,0.8)]';
 export const CHAT_MODEL_MENU_COPY_CLASS = 'grid min-w-0 gap-px';
 export const CHAT_MODEL_MENU_NAME_CLASS = 'truncate text-[13px] font-medium text-[#18181a]';
-export const CHAT_MODEL_MENU_DETAIL_CLASS = 'truncate text-[11px] text-[#858b9c]';
+export const CHAT_MODEL_MENU_DETAIL_CLASS = 'truncate text-[11px] text-[#6d6d72]';
 
 // ---------------------------------------------------------------------------
 // Scheduled task draft card
 // ---------------------------------------------------------------------------
 export const CHAT_DRAFT_CARD_CLASS =
-  'mt-[12px] grid gap-[12px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-[#fafbfc] p-[14px]';
+  'mt-[12px] grid gap-[12px] rounded-[14px] border-[0.5px] border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] p-[14px]';
 export const CHAT_DRAFT_CARD_CREATED_CLASS = 'border-[#96d9b0] bg-[#f2fbf5]';
 export const CHAT_DRAFT_HEADER_CLASS = 'flex items-start justify-between gap-[12px]';
 export const CHAT_DRAFT_IDENTITY_CLASS = 'flex min-w-0 items-center gap-[10px]';
 export const CHAT_DRAFT_ICON_CLASS =
-  'inline-grid size-[34px] shrink-0 place-items-center rounded-[10px] bg-[#eef0f4] text-[#464c5e]';
-export const CHAT_DRAFT_KICKER_CLASS = 'text-[11px] font-medium text-[#858b9c]';
+  'inline-grid size-[34px] shrink-0 place-items-center rounded-[10px] bg-[#eeece9] text-[rgba(24,24,26,0.8)]';
+export const CHAT_DRAFT_KICKER_CLASS = 'text-[11px] font-medium text-[#6d6d72]';
 export const CHAT_DRAFT_TITLE_CLASS = 'text-[14px] font-semibold text-[#18181a]';
 export const CHAT_DRAFT_TOP_ACTIONS_CLASS = 'flex shrink-0 items-center gap-[6px]';
 export const CHAT_DRAFT_CREATED_BADGE_CLASS =
   'inline-flex items-center gap-[4px] rounded-full bg-[#e9f7ef] px-[10px] py-[3px] text-[12px] font-medium text-[#018434]';
 export const CHAT_DRAFT_META_GRID_CLASS = 'grid grid-cols-3 gap-[10px] max-[520px]:grid-cols-1';
 export const CHAT_DRAFT_META_ITEM_CLASS =
-  'grid gap-[3px] rounded-[10px] bg-white px-[10px] py-[8px] [&>span]:text-[11px] [&>span]:text-[#858b9c] [&>strong]:text-[13px] [&>strong]:font-medium [&>strong]:text-[#18181a]';
+  'grid gap-[3px] rounded-[10px] bg-white px-[10px] py-[8px] [&>span]:text-[11px] [&>span]:text-[#6d6d72] [&>strong]:text-[13px] [&>strong]:font-medium [&>strong]:text-[#18181a]';
 export const CHAT_DRAFT_PROMPT_CLASS =
-  'grid gap-[4px] [&>span]:text-[11px] [&>span]:text-[#858b9c] [&>p]:text-[13px] [&>p]:leading-[1.6] [&>p]:text-[#464c5e]';
+  'grid gap-[4px] [&>span]:text-[11px] [&>span]:text-[#6d6d72] [&>p]:text-[13px] [&>p]:leading-[1.6] [&>p]:text-[rgba(24,24,26,0.8)]';
 export const CHAT_DRAFT_EDITOR_CLASS =
-  'grid grid-cols-2 gap-[10px] max-[520px]:grid-cols-1 [&_label]:grid [&_label]:gap-[5px] [&_label>span]:text-[12px] [&_label>span]:text-[#757f9c]';
+  'grid grid-cols-2 gap-[10px] max-[520px]:grid-cols-1 [&_label]:grid [&_label]:gap-[5px] [&_label>span]:text-[12px] [&_label>span]:text-[#6d6d72]';
 export const CHAT_DRAFT_EDITOR_FULL_CLASS = 'col-span-full';
 export const CHAT_DRAFT_FOOTER_CLASS = 'flex justify-end gap-[8px]';
 
@@ -336,61 +386,122 @@ export const CHAT_DRAFT_FOOTER_CLASS = 'flex justify-end gap-[8px]';
 // Dialogs (handoff inbox + citation detail + rename)
 // ---------------------------------------------------------------------------
 export const CHAT_HANDOFF_LIST_CLASS = 'grid max-h-[60vh] gap-[14px] overflow-y-auto';
-export const CHAT_HANDOFF_CARD_CLASS = 'grid gap-[12px] rounded-[14px] border border-[#e3e7f1] bg-[#fafbfc] p-[16px]';
+export const CHAT_HANDOFF_CARD_CLASS = 'grid gap-[12px] rounded-[14px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] p-[16px]';
 export const CHAT_HANDOFF_HEAD_CLASS =
-  'flex items-center gap-[10px] [&_strong]:block [&_strong]:text-[14px] [&_strong]:font-semibold [&_strong]:text-[#18181a] [&_span]:text-[12px] [&_span]:text-[#858b9c]';
+  'flex items-center gap-[10px] [&_strong]:block [&_strong]:text-[14px] [&_strong]:font-semibold [&_strong]:text-[#18181a] [&_span]:text-[12px] [&_span]:text-[#6d6d72]';
 export const CHAT_HANDOFF_BLOCK_CLASS =
-  'grid gap-[4px] [&>span]:text-[12px] [&>span]:font-medium [&>span]:text-[#757f9c] [&>p]:text-[13px] [&>p]:leading-[1.6] [&>p]:text-[#464c5e]';
+  'grid gap-[4px] [&>span]:text-[12px] [&>span]:font-medium [&>span]:text-[#6d6d72] [&>p]:text-[13px] [&>p]:leading-[1.6] [&>p]:text-[rgba(24,24,26,0.8)]';
 export const CHAT_HANDOFF_ACTIONS_CLASS = 'flex justify-end gap-[8px]';
-export const CHAT_HANDOFF_EMPTY_CLASS = 'py-[36px] text-center text-[13px] text-[#858b9c]';
+export const CHAT_HANDOFF_EMPTY_CLASS = 'py-[36px] text-center text-[13px] text-[#6d6d72]';
 
 export const CHAT_CITATION_DETAIL_CLASS = 'grid w-full min-w-0 gap-[14px]';
-export const CHAT_CITATION_DETAIL_EYEBROW_CLASS = 'text-[12px] font-medium text-[#858b9c]';
+export const CHAT_CITATION_DETAIL_EYEBROW_CLASS = 'text-[12px] font-medium text-[#6d6d72]';
 export const CHAT_CITATION_DETAIL_TITLE_CLASS = 'text-[18px] font-semibold text-[#18181a]';
-export const CHAT_CITATION_DETAIL_INDEX_CLASS = 'shrink-0 rounded-[4px] bg-[#f0f2f7] px-[6px] py-[1px] text-[12px] font-semibold text-[#18181a]';
+export const CHAT_CITATION_DETAIL_INDEX_CLASS = 'shrink-0 rounded-[4px] bg-[#f0efec] px-[6px] py-[1px] text-[12px] font-semibold text-[#18181a]';
 export const CHAT_CITATION_DETAIL_SECTION_CLASS =
-  'grid w-full min-w-0 gap-[5px] [&>span]:text-[12px] [&>span]:font-medium [&>span]:text-[#757f9c] [&>p]:text-[13px] [&>p]:leading-[1.7] [&>p]:text-[#464c5e]';
+  'grid w-full min-w-0 gap-[5px] [&>span]:text-[12px] [&>span]:font-medium [&>span]:text-[#6d6d72] [&>p]:text-[13px] [&>p]:leading-[1.7] [&>p]:text-[rgba(24,24,26,0.8)]';
 export const CHAT_CITATION_DETAIL_QUOTE_CLASS =
-  'm-0 max-h-[min(52vh,520px)] overflow-y-auto overscroll-contain rounded-[10px] border-l-[3px] border-[#e3e7f1] bg-[#fafbfc] px-[12px] py-[8px] text-[13px] leading-[1.7] whitespace-pre-wrap wrap-anywhere text-[#464c5e]';
+  'm-0 max-h-[min(52vh,520px)] overflow-y-auto overscroll-contain rounded-[10px] border-l-[3px] border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] px-[12px] py-[8px] text-[13px] leading-[1.7] whitespace-pre-wrap wrap-anywhere text-[rgba(24,24,26,0.8)]';
 export const CHAT_CITATION_DETAIL_MARKDOWN_CLASS =
-  'max-h-[min(52vh,520px)] w-full min-w-0 max-w-full overflow-y-auto overscroll-contain rounded-[10px] border-l-[3px] border-[#e3e7f1] bg-[#fafbfc] px-[12px] py-[8px] [&>div]:w-full [&>div]:min-w-0 [&>div]:max-w-none [&>div]:text-[13px] [&>div]:leading-[1.7] [&>div]:text-[#464c5e] [&_h1]:text-[16px] [&_h2]:text-[15px] [&_h3]:text-[14px] [&_h4]:text-[13px] [&_p]:wrap-anywhere [&_li]:wrap-anywhere [&_code]:wrap-anywhere [&_a]:wrap-anywhere';
+  'max-h-[min(52vh,520px)] w-full min-w-0 max-w-full overflow-y-auto overscroll-contain rounded-[10px] border-l-[3px] border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] px-[12px] py-[8px] [&>div]:w-full [&>div]:min-w-0 [&>div]:max-w-none [&>div]:text-[13px] [&>div]:leading-[1.7] [&>div]:text-[rgba(24,24,26,0.8)] [&_h1]:text-[16px] [&_h2]:text-[15px] [&_h3]:text-[14px] [&_h4]:text-[13px] [&_p]:wrap-anywhere [&_li]:wrap-anywhere [&_code]:wrap-anywhere [&_a]:wrap-anywhere';
 export const CHAT_CITATION_DETAIL_GRID_CLASS =
-  'grid grid-cols-2 gap-[12px] max-[520px]:grid-cols-1 [&>div]:grid [&>div]:gap-[3px] [&_span]:text-[11px] [&_span]:text-[#858b9c] [&_strong]:text-[13px] [&_strong]:font-medium [&_strong]:text-[#18181a]';
-export const CHAT_CITATION_DETAIL_NOTE_CLASS = 'text-[12px] leading-[1.6] text-[#858b9c]';
+  'grid grid-cols-2 gap-[12px] max-[520px]:grid-cols-1 [&>div]:grid [&>div]:gap-[3px] [&_span]:text-[11px] [&_span]:text-[#6d6d72] [&_strong]:text-[13px] [&_strong]:font-medium [&_strong]:text-[#18181a]';
+export const CHAT_CITATION_DETAIL_NOTE_CLASS = 'text-[12px] leading-[1.6] text-[#6d6d72]';
 export const CHAT_CITATION_DETAIL_MERGE_CLASS =
-  'grid min-w-0 gap-[6px] rounded-[10px] border border-[#eef0f4] bg-white p-[10px]';
+  'grid min-w-0 gap-[6px] rounded-[10px] border border-[#eeece9] bg-white p-[10px]';
 export const CHAT_CITATION_DETAIL_MERGE_HEAD_CLASS =
   'inline-flex min-w-0 items-center gap-[8px] text-[12px] font-semibold text-[#18181a]';
 export const CHAT_CITATION_DETAIL_MERGE_META_CLASS =
-  'min-w-0 truncate text-[12px] font-normal text-[#858b9c]';
+  'min-w-0 truncate text-[12px] font-normal text-[#6d6d72]';
 
 export const CHAT_DEBUG_PANEL_CLASS =
-  'mx-auto mt-[16px] max-w-[820px] overflow-auto rounded-[10px] bg-[#1e1e1e] p-[12px] text-[12px] text-[#d4d4d4]';
+  'mx-auto mt-[16px] max-w-[820px] overflow-auto rounded-[10px] bg-[#1e1e1e] p-[12px] text-[12px] text-[rgba(24,24,26,0.14)]';
 
 // ---------------------------------------------------------------------------
 // A2UI slot form card（缺槽询问的表单卡片）
 // ---------------------------------------------------------------------------
 export const CHAT_SLOT_FORM_CARD_CLASS =
-  'mt-[12px] grid gap-[12px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white p-[14px]';
+  'mt-[12px] grid gap-[12px] rounded-[14px] border-[0.5px] border-[rgba(24,24,26,0.08)] bg-white p-[14px]';
 export const CHAT_SLOT_FORM_HEADER_CLASS = 'flex items-center gap-[10px]';
 export const CHAT_SLOT_FORM_ICON_CLASS =
   'inline-grid size-[32px] shrink-0 place-items-center rounded-[10px] bg-[#eef4ff] text-[#1a71ff]';
 export const CHAT_SLOT_FORM_HEADING_CLASS = 'grid min-w-0 gap-[2px]';
 export const CHAT_SLOT_FORM_TITLE_CLASS = 'text-[14px] font-semibold text-[#18181a]';
-export const CHAT_SLOT_FORM_KICKER_CLASS = 'truncate text-[11px] text-[#858b9c]';
+export const CHAT_SLOT_FORM_KICKER_CLASS = 'truncate text-[11px] text-[#6d6d72]';
 export const CHAT_SLOT_FORM_GRID_CLASS = 'grid gap-[10px] max-[520px]:gap-[12px]';
 export const CHAT_SLOT_FORM_FIELD_CLASS = 'grid gap-[6px]';
 export const CHAT_SLOT_FORM_LABEL_CLASS =
-  'inline-flex items-center gap-[4px] text-[12px] font-medium text-[#464c5e]';
+  'inline-flex items-center gap-[4px] text-[12px] font-medium text-[rgba(24,24,26,0.8)]';
 export const CHAT_SLOT_FORM_REQUIRED_CLASS = 'text-[#e5484d]';
 export const CHAT_SLOT_FORM_CHOICE_ROW_CLASS = 'flex items-center gap-[8px]';
 export const CHAT_SLOT_FORM_CHOICE_CLASS =
-  'h-[34px] min-w-[72px] rounded-[10px] border-[0.5px] border-[#dfe3ee] bg-white px-[14px] text-[13px] text-[#464c5e] transition-colors hover:border-[#1a71ff] hover:text-[#1a71ff]';
+  'h-[34px] min-w-[72px] rounded-[10px] border-[0.5px] border-[rgba(24,24,26,0.10)] bg-white px-[14px] text-[13px] text-[rgba(24,24,26,0.8)] transition-colors hover:border-[#1a71ff] hover:text-[#1a71ff]';
 export const CHAT_SLOT_FORM_CHOICE_ACTIVE_CLASS =
   'border-[#1a71ff] bg-[#eef4ff] font-medium text-[#1a71ff]';
 export const CHAT_SLOT_FORM_ERROR_CLASS = 'text-[12px] text-[#e5484d]';
 export const CHAT_SLOT_FORM_FOOTER_CLASS =
   'flex items-center justify-between gap-[12px] max-[520px]:flex-col max-[520px]:items-stretch';
-export const CHAT_SLOT_FORM_HINT_CLASS = 'text-[12px] text-[#858b9c]';
+export const CHAT_SLOT_FORM_HINT_CLASS = 'text-[12px] text-[#6d6d72]';
 export const CHAT_SLOT_FORM_SUBMITTED_CLASS =
   'flex items-center gap-[6px] text-[13px] font-medium text-[#018434]';
+
+// ---------------------------------------------------------------------------
+// Right context rail（会话上下文右栏）
+//
+// 位置：标题栏之下、与消息列左右并排；只在 >=1280px 出现（xl断点），
+// 窄屏收起，全局按钮仍留在标题栏右侧。
+// 视觉：白卡 + 0.5px 发丝线，和消息气泡同一套线性语言，不加阴影层级。
+// ---------------------------------------------------------------------------
+/** 12px 外边距：中间窗口与右栏卡片共用一条上/下基线，四周都留出纸背景。 */
+export const CHAT_BODY_CLASS = 'flex min-h-0 min-w-0 flex-1 gap-[12px] px-[12px] pb-[12px] pt-[2px]';
+/**
+ * 中间列：上下两张**独立**卡片（消息窗口 / 输入坞），不是一张大卡切两段。
+ *
+ * 两张卡必须是同一个宽度来源（都 w-full 撑满这一列），且各自的**内容列**都
+ * 收在同一档（808 / 768）上，左右两缘才会落在同一对竖线上：
+ *   消息列 = mx-auto max-w-[808px] px-[20px]，内容宽 768；
+ *   输入卡 = px-[20px] + 内部 mx-auto max-w-[768px]。
+ * 两者内容左缘都等于 (W-808)/2 + 20，W 是卡宽 —— 与卡内边距无关，所以只要
+ * 两卡同宽就永远对齐（窄屏下都退化为 20）。
+ */
+export const CHAT_COLUMN_CLASS = 'flex min-h-0 min-w-0 flex-1 flex-col gap-[10px]';
+/** 上卡：消息窗口。白底 + 发丝线 + 16px 圆角，和右栏卡片同一套语言。 */
+export const CHAT_MESSAGE_SHELL_CLASS =
+  'flex min-h-0 flex-1 flex-col overflow-hidden rounded-[16px] border border-[#e6e2da] bg-white shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
+// 右栏 = 一列**独立小卡**（参考 handoff 面板的右列：卡片之间留缝，各自圆角，
+// 卡内再嵌一块更浅的内容块）。之前是一整张卡靠发丝线分段，四段读起来像一个
+// 长列表；拆开之后每一段都能单独被看到，高度也随内容走。
+export const CHAT_RAIL_CLASS =
+  'hidden w-[288px] shrink-0 flex-col gap-[10px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(24,24,26,0.12)_transparent] xl:flex';
+export const CHAT_RAIL_CARD_CLASS =
+  'flex shrink-0 flex-col overflow-hidden rounded-[16px] border border-[#e6e2da] bg-white shadow-[0_1px_2px_rgba(24,24,26,0.03)]';
+// 卡头：小图标方块 + 标题 + 右上角计数/耗时，和参考图的卡头同构。
+export const CHAT_RAIL_CARD_HEAD_CLASS = 'flex shrink-0 items-center gap-[8px] px-[11px] pt-[11px] pb-[8px]';
+export const CHAT_RAIL_CARD_ICON_CLASS =
+  'grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-[#f2f1ee] text-[#6d6d72] [&>svg]:size-[12px]';
+export const CHAT_RAIL_CARD_TITLE_CLASS = 'truncate text-[12.5px] font-medium leading-[1.4] text-[#3d3d3f]';
+export const CHAT_RAIL_CARD_META_CLASS = 'ml-auto shrink-0 text-[11px] leading-none tabular-nums text-[#9a9a9f]';
+// 卡内内容块：比卡面再浅一档，和输入坞里「暖白底 + 白输入框」同一套层次。
+export const CHAT_RAIL_BODY_CLASS = 'mx-[7px] mb-[7px] rounded-[12px] bg-[#faf9f6] px-[7px] py-[3px]';
+/** 最后一张卡吃掉剩余高度：右栏底部与左侧输入卡齐平，不在下面留一截纸背景。 */
+export const CHAT_RAIL_CARD_GROW_CLASS = 'flex-1';
+export const CHAT_RAIL_BODY_GROW_CLASS = 'flex flex-1 flex-col';
+export const CHAT_RAIL_HEAD_CLASS = 'flex shrink-0 items-center gap-[10px] px-[12px] py-[11px]';
+export const CHAT_RAIL_HEAD_NAME_CLASS = 'truncate text-[14px] font-medium leading-[1.35] tracking-[-0.005em] text-[#18181a]';
+export const CHAT_RAIL_HEAD_META_CLASS = 'mt-[3px] truncate text-[11.5px] leading-[1.4] text-[#6d6d72]';
+// 员工卡右上角的入口按钮（原来是一条底部整行按钮，拆卡后收成图标）。
+export const CHAT_RAIL_HEAD_ACTION_CLASS =
+  'grid size-[26px] shrink-0 place-items-center rounded-[8px] text-[#a3a3a8] transition-colors hover:bg-[#f2f1ee] hover:text-[#3d3d3f] disabled:cursor-not-allowed disabled:opacity-40';
+export const CHAT_RAIL_ROW_CLASS =
+  'flex items-center gap-[8px] rounded-[8px] px-[2px] py-[6px] text-[12.5px] leading-[1.5] text-[rgba(24,24,26,0.8)]';
+export const CHAT_RAIL_ROW_TEXT_CLASS = 'min-w-0 flex-1 truncate';
+export const CHAT_RAIL_ROW_VALUE_CLASS = 'shrink-0 text-[11px] tabular-nums text-[#9a9a9f]';
+export const CHAT_RAIL_ROW_VALUE_ON_CLASS = 'shrink-0 text-[11px] text-[#0f766e]';
+export const CHAT_RAIL_ICON_CLASS =
+  'grid w-[16px] shrink-0 place-items-center text-[#6d6d72] [&>svg]:size-[12px]';
+export const CHAT_RAIL_STEP_TEXT_CLASS = 'min-w-0 flex-1 truncate text-[12.5px] leading-[1.5] text-[rgba(24,24,26,0.8)]';
+export const CHAT_RAIL_STEP_TEXT_FAILED_CLASS = 'min-w-0 flex-1 truncate text-[12.5px] leading-[1.5] text-[#d20b0b]';
+// 卡内最后一个动作：小字 + 外链箭头，贴着内容块底部。
+export const CHAT_RAIL_PANEL_FOOT_CLASS =
+  'mt-[2px] flex w-fit items-center gap-[4px] rounded-[8px] px-[2px] py-[6px] text-[11.5px] leading-none text-[#a3a3a8] transition-colors hover:text-[#6d6d72] disabled:cursor-not-allowed disabled:opacity-50';
+export const CHAT_RAIL_EMPTY_CLASS = 'px-[2px] py-[6px] text-[11.5px] leading-[1.6] text-[#9a9a9f]';

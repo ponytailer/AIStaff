@@ -36,7 +36,6 @@ import {
   CHAT_GROUP_MESSAGE_CONTENT_CLASS,
   CHAT_GROUP_MESSAGE_LEADER_BADGE_CLASS,
   CHAT_GROUP_MESSAGE_ROW_CLASS,
-  CHAT_GROUP_MESSAGE_SENDER_CLASS,
   CHAT_MESSAGE_ITEM_CLASS,
   CHAT_MESSAGE_MODE_CHIP_CLASS,
   CHAT_PLAIN_ANSWER_CLASS,
@@ -45,8 +44,14 @@ import {
   CHAT_QUEUED_BUBBLE_CLASS,
   CHAT_QUEUED_DELETE_BTN_CLASS,
   CHAT_QUEUED_MESSAGE_ITEM_CLASS,
+  CHAT_STREAM_CURSOR_CLASS,
   CHAT_TRACE_FLOW_TEXT_CLASS,
   CHAT_TRACE_TOTAL_DURATION_CLASS,
+  CHAT_TURN_AUTHOR_CLASS,
+  CHAT_TURN_HEAD_CLASS,
+  CHAT_TURN_SPACED_CLASS,
+  CHAT_TURN_SPACER_CLASS,
+  CHAT_TURN_TIME_CLASS,
   chatBubbleClass,
   chatRowClass,
 } from '../chatPageStyles';
@@ -126,7 +131,28 @@ type MessageBubbleProps = {
   chat: UseChatSession;
   item: ChatMessage;
   render: MessageRender;
+  /**
+   * 分组信息（tuffui ai-chat 的 thread 语义）：
+   * - `first`：是不是这一组的组首。只有组首出头像与「谁 + 几点」，同组后续消息
+   *   在头像列宽处留白，读者看到的是「一个人连着说了几句」而不是几条独立卡片。
+   * - `spaced`：是不是换组的第一条。换组时上抬 18px 呼吸，同组内只隔 4px。
+   * - `last`：是不是这一组的最后一条。点赞/耗时只挂在组尾 —— 挂到中间的补充
+   *   消息上，会把同一轮答复用一行按钮劈成两半。
+   */
+  turn?: { first: boolean; spaced: boolean; last: boolean };
 };
+
+/** 消息时间：24 小时制 HH:mm；解析不了就不显示（历史脏数据不占位）。 */
+function messageClock(iso: string | undefined): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
 
 function activeTeamProgress(item: ChatMessage): { phase: string; statusText: string } | null {
   const progress = item.metadata?.team_progress;
@@ -191,7 +217,12 @@ function TurnDurationNote({ timing }: { timing: TurnTraceTiming }) {
   );
 }
 
-export default function MessageBubble({ chat, item, render }: MessageBubbleProps) {
+export default function MessageBubble({
+  chat,
+  item,
+  render,
+  turn = { first: true, spaced: false, last: true },
+}: MessageBubbleProps) {
   const {
     toggleTrace,
     rateMessage,
@@ -229,16 +260,26 @@ export default function MessageBubble({ chat, item, render }: MessageBubbleProps
     ? slashCommandMessage(visibleContent, chat.slashCommands)
     : null;
   const groupAssistantMessage = item.role === 'assistant' && Boolean(chat.currentSession?.team_id);
+  /**
+   * 所有助手消息都带头像（demo 的 a-avatar）：员工是对话的主体，读者要一眼看出
+   * 「这句话是谁说的」。多智能体（team）额外多一行署名 + 项目领导徽标。
+   */
+  const assistantWithAvatar = item.role === 'assistant';
   const groupSenderName = chat.displayedAgent
     ? employeeDisplayName(chat.displayedAgent)
     : '项目领导';
+  // 组头姓名：普通员工用自己的名字；多智能体会话在名字后面补「项目领导」徽标。
+  const agentHeaderName = chat.displayedAgent
+    ? employeeDisplayName(chat.displayedAgent)
+    : '数字员工';
+  const clock = item.role === 'assistant' ? messageClock(item.created_at) : '';
   const teamProgress = item.role === 'assistant' ? activeTeamProgress(item) : null;
 
   // 转接通知单独成一块：只显示「路由 → 转给了谁（+ 判定意图）」，
   // 不渲染 trace、点赞、引用卡片——它不是答案，成员答案在紧跟的下一条气泡里。
   if (isDispatchNoticeMessage) {
     return (
-      <div className={CHAT_MESSAGE_ITEM_CLASS}>
+      <div className={cn(CHAT_MESSAGE_ITEM_CLASS, 'my-[2px]', turn.spaced && CHAT_TURN_SPACED_CLASS)}>
         <div className={CHAT_DISPATCH_NOTICE_ROW_CLASS}>
           <div className={CHAT_DISPATCH_NOTICE_CLASS} role="status">
             <span className={CHAT_DISPATCH_NOTICE_ROUTE_BADGE_CLASS}>
@@ -263,22 +304,45 @@ export default function MessageBubble({ chat, item, render }: MessageBubbleProps
   }
 
   return (
-    <div className={cn(CHAT_MESSAGE_ITEM_CLASS, queuedMessage && CHAT_QUEUED_MESSAGE_ITEM_CLASS)}>
-      <div className={cn(chatRowClass(item.role), groupAssistantMessage && CHAT_GROUP_MESSAGE_ROW_CLASS)}>
-        {groupAssistantMessage && (
+    <div className={cn(
+      CHAT_MESSAGE_ITEM_CLASS,
+      turn.spaced && CHAT_TURN_SPACED_CLASS,
+      queuedMessage && CHAT_QUEUED_MESSAGE_ITEM_CLASS,
+    )}>
+      <div className={cn(chatRowClass(item.role), assistantWithAvatar && CHAT_GROUP_MESSAGE_ROW_CLASS)}>
+        {assistantWithAvatar && (turn.first ? (
           <EmployeeAvatar
             agent={chat.displayedAgent}
-            size={36}
-            radius={10}
+            size={28}
+            radius={14}
             className={CHAT_GROUP_MESSAGE_AVATAR_CLASS}
           />
-        )}
-        <div className={groupAssistantMessage ? CHAT_GROUP_MESSAGE_CONTENT_CLASS : 'contents'}>
-          {groupAssistantMessage && (
-            <span className={CHAT_GROUP_MESSAGE_SENDER_CLASS} data-i18n-ignore>
-              {groupSenderName}
-              <span className={CHAT_GROUP_MESSAGE_LEADER_BADGE_CLASS}>项目领导</span>
-            </span>
+        ) : (
+          // 同组后续消息：占住头像那一列，内容仍在同一条竖线上。
+          <span className={CHAT_TURN_SPACER_CLASS} aria-hidden="true" />
+        ))}
+        <div className={assistantWithAvatar ? CHAT_GROUP_MESSAGE_CONTENT_CLASS : 'contents'}>
+          {/* 组头：谁在说 + 几点说（时间默认隐身，hover 这条才浮现）。 */}
+          {assistantWithAvatar && turn.first && (
+            <div className={CHAT_TURN_HEAD_CLASS}>
+              <span className={CHAT_TURN_AUTHOR_CLASS} data-i18n-ignore>
+                <span className="truncate">
+                  {groupAssistantMessage ? groupSenderName : agentHeaderName}
+                </span>
+                {groupAssistantMessage && (
+                  <span className={CHAT_GROUP_MESSAGE_LEADER_BADGE_CLASS}>项目领导</span>
+                )}
+              </span>
+              {clock && (
+                <time
+                  className={CHAT_TURN_TIME_CLASS}
+                  dateTime={item.created_at}
+                  suppressHydrationWarning
+                >
+                  {clock}
+                </time>
+              )}
+            </div>
           )}
           <div
             className={cn(
@@ -304,19 +368,19 @@ export default function MessageBubble({ chat, item, render }: MessageBubbleProps
               两者并存看起来像「有两段转接记录」）。本组件只负责渲染，不做跨组件判断。 */}
           {item.role === 'assistant' && dispatchInfo && !statusOnly && (
             <div className="mb-[7px] flex flex-wrap items-center gap-[5px] text-[11.5px]">
-              <span className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#e1f1ed] px-[6px] py-[2px] text-[#0f7268]">
+              <span className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#dceee9] px-[6px] py-[2px] text-[#0f766e]">
                 <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 由 {dispatchInfo.memberName} 回答
               </span>
               {dispatchInfo.intent && (
-                <span className="truncate text-[#9aa1b1]">{dispatchInfo.intent}</span>
+                <span className="truncate text-[#9a9a9f]">{dispatchInfo.intent}</span>
               )}
             </div>
           )}
           {statusOnly ? (
-            <div className="text-[13px] text-[#858b9c]">{visibleContent}</div>
+            <div className="text-[13px] text-[#6d6d72]">{visibleContent}</div>
           ) : showInlineTrace && summary ? (
             <ExecutionRecord
               traceTurnId={traceTurnId}
@@ -331,6 +395,9 @@ export default function MessageBubble({ chat, item, render }: MessageBubbleProps
             item.role === 'assistant' ? (
               <div aria-live={teamProgress ? 'polite' : undefined} data-i18n-ignore>
                 <MarkdownMessage content={visibleContent} />
+                {item.isStreaming && (
+                  <span className={CHAT_STREAM_CURSOR_CLASS} aria-hidden="true" />
+                )}
                 {teamProgress && (
                   <div
                     role="status"
@@ -425,7 +492,9 @@ export default function MessageBubble({ chat, item, render }: MessageBubbleProps
             />
           )}
 
-          {canRateMessage(item) && !teamProgress && (
+          {/* 点评与耗时只挂在组尾：同组中间的补充说明不挂，否则一行按钮
+              会把「一轮答复」从中间劈开，也把组间距撑得比换组还大。 */}
+          {canRateMessage(item) && !teamProgress && (!assistantWithAvatar || turn.last) && (
             <div className={CHAT_FEEDBACK_CLASS}>
               <button
                 type="button"

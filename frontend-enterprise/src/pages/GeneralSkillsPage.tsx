@@ -117,11 +117,11 @@ const SECTION_CARD_CLASS =
 const SECTION_CARD_TITLE_CLASS = 'text-[14px] font-medium text-[#18181a]';
 const FIELD_LABEL_CLASS = 'text-[13px] font-medium text-[#18181a]';
 const RETURN_BUTTON_CLASS =
-  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-5 text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6]! hover:bg-white! hover:text-[#18181a]! aria-expanded:border-[#cbd3e6]! aria-expanded:bg-white! aria-expanded:text-[#18181a]!';
+  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-5 text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2]! hover:bg-white! hover:text-[#18181a]! aria-expanded:border-[#ddd9d2]! aria-expanded:bg-white! aria-expanded:text-[#18181a]!';
 const PRIMARY_BUTTON_CLASS =
   'h-8 gap-1 rounded-[10px] bg-[#18181a] px-5 text-[12px] font-normal text-white hover:bg-[#303030]';
 const DELETE_BUTTON_CLASS =
-  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-5 text-[12px] font-normal text-[#d20b0b] hover:border-[#f3b6b6]! hover:bg-[#fce7e7]! hover:text-[#d20b0b]! aria-expanded:border-[#f3b6b6]! aria-expanded:bg-[#fce7e7]! aria-expanded:text-[#d20b0b]!';
+  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-5 text-[12px] font-normal text-[#d20b0b] hover:border-[#f3b6b6]! hover:bg-[#fce7e7]! hover:text-[#d20b0b]! aria-expanded:border-[#f3b6b6]! aria-expanded:bg-[#fce7e7]! aria-expanded:text-[#d20b0b]!';
 const EDITOR_ACTION_OUTLINE_CLASS = RETURN_BUTTON_CLASS;
 const EDITOR_ACTION_PRIMARY_CLASS = PRIMARY_BUTTON_CLASS;
 const HIDDEN_FILE_INPUT_CLASS =
@@ -131,27 +131,27 @@ const SKILL_EDITOR_DRAG_ACTIVE_CLASS =
 const SKILL_DROP_HINT_CLASS =
   'pointer-events-none absolute inset-x-[18px] bottom-[18px] top-[46px] z-[6] flex items-center justify-center gap-3 rounded-[14px] border border-dashed border-[#18181a] bg-white/90 text-[15px] font-semibold text-[#18181a] shadow-sm backdrop-blur-sm';
 const SKILL_FILE_EDITOR_CLASS =
-  'grid min-h-[560px] flex-1 grid-cols-[minmax(180px,240px)_minmax(0,1fr)] overflow-hidden border-t border-[#e3e7f1] bg-[#fafafa]';
+  'grid min-h-[560px] flex-1 grid-cols-[minmax(180px,240px)_minmax(0,1fr)] overflow-hidden border-t border-[#e6e4df] bg-[#f7f7f6]';
 const SKILL_FILE_TREE_CLASS =
-  'grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] border-r border-[#e3e7f1] bg-white';
+  'grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] border-r border-[#e6e4df] bg-white';
 const SKILL_FILE_TREE_HEADER_CLASS =
-  'flex min-h-[44px] items-center gap-2 border-b border-[#e3e7f1] bg-[#f6f6f6] px-[14px] text-[12px] font-medium text-[#757f9c]';
+  'flex min-h-[44px] items-center gap-2 border-b border-[#e6e4df] bg-[#f2f1ee] px-[14px] text-[12px] font-medium text-[#6d6d72]';
 const SKILL_FILE_TREE_LIST_CLASS =
   'min-h-0 overflow-auto bg-white p-2';
 const SKILL_FILE_TREE_ACTIONS_CLASS =
-  'flex gap-2 border-t border-[#e3e7f1] bg-white p-[10px]';
+  'flex gap-2 border-t border-[#e6e4df] bg-white p-[10px]';
 const SKILL_FILE_PANE_CLASS =
   'grid min-w-0 grid-rows-[auto_minmax(0,1fr)]';
 const SKILL_FILE_TAB_CLASS =
-  'flex min-h-[44px] items-center gap-2 border-b border-[#e3e7f1] bg-[#f6f6f6] px-[14px] text-[12px] font-medium text-[#757f9c]';
+  'flex min-h-[44px] items-center gap-2 border-b border-[#e6e4df] bg-[#f2f1ee] px-[14px] text-[12px] font-medium text-[#6d6d72]';
 const SKILL_FILE_TAB_ACTION_BUTTON_CLASS =
-  'inline-flex h-[28px] shrink-0 items-center gap-[4px] rounded-[6px] px-[8px] text-[12px] font-medium text-[#757f9c] transition-colors hover:bg-[#edf1f7] hover:text-[#18181a] disabled:pointer-events-none disabled:opacity-40';
+  'inline-flex h-[28px] shrink-0 items-center gap-[4px] rounded-[6px] px-[8px] text-[12px] font-medium text-[#6d6d72] transition-colors hover:bg-[#edf1f7] hover:text-[#18181a] disabled:pointer-events-none disabled:opacity-40';
 const SKILL_CODE_EDITOR_CLASS =
-  'relative min-h-0 overflow-hidden bg-[#fafafa] font-mono text-[13px] leading-[1.7] tab-[2] shadow-[inset_0_1px_0_#e3e7f1]';
+  'relative min-h-0 overflow-hidden bg-[#f7f7f6] font-mono text-[13px] leading-[1.7] tab-[2] shadow-[inset_0_1px_0_#e6e4df]';
 const SKILL_MARKDOWN_PREVIEW_CLASS =
   'min-h-0 overflow-auto bg-white p-[18px_20px] text-[14px] leading-[1.8] text-[#18181a]';
 const SKILL_MARKDOWN_PREVIEW_BODY_CLASS =
-  '[&>h1]:mb-4 [&>h1]:text-[22px] [&>h1]:font-semibold [&>h1]:leading-[1.35] [&>h2]:mb-3 [&>h2]:mt-6 [&>h2]:text-[18px] [&>h2]:font-semibold [&>h2]:leading-[1.4] [&>h3]:mb-2 [&>h3]:mt-5 [&>h3]:text-[16px] [&>h3]:font-semibold [&>p]:mb-3 [&>p]:whitespace-pre-wrap [&>ul]:mb-3 [&>ol]:mb-3 [&>ul]:pl-6 [&>ol]:pl-6 [&>li]:mb-1 [&>blockquote]:mb-3 [&>blockquote]:border-l-2 [&>blockquote]:border-[#e3e7f1] [&>blockquote]:pl-4 [&>blockquote]:text-[#757f9c] [&>code]:rounded-[4px] [&>code]:bg-[#f6f7fb] [&>code]:px-1 [&>code]:py-[1px] [&>code]:font-mono [&>pre]:mb-3 [&>pre]:overflow-auto [&>pre]:rounded-[10px] [&>pre]:bg-[#f6f7fb] [&>pre]:p-4 [&_table]:mb-3 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-[#e3e7f1] [&_th]:bg-[#f6f7fb] [&_th]:px-3 [&_th]:py-2 [&_td]:border [&_td]:border-[#e3e7f1] [&_td]:px-3 [&_td]:py-2';
+  '[&>h1]:mb-4 [&>h1]:text-[22px] [&>h1]:font-semibold [&>h1]:leading-[1.35] [&>h2]:mb-3 [&>h2]:mt-6 [&>h2]:text-[18px] [&>h2]:font-semibold [&>h2]:leading-[1.4] [&>h3]:mb-2 [&>h3]:mt-5 [&>h3]:text-[16px] [&>h3]:font-semibold [&>p]:mb-3 [&>p]:whitespace-pre-wrap [&>ul]:mb-3 [&>ol]:mb-3 [&>ul]:pl-6 [&>ol]:pl-6 [&>li]:mb-1 [&>blockquote]:mb-3 [&>blockquote]:border-l-2 [&>blockquote]:border-[#e6e4df] [&>blockquote]:pl-4 [&>blockquote]:text-[#6d6d72] [&>code]:rounded-[4px] [&>code]:bg-[#f6f7fb] [&>code]:px-1 [&>code]:py-[1px] [&>code]:font-mono [&>pre]:mb-3 [&>pre]:overflow-auto [&>pre]:rounded-[10px] [&>pre]:bg-[#f6f7fb] [&>pre]:p-4 [&_table]:mb-3 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-[#e6e4df] [&_th]:bg-[#f6f7fb] [&_th]:px-3 [&_th]:py-2 [&_td]:border [&_td]:border-[#e6e4df] [&_td]:px-3 [&_td]:py-2';
 const SKILL_CODE_HIGHLIGHT_CLASS =
   'pointer-events-none absolute inset-0 z-[1] m-0 overflow-hidden whitespace-pre p-[18px_20px] text-[#18181a] tab-[2]';
 const SKILL_CODE_HIGHLIGHT_CODE_CLASS =
@@ -160,13 +160,13 @@ const SKILL_CODE_INPUT_CLASS =
   'absolute inset-0 z-[2] m-0 size-full min-h-0 resize-none overflow-auto rounded-none border-0 bg-transparent! p-[18px_20px] font-[inherit] leading-[inherit] tracking-normal whitespace-pre text-transparent caret-[#18181a] outline-none tab-[2] [scrollbar-gutter:stable] selection:bg-[rgba(0,120,215,0.24)] [-webkit-text-fill-color:transparent]';
 const SKILL_RESULT_LAYOUT_CLASS = 'grid gap-5';
 const SKILL_SECTION_LABEL_CLASS =
-  'mb-2 text-[12px] font-semibold text-[#757f9c]';
+  'mb-2 text-[12px] font-semibold text-[#6d6d72]';
 const SKILL_REPLY_PANEL_CLASS =
-  'rounded-xl border border-[#eceef1] bg-white p-[16px_18px]';
+  'rounded-xl border border-[#ecebe7] bg-white p-[16px_18px]';
 const SKILL_REPLY_TEXT_CLASS =
   'mb-0! text-[15px] leading-[1.8] text-[#18181a]';
 const SKILL_TRACE_LIST_CLASS =
-  'grid gap-[10px] rounded-xl border border-[#eceef1] bg-[#fbfcfd] p-[12px_14px]';
+  'grid gap-[10px] rounded-xl border border-[#ecebe7] bg-[#fbfcfd] p-[12px_14px]';
 const SKILL_TRACE_ITEM_CLASS =
   'grid min-w-0 grid-cols-[12px_minmax(0,1fr)] gap-[10px]';
 const SKILL_TRACE_ITEM_BODY_CLASS = 'min-w-0 max-w-full';
@@ -175,26 +175,26 @@ const SKILL_TRACE_DOT_CLASS =
 const SKILL_TRACE_TITLE_CLASS =
   'text-[13px] font-semibold text-[#18181a]';
 const SKILL_TRACE_MESSAGE_CLASS =
-  'mt-[2px] break-words text-[12px] leading-[1.55] text-[#757f9c]';
+  'mt-[2px] break-words text-[12px] leading-[1.55] text-[#6d6d72]';
 const SKILL_TRACE_CODE_DETAILS_CLASS =
-  'group/gs-trace box-border w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-[#eceef1] bg-white';
+  'group/gs-trace box-border w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-[#ecebe7] bg-white';
 const SKILL_TRACE_CODE_SUMMARY_CLASS =
-  'flex min-h-[38px] cursor-pointer list-none items-center gap-2 px-3 py-[9px] text-[12px] font-semibold text-[#18181a] select-none group-open/gs-trace:border-b group-open/gs-trace:border-[#eceef1] [&::-webkit-details-marker]:hidden';
+  'flex min-h-[38px] cursor-pointer list-none items-center gap-2 px-3 py-[9px] text-[12px] font-semibold text-[#18181a] select-none group-open/gs-trace:border-b group-open/gs-trace:border-[#ecebe7] [&::-webkit-details-marker]:hidden';
 const SKILL_CODE_BLOCK_CLASS =
   'm-0 max-h-[520px] max-w-full overflow-auto whitespace-pre border-0 p-[16px_18px] font-mono text-[12px] leading-[1.65]';
 const SKILL_OUTPUT_STACK_CLASS = 'grid gap-[10px]';
 
 function skillFileNodeClass(active: boolean) {
   return cn(
-    'flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-[10px] py-2 text-left text-[12px] text-[#757f9c] transition-[background,color,box-shadow] duration-150',
-    'hover:bg-[#f6f6f6] hover:text-[#18181a]',
-    active && 'bg-[#f6f6f6] text-[#18181a]',
+    'flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg border-0 bg-transparent px-[10px] py-2 text-left text-[12px] text-[#6d6d72] transition-[background,color,box-shadow] duration-150',
+    'hover:bg-[#f2f1ee] hover:text-[#18181a]',
+    active && 'bg-[#f2f1ee] text-[#18181a]',
   );
 }
 
 function TraceDisclosureLabel() {
   return (
-    <span className="ml-auto text-[12px] font-medium text-[#757f9c]">
+    <span className="ml-auto text-[12px] font-medium text-[#6d6d72]">
       <span className="group-open/gs-trace:hidden">展开</span>
       <span className="hidden group-open/gs-trace:inline">收起</span>
     </span>
@@ -772,7 +772,7 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
                   发布到广场
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator className="my-[2px] bg-[#eef0f4]" />
+              <DropdownMenuSeparator className="my-[2px] bg-[#ecebe7]" />
               <DropdownMenuItem
                 variant="destructive"
                 className={MENU_ITEM_DANGER_CLASS}
@@ -799,7 +799,7 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
           <span className="truncate font-medium leading-[18px] text-[#18181a]" title={row.name}>
             {row.name}
           </span>
-          <span className="truncate text-[#858b9c]" title={row.slug}>
+          <span className="truncate text-[#6d6d72]" title={row.slug}>
             {row.slug}
           </span>
         </div>
@@ -830,7 +830,7 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
       render: (row) => (
         row.category
           ? <StatusBadge tone="blue">{row.category}</StatusBadge>
-          : <span className="text-[#c0c6d4]">未分类</span>
+          : <span className="text-[#d6d1c9]">未分类</span>
       ),
     },
     {
@@ -838,7 +838,7 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
       title: '创建者',
       width: 120,
       render: (row) => (
-        <span className="block truncate text-[#858b9c]" title={resourceCreatorName(row)}>
+        <span className="block truncate text-[#6d6d72]" title={resourceCreatorName(row)}>
           {resourceCreatorName(row) || '-'}
         </span>
       ),
@@ -874,15 +874,15 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
         <div className="flex min-w-0 items-start justify-between gap-[10px]">
           <div className="min-w-0">
             <strong className="block truncate text-[14px] font-semibold text-[#18181a]">{row.name}</strong>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.slug}</span>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">创建者：{resourceCreatorName(row) || '-'}</span>
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{row.slug}</span>
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">创建者：{resourceCreatorName(row) || '-'}</span>
           </div>
           {renderActions(row)}
         </div>
         {row.description && (
-          <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#858b9c]">{row.description}</p>
+          <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#6d6d72]">{row.description}</p>
         )}
-        <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#858b9c]">
+        <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#6d6d72]">
           <div className="flex items-center gap-[6px]">
             <StatusBadge tone={preset.tone}>{preset.text}</StatusBadge>
             <CapabilityScopeBadge value={row.capability_scope} />
@@ -910,7 +910,7 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
               variant="outline"
               onClick={() => void load()}
               disabled={loading}
-              className="h-[34px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[20px] text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+              className="h-[34px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[20px] text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
             >
               <IconRefresh className={cn('size-[14px]', loading && 'animate-spin')} />
               刷新
@@ -959,14 +959,14 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
         </div>
 
         <div className="flex flex-col gap-[18px]">
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <IconMagicWand className="size-[14px] shrink-0" />
             <span className="text-[14px] font-normal leading-none">{listLabel}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-[16px]">
-            <label className="flex h-[34px] w-[300px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
-              <IconSearch className="size-[14px] shrink-0 text-[#858b9c]" />
+            <label className="flex h-[34px] w-[300px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
+              <IconSearch className="size-[14px] shrink-0 text-[#6d6d72]" />
               <input
                 autoComplete="off"
                 data-1p-ignore="true"
@@ -975,14 +975,14 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
                 value={searchText}
                 placeholder="搜索技能名称、Slug、描述或主页"
                 onChange={(event) => setSearchText(event.target.value)}
-                className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#c0c6d4]"
+                className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#d6d1c9]"
               />
               {searchText && (
                 <button
                   type="button"
                   aria-label="清除搜索"
                   onClick={() => setSearchText('')}
-                  className="grid size-[16px] shrink-0 place-items-center text-[#c0c6d4] hover:text-[#858b9c]"
+                  className="grid size-[16px] shrink-0 place-items-center text-[#d6d1c9] hover:text-[#6d6d72]"
                 >
                   <IconClear className="size-[14px]" />
                 </button>
@@ -1016,7 +1016,7 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
             {filteredRows.length ? (
               pagination.pagedItems.map(renderMobileCard)
             ) : (
-              <div className="py-[40px] text-center text-[13px] text-[#858b9c]">{listEmptyText}</div>
+              <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">{listEmptyText}</div>
             )}
           </div>
 
@@ -1072,7 +1072,7 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
           label: (
             <>
               {item.name}
-              <span className="text-[#858b9c]"> · {item.slug}</span>
+              <span className="text-[#6d6d72]"> · {item.slug}</span>
             </>
           ),
         }))}
@@ -1120,9 +1120,9 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
 
       {transfer && (
         <div aria-live="polite" className="fixed bottom-[24px] right-[24px] z-50 w-[300px] rounded-[14px] border border-[#e4e9f2] bg-white/95 p-[14px] shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
-          <p className="mb-[8px] flex items-center justify-between gap-[8px] text-[12px] text-[#464C5E]">
+          <p className="mb-[8px] flex items-center justify-between gap-[8px] text-[12px] text-[#3d3d3f]">
             <span className="truncate">{transfer.label}</span>
-            <span className="tabular-nums text-[#757F9C]">
+            <span className="tabular-nums text-[#6d6d72]">
               {transfer.percent !== null
                 ? `${transfer.percent}%`
                 : transfer.receivedBytes
@@ -1189,7 +1189,7 @@ function MissingReferencesConfirm({
       description={
         <div className="flex flex-col gap-[8px]">
           <span>这些文件不在技能包里，导入后按需读取时可能读不到。确认后仍可导入。</span>
-          <ul className="m-0 flex max-h-[168px] list-none flex-col gap-[2px] overflow-auto rounded-[8px] bg-[#f4f5f8] p-[8px] font-mono text-[12px] leading-[18px] text-[#464c5e]">
+          <ul className="m-0 flex max-h-[168px] list-none flex-col gap-[2px] overflow-auto rounded-[8px] bg-[#f4f5f8] p-[8px] font-mono text-[12px] leading-[18px] text-[#3d3d3f]">
             {preview.map((path) => (
               <li key={path} className="truncate" title={path}>{path}</li>
             ))}
@@ -1225,15 +1225,15 @@ function ClawHubDialog({
         aria-describedby={undefined}
         className="flex w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[560px]"
       >
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           <IconSkill className="size-[14px] shrink-0" />
-          <DialogTitle className="text-[14px] font-normal leading-none text-[#757f9c]">
+          <DialogTitle className="text-[14px] font-normal leading-none text-[#6d6d72]">
             从开源平台导入技能
           </DialogTitle>
         </div>
 
         <div className="flex flex-col gap-[12px] px-[12px]">
-          <p className="text-[12px] leading-[1.6] text-[#858b9c]">
+          <p className="text-[12px] leading-[1.6] text-[#6d6d72]">
             支持开源平台地址、GitHub repo/tree/raw SKILL.md 或 owner/repo 形式。本地 zip 或 Markdown 文件请在编辑页使用「导入 &gt; 选择文件」。
           </p>
           <input
@@ -1244,7 +1244,7 @@ function ClawHubDialog({
             value={source}
             onChange={(event) => onSourceChange(event.target.value)}
             placeholder="例如 alchaincyf/nuwa-skill 或 https://github.com/owner/repo/tree/main/skill"
-            className="h-[34px] w-full rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] text-[#17191f] outline-none transition-colors placeholder:text-[#c0c6d4] focus:border-[#18181a]"
+            className="h-[34px] w-full rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] text-[#17191f] outline-none transition-colors placeholder:text-[#d6d1c9] focus:border-[#18181a]"
           />
         </div>
 
@@ -1253,7 +1253,7 @@ function ClawHubDialog({
             variant="outline"
             disabled={loading}
             onClick={onClose}
-            className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+            className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
           >
             取消
           </UIButton>
@@ -1638,7 +1638,7 @@ function SectionCard({
       )}
       <div className={cn('min-h-0 flex-1', bodyClassName)}>
         {loading ? (
-          <div className="py-[24px] text-center text-[13px] text-[#858b9c]">加载中…</div>
+          <div className="py-[24px] text-center text-[13px] text-[#6d6d72]">加载中…</div>
         ) : (
           children
         )}
@@ -3095,7 +3095,7 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
             onDrop={handleDrop}
             title={(
               <span className="flex items-center gap-[8px]">
-                <IconProfileFile className="size-[14px] shrink-0 text-[#757f9c]" />
+                <IconProfileFile className="size-[14px] shrink-0 text-[#6d6d72]" />
                 <span>技能文件</span>
               </span>
             )}
@@ -3130,13 +3130,13 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
             )}
             {clawhubLoading && uploadPercent !== null && (
               <div aria-live="polite" className="absolute inset-x-0 top-[64px] z-10 mx-auto w-[280px] rounded-[14px] border border-[#e4e9f2] bg-white/95 p-[14px] shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-                <p className="mb-[8px] flex items-center justify-between text-[12px] text-[#464C5E]">
+                <p className="mb-[8px] flex items-center justify-between text-[12px] text-[#3d3d3f]">
                   <span>
                     {uploadStage === 'parsing'
                       ? '服务端解析中，大包可能需要十几秒…'
                       : '正在上传技能包…'}
                   </span>
-                  <span className="tabular-nums text-[#757F9C]">{uploadPercent}%</span>
+                  <span className="tabular-nums text-[#6d6d72]">{uploadPercent}%</span>
                 </p>
                 <div
                   role="progressbar"
@@ -3156,17 +3156,17 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
             <div className={SKILL_FILE_EDITOR_CLASS}>
               <aside className={SKILL_FILE_TREE_CLASS}>
                 <div className={SKILL_FILE_TREE_HEADER_CLASS}>
-                  <IconFolder className="size-[14px] shrink-0 text-[#757f9c]" />
+                  <IconFolder className="size-[14px] shrink-0 text-[#6d6d72]" />
                   <span>文件系统</span>
                 </div>
                 {filesLoading && (
                   <div
                     aria-live="polite"
-                    className="flex flex-1 flex-col items-center justify-center gap-[8px] px-[16px] text-center text-[12px] text-[#858b9c]"
+                    className="flex flex-1 flex-col items-center justify-center gap-[8px] px-[16px] text-center text-[12px] text-[#6d6d72]"
                   >
                     <div className="size-[16px] animate-spin rounded-full border-2 border-[#e4e9f2] border-t-[#18181a]" />
                     <p>正在加载技能文件……</p>
-                    <p className="text-[11px] leading-[16px] text-[#a7adbb]">大包文件较多，加载完成后即可查看/编辑全部文件；表单内容可先编辑。</p>
+                    <p className="text-[11px] leading-[16px] text-[#9a9a9f]">大包文件较多，加载完成后即可查看/编辑全部文件；表单内容可先编辑。</p>
                   </div>
                 )}
                 {!filesLoading && (
@@ -3235,7 +3235,7 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
               </aside>
               <section className={SKILL_FILE_PANE_CLASS}>
                 <div className={SKILL_FILE_TAB_CLASS}>
-                  <IconProfileFile className="size-[14px] shrink-0 text-[#757f9c]" />
+                  <IconProfileFile className="size-[14px] shrink-0 text-[#6d6d72]" />
                   <span className="min-w-0 truncate text-[#18181a]">{selectedFile?.path || '未选择文件'}</span>
                   <div className="ml-auto flex items-center gap-1">
                     {selectedFileCanPreview && (
@@ -3292,7 +3292,7 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
             bodyClassName={cn('min-h-0 overflow-auto p-[18px]', !resultExpanded && 'hidden')}
             title={(
               <span className="flex items-center gap-[8px]">
-                <IconPlay className="size-[14px] shrink-0 text-[#757f9c]" />
+                <IconPlay className="size-[14px] shrink-0 text-[#6d6d72]" />
                 <span>运行结果</span>
                 {activeResult && (
                   isLiveRunning
@@ -3306,7 +3306,7 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
             extra={(
               <button
                 type="button"
-                className="inline-flex size-[32px] items-center justify-center rounded-[6px] text-[#757f9c] transition-colors hover:bg-[#f2f3f7] hover:text-[#18181a]"
+                className="inline-flex size-[32px] items-center justify-center rounded-[6px] text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
                 aria-label={resultExpanded ? '收起运行结果' : '展开运行结果'}
                 aria-expanded={resultExpanded}
                 onClick={() => setResultExpanded((current) => !current)}
@@ -3435,7 +3435,7 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
           label: (
             <>
               {item.name}
-              <span className="text-[#858b9c]"> · {item.slug}</span>
+              <span className="text-[#6d6d72]"> · {item.slug}</span>
             </>
           ),
         }))}
@@ -3511,7 +3511,7 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
             <UIButton
               variant="outline"
               onClick={() => setCreateEntryMode(null)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
             >
               取消
             </UIButton>
@@ -3533,21 +3533,21 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
           <DialogTitle className="border-b border-border px-[24px] py-[16px] text-[16px] font-semibold text-foreground">
             导入新技能前是否保存当前技能？
           </DialogTitle>
-          <p className="px-[24px] py-[16px] text-[13px] leading-[20px] text-[#4f5669]">
+          <p className="px-[24px] py-[16px] text-[13px] leading-[20px] text-[#4a4a4c]">
             你正在编辑现有技能。导入会进入新建状态，不会覆盖当前技能。
           </p>
           <div className="flex items-center justify-end gap-[8px] bg-background px-[24px] py-[12px]">
             <UIButton
               variant="outline"
               onClick={() => { setImportPrepareOpen(false); importPrepareActionRef.current = null; }}
-              className="h-[32px] rounded-[10px] border-[#e3e7f1] bg-white px-[14px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+              className="h-[32px] rounded-[10px] border-[#e6e4df] bg-white px-[14px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
             >
               取消
             </UIButton>
             <UIButton
               variant="outline"
               onClick={() => void confirmImportPrepareSkip()}
-              className="h-[32px] rounded-[10px] border-[#e3e7f1] bg-white px-[14px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+              className="h-[32px] rounded-[10px] border-[#e6e4df] bg-white px-[14px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
             >
               不保存，继续导入
             </UIButton>
@@ -3595,7 +3595,7 @@ function GeneralSkillEditorPage({ mode, currentUser, onLogout }: { mode: 'new' |
                 setRenameTarget(null);
                 setRenameFolderTarget(null);
               }}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
             >
               取消
             </UIButton>

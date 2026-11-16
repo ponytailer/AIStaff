@@ -2255,7 +2255,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
             <UIButton
               variant="ghost"
               size="icon"
-              className="size-7 rounded-[8px] text-[#858b9c] hover:bg-[#f1f3f6] hover:text-[#18181a]"
+              className="size-7 rounded-[8px] text-[#6d6d72] hover:bg-[#f1f3f6] hover:text-[#18181a]"
               aria-label="收起 AI 修改面板"
               title="收起 AI 修改面板"
               onClick={() => setFlowAssistantPanelOpen(false)}
@@ -2558,7 +2558,7 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
                 }
               />
               <div className={cn(CHAT_ACTIONS_CLASS, flowFullscreen && 'flex-nowrap gap-[6px]')}>
-                <span className={cn('min-w-0 truncate text-[12px] text-[#858b9c]', flowFullscreen && 'sr-only')}>{streamStatus}</span>
+                <span className={cn('min-w-0 truncate text-[12px] text-[#6d6d72]', flowFullscreen && 'sr-only')}>{streamStatus}</span>
                 <div className={cn(CHAT_ACTIONS_GROUP_CLASS, flowFullscreen && 'w-full flex-nowrap justify-start gap-[6px]')}>
                   <label>
                     <input
@@ -2662,9 +2662,9 @@ export default function DistillPage({ active = true, searchParamsOverride, curre
           </div>
           {!draft ? (
             <div className={SOURCE_EMPTY_STATE_CLASS}>
-              <FileTextOutlined className="text-[28px] text-[#c0c6d4]" />
+              <FileTextOutlined className="text-[28px] text-[#d6d1c9]" />
               <p className={SOURCE_EMPTY_TEXT_CLASS}>暂无 SOP 草稿</p>
-              <p className="text-[12px] leading-[18px] text-[#c0c6d4]">在左侧输入说明或上传文档后开始生成</p>
+              <p className="text-[12px] leading-[18px] text-[#d6d1c9]">在左侧输入说明或上传文档后开始生成</p>
             </div>
           ) : viewMode === 'source' ? (
             <SkillSource
@@ -2968,7 +2968,7 @@ function SimpleTooltip({ title, children }: { title?: ReactNode; children: React
 
 function EmptyState({ description }: { description: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-[8px] py-[32px] text-center text-[13px] text-[#858b9c]">
+    <div className="flex flex-col items-center justify-center gap-[8px] py-[32px] text-center text-[13px] text-[#6d6d72]">
       {description}
     </div>
   );
@@ -2976,7 +2976,7 @@ function EmptyState({ description }: { description: ReactNode }) {
 
 function DistillTag({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-[6px] bg-[#f2f3f5] px-[8px] py-px text-[12px] font-medium leading-[18px] text-[#5b6273]">
+    <span className="inline-flex items-center rounded-[6px] bg-[#f2f3f5] px-[8px] py-px text-[12px] font-medium leading-[18px] text-[#55555a]">
       {children}
     </span>
   );
@@ -3164,7 +3164,7 @@ function ActionCombobox({
         className="z-[130] max-h-[280px] w-[320px] overflow-y-auto p-[4px]"
       >
         {filtered.length === 0 ? (
-          <div className="px-[10px] py-[12px] text-center text-[13px] text-[#858b9c]">无匹配动作</div>
+          <div className="px-[10px] py-[12px] text-center text-[13px] text-[#6d6d72]">无匹配动作</div>
         ) : (
           filtered.map((option) => (
             <button
@@ -4628,7 +4628,7 @@ function SkillFlow({
                       FLOW_EDGE_PATH_CLASS,
                       'pointer-events-none',
                       hoveredEdgeId === edge.id && 'stroke-[#4f817c]! [stroke-width:2.15] opacity-100',
-                      selectedEdgeId === edge.id && 'stroke-[#04756f]! [stroke-width:2.5] opacity-100',
+                      selectedEdgeId === edge.id && 'stroke-[#0f766e]! [stroke-width:2.5] opacity-100',
                     )}
                     d={edge.path}
                     markerEnd="url(#skill-flow-arrow)"
@@ -4674,7 +4674,7 @@ function SkillFlow({
                 className={cn(
                   flowEdgeLabelClass(edge.labelTone || edge.kind),
                   edge.kind === 'edge' && 'pointer-events-auto! flex cursor-pointer items-center gap-[5px] overflow-visible!',
-                  selectedEdgeId === edge.id && 'border-[#04756f]! bg-[#f3fbf8]! text-[#075f59]!',
+                  selectedEdgeId === edge.id && 'border-[#0f766e]! bg-[#f3fbf8]! text-[#075f59]!',
                 )}
                 key={`${edge.id}_label`}
                 data-flow-edge-label={edge.id}
@@ -4712,7 +4712,7 @@ function SkillFlow({
                   <button
                     type="button"
                     className={cn(
-                      'pointer-events-none absolute right-[-8px] top-[-9px] z-[2] grid size-[20px] place-items-center rounded-full border border-[#e3e7ec] bg-white p-0 text-[15px] leading-none text-[#858b9c] opacity-0 shadow-[0_4px_10px_rgba(24,31,45,0.12)] transition-[opacity,background,color,border-color] hover:border-[#fecaca] hover:bg-[#fee2e2] hover:text-[#b42318] focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-none',
+                      'pointer-events-none absolute right-[-8px] top-[-9px] z-[2] grid size-[20px] place-items-center rounded-full border border-[#e3e7ec] bg-white p-0 text-[15px] leading-none text-[#6d6d72] opacity-0 shadow-[0_4px_10px_rgba(24,31,45,0.12)] transition-[opacity,background,color,border-color] hover:border-[#fecaca] hover:bg-[#fee2e2] hover:text-[#b42318] focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-none',
                       (hoveredEdgeId === edge.id || selectedEdgeId === edge.id)
                         && 'pointer-events-auto opacity-100',
                     )}
@@ -4853,7 +4853,7 @@ function SkillFlow({
           <path
             d={connectionPreviewPath(connectionDrag)}
             fill="none"
-            stroke="#04756f"
+            stroke="#0f766e"
             strokeWidth="2.25"
             strokeLinecap="round"
           />
@@ -4861,8 +4861,8 @@ function SkillFlow({
             cx={connectionDrag.currentX}
             cy={connectionDrag.currentY}
             r={connectionDrag.targetNodeId ? 5 : 3.5}
-            fill={connectionDrag.targetNodeId ? "white" : "#04756f"}
-            stroke="#04756f"
+            fill={connectionDrag.targetNodeId ? "white" : "#0f766e"}
+            stroke="#0f766e"
             strokeWidth="2"
           />
         </svg>
@@ -4884,7 +4884,7 @@ function FlowInspectorSection({
     <section className="grid min-w-0 gap-[12px] rounded-[16px] border border-[#e4e8ee] bg-white p-[14px] shadow-[0_6px_18px_rgba(24,31,45,0.035)]">
       <div className="grid min-w-0 gap-[2px]">
         <strong className="text-[13px] font-semibold text-[#18181a]">{title}</strong>
-        {description && <span className="text-[11px] leading-[1.5] text-[#858b9c]">{description}</span>}
+        {description && <span className="text-[11px] leading-[1.5] text-[#6d6d72]">{description}</span>}
       </div>
       <div className={SOURCE_META_LIST_CLASS}>{children}</div>
     </section>
@@ -4908,9 +4908,9 @@ function SkillFlowBasicInspector({
       <div className={FLOW_INSPECTOR_HEADER_CLASS}>
         <div className="grid min-w-0 gap-[3px]">
           <strong className="truncate text-[14px] font-semibold text-[#18181a]">基础信息 · {skill.name || '未命名 SOP'}</strong>
-          <span className="text-[11px] leading-[1.45] text-[#858b9c]">这里与源码视图的基础信息使用同一份草稿，修改会实时同步。</span>
+          <span className="text-[11px] leading-[1.45] text-[#6d6d72]">这里与源码视图的基础信息使用同一份草稿，修改会实时同步。</span>
         </div>
-        <span className="shrink-0 rounded-full bg-[#edf8f5] px-[8px] py-[4px] text-[11px] text-[#04756f]">实时同步</span>
+        <span className="shrink-0 rounded-full bg-[#edf8f5] px-[8px] py-[4px] text-[11px] text-[#0f766e]">实时同步</span>
       </div>
       <div className={FLOW_INSPECTOR_BODY_CLASS}>
         <div className="grid min-w-0 gap-[12px]">
@@ -5013,9 +5013,9 @@ function SkillFlowInspector({
       <div className={FLOW_INSPECTOR_HEADER_CLASS}>
         <div className="grid min-w-0 gap-[3px]">
           <strong className="truncate text-[14px] font-semibold text-[#18181a]">Node {nodeIndex + 1} · {String(node.name || nodeId)}</strong>
-          <span className="text-[11px] leading-[1.45] text-[#858b9c]">拖动左侧画布浏览；从节点右侧连接点拖到目标节点，可新增流转。</span>
+          <span className="text-[11px] leading-[1.45] text-[#6d6d72]">拖动左侧画布浏览；从节点右侧连接点拖到目标节点，可新增流转。</span>
         </div>
-        <span className="shrink-0 rounded-full bg-[#edf8f5] px-[8px] py-[4px] text-[11px] text-[#04756f]">实时同步</span>
+        <span className="shrink-0 rounded-full bg-[#edf8f5] px-[8px] py-[4px] text-[11px] text-[#0f766e]">实时同步</span>
       </div>
       <div className={FLOW_INSPECTOR_BODY_CLASS}>
         <div className="grid min-w-0 gap-[12px]">
@@ -5138,8 +5138,8 @@ function SkillFlowNodeCard({
         className={cn(
           distillFlowNodeClass(path, false, selectedPaths, highlightedPaths, updatingPaths, dirtyPaths),
           'cursor-grab! active:cursor-grabbing!',
-          selected && 'border-[#04756f]! shadow-[0_0_0_3px_rgba(4,117,111,0.10),0_12px_30px_rgba(4,117,111,0.08)]',
-          dropTarget && 'border-[#04756f]! shadow-[0_0_0_4px_rgba(4,117,111,0.12),0_12px_30px_rgba(4,117,111,0.10)]',
+          selected && 'border-[#0f766e]! shadow-[0_0_0_3px_rgba(4,117,111,0.10),0_12px_30px_rgba(4,117,111,0.08)]',
+          dropTarget && 'border-[#0f766e]! shadow-[0_0_0_4px_rgba(4,117,111,0.12),0_12px_30px_rgba(4,117,111,0.10)]',
         )}
         target={{ path, label: `节点 ${index + 1}：${step.name || nodeId}` }}
         onToggle={(target) => {
@@ -5204,7 +5204,7 @@ function NestedSopPreview({ childSop, subSopId }: { childSop?: SkillRead; subSop
     <div className="grid gap-[7px] rounded-[10px] border border-[#cfe5df] bg-[#f3faf7] p-[9px] text-[#315e59]">
       <div className="flex min-w-0 items-center justify-between gap-[8px]">
         <strong className="truncate text-[12px] font-semibold">{childSop?.name || '未找到子 SOP'}</strong>
-        <span className="shrink-0 rounded-full bg-white px-[7px] py-[2px] text-[10px] text-[#04756f]">共享字段</span>
+        <span className="shrink-0 rounded-full bg-white px-[7px] py-[2px] text-[10px] text-[#0f766e]">共享字段</span>
       </div>
       <span className="truncate font-mono text-[10px] text-[#66817d]">{subSopId || '尚未选择 SOP'}</span>
       {visibleNodes.length > 0 ? (
@@ -6630,7 +6630,7 @@ export function EditableCapabilityReferencesLine({
                             'inline-flex max-w-[200px] items-center gap-[5px] rounded-full px-[8px] py-[3px] text-[11px]',
                             required.has(value)
                               ? 'bg-[#fff1dc] text-[#9a5a00]'
-                              : 'bg-[#eef3fb] text-[#464c5e]',
+                              : 'bg-[#eef3fb] text-[#3d3d3f]',
                           )}
                           title={option?.label || value}
                         >
@@ -6649,7 +6649,7 @@ export function EditableCapabilityReferencesLine({
               </button>
             </PopoverTrigger>
             <PopoverContent align="start" className="z-[130] w-[min(420px,calc(100vw-32px))] p-0">
-              <div className="border-b border-[#eceef1] p-[10px]">
+              <div className="border-b border-[#ecebe7] p-[10px]">
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -6659,7 +6659,7 @@ export function EditableCapabilityReferencesLine({
               </div>
               <div className="max-h-[300px] overflow-y-auto p-[6px]">
                 {filteredOptions.length === 0 ? (
-                  <div className="px-[10px] py-[24px] text-center text-[12px] text-[#858b9c]">暂无可选能力</div>
+                  <div className="px-[10px] py-[24px] text-center text-[12px] text-[#6d6d72]">暂无可选能力</div>
                 ) : (
                   filteredOptions.map((option) => {
                     const checked = selected.has(option.value);
@@ -6687,7 +6687,7 @@ export function EditableCapabilityReferencesLine({
                               <span className="text-[10px] text-[#d20b0b]">{option.unavailableReason}</span>
                             )}
                           </span>
-                          <span className="mt-[2px] block truncate text-[11px] text-[#858b9c]">
+                          <span className="mt-[2px] block truncate text-[11px] text-[#6d6d72]">
                             {option.description || option.value}
                           </span>
                         </span>
@@ -6699,7 +6699,7 @@ export function EditableCapabilityReferencesLine({
                                 'rounded-[5px] px-[7px] py-[3px] transition-colors',
                                 !required.has(option.value)
                                   ? 'bg-white text-[#1a71ff] shadow-sm'
-                                  : 'text-[#7c8495] hover:text-[#464c5e]',
+                                  : 'text-[#7c8495] hover:text-[#3d3d3f]',
                               )}
                               onClick={() => setRequired(option.value, false)}
                             >
@@ -6711,7 +6711,7 @@ export function EditableCapabilityReferencesLine({
                                 'rounded-[5px] px-[7px] py-[3px] transition-colors',
                                 required.has(option.value)
                                   ? 'bg-[#fff7e8] text-[#a45f00] shadow-sm'
-                                  : 'text-[#7c8495] hover:text-[#464c5e]',
+                                  : 'text-[#7c8495] hover:text-[#3d3d3f]',
                               )}
                               onClick={() => setRequired(option.value, true)}
                             >
@@ -6724,7 +6724,7 @@ export function EditableCapabilityReferencesLine({
                   })
                 )}
               </div>
-              <div className="border-t border-[#eceef1] px-[12px] py-[8px] text-[11px] leading-[1.45] text-[#858b9c]">
+              <div className="border-t border-[#ecebe7] px-[12px] py-[8px] text-[11px] leading-[1.45] text-[#6d6d72]">
                 通用能力始终可由模型自主选择；仅限 SOP 的能力需在当前节点选择。标记为强制执行后，成功调用才允许推进节点。
               </div>
             </PopoverContent>

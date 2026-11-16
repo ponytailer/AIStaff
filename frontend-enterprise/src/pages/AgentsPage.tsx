@@ -536,7 +536,7 @@ export default function AgentsPage({
   ];
 
   const summaryCardClass =
-    'flex h-[100px] flex-1 basis-[220px] items-center gap-[16px] rounded-[20px] bg-[#f6f6f6] px-[32px] py-[20px] text-left transition-shadow';
+    'flex h-[100px] flex-1 basis-[220px] items-center gap-[16px] rounded-[20px] bg-[#f2f1ee] px-[32px] py-[20px] text-left transition-shadow';
   const summaryStats: { key: typeof employeeFilter; value: number; label: string; sub: string }[] = [
     { key: 'all', value: employees.length, label: '员工总数', sub: `${onlineEmployees.length}位在线` },
     { key: 'offline', value: offlineEmployees.length, label: '下线员工', sub: '0位在线' },
@@ -573,9 +573,9 @@ export default function AgentsPage({
         <div className="mt-[28px]" aria-label="员工小队">
           <div className="mb-[14px] flex flex-wrap items-baseline gap-[10px]">
             <h1 className="m-0 text-[22px] font-semibold leading-[30px] text-[#18181a]">我的小队</h1>
-            <span className="text-[12px] text-[#858b9c]">{dispatchers.length} 个</span>
+            <span className="text-[12px] text-[#6d6d72]">{dispatchers.length} 个</span>
           </div>
-          <p className="mb-[16px] text-[12px] leading-[18px] text-[#757f9c]">
+          <p className="mb-[16px] text-[12px] leading-[18px] text-[#6d6d72]">
             一个入口把问题路由给合适的同事，本身不回答业务问题。
           </p>
 
@@ -660,7 +660,7 @@ export default function AgentsPage({
                     />
                   ))}
                   {visibleDispatchers.length === 0 && (
-                    <p className="m-0 px-[10px] py-[8px] text-[11.5px] leading-[17px] text-[#858b9c]">
+                    <p className="m-0 px-[10px] py-[8px] text-[11.5px] leading-[17px] text-[#6d6d72]">
                       没有需要处理的入口 —— 都配好了。
                     </p>
                   )}
@@ -709,8 +709,8 @@ export default function AgentsPage({
           >
             <span className="shrink-0 text-[34px] font-semibold leading-none text-[#18181A]">{stat.value}</span>
             <span className="flex min-w-0 flex-col gap-[4px]">
-              <span className="whitespace-nowrap text-[14px] text-[#464C5E]">{stat.label}</span>
-              <span className="whitespace-nowrap text-[12px] text-[#757F9C]">{stat.sub}</span>
+              <span className="whitespace-nowrap text-[14px] text-[#3d3d3f]">{stat.label}</span>
+              <span className="whitespace-nowrap text-[12px] text-[#6d6d72]">{stat.sub}</span>
             </span>
           </button>
         ))}
@@ -719,13 +719,13 @@ export default function AgentsPage({
             <IconPlus className="size-[38px]" />
           </span>
           <span className="flex min-w-0 flex-col gap-[4px]">
-            <span className="whitespace-nowrap text-[14px] text-[#464C5E]">创建新员工</span>
-            <span className="whitespace-nowrap text-[12px] text-[#757F9C]">几步搭好你的数字员工</span>
+            <span className="whitespace-nowrap text-[14px] text-[#3d3d3f]">创建新员工</span>
+            <span className="whitespace-nowrap text-[12px] text-[#6d6d72]">几步搭好你的数字员工</span>
           </span>
         </button>
         </div>
 
-      <div className="mb-[16px] flex h-[50px] w-full items-center gap-[6px] rounded-[20px] bg-white px-[20px] text-[#757F9C] shadow-[0_0_6px_rgba(0,0,0,0.05)]">
+      <div className="mb-[16px] flex h-[50px] w-full items-center gap-[6px] rounded-[20px] bg-white px-[20px] text-[#6d6d72] shadow-[0_0_6px_rgba(0,0,0,0.05)]">
         <IconSearch className="size-[20px] shrink-0" />
         <input
           autoComplete="off"
@@ -736,7 +736,7 @@ export default function AgentsPage({
           onChange={(event) => setSearchTerm(event.target.value)}
           placeholder="搜索"
           aria-label="搜索员工"
-          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181A] outline-none placeholder:text-[#757F9C]"
+          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181A] outline-none placeholder:text-[#6d6d72]"
         />
       </div>
 
@@ -804,7 +804,7 @@ export default function AgentsPage({
               type="button"
               variant="outline"
               onClick={() => navigate('/enterprise/tools/import/swagger?return=employee_tab')}
-              className="h-[38px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[20px] text-[13px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+              className="h-[38px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[20px] text-[13px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
             >
               从 Swagger 导入
             </UIButton>
