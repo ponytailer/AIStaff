@@ -515,18 +515,20 @@ export default function DashboardPage({
                 </div>
               </div>
 
-              <p className="m-0 line-clamp-2 max-w-[720px] text-[14px] leading-[22px] text-[#6d6d72]">
-                {systemSummary}
-              </p>
-
-              <div className="flex w-full max-w-[640px] gap-3">
-                <HeroMetric value={selectedKnowledgeCount} label="资料" />
-                {/* FAQ 是「沉淀下来的标准答案」，不是资源绑定，所以单独数一次 */}
-                {faqCount ? <HeroMetric value={faqCount.faq_active} label="FAQ" /> : null}
-                <HeroMetric value={selectedGeneralSkillCount} label="技能" />
-                <HeroMetric value={selectedSkillCount} label="SOP" />
-                <HeroMetric value={selectedToolCount} label="工具" />
-                <HeroMetric value={activeScheduledTasks.length} label="定时任务" />
+              {/* 描述在左、资产统计靠右同一行：窄屏时统计条折到描述下方，仍保持右对齐 */}
+              <div className="flex w-full flex-wrap items-end justify-between gap-x-6 gap-y-2">
+                <p className="m-0 line-clamp-2 min-w-[280px] max-w-[720px] flex-1 text-[14px] leading-[22px] text-[#6d6d72]">
+                  {systemSummary}
+                </p>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <HeroMetric value={selectedKnowledgeCount} label="资料" />
+                  {/* FAQ 是「沉淀下来的标准答案」，不是资源绑定，所以单独数一次 */}
+                  {faqCount ? <HeroMetric value={faqCount.faq_active} label="FAQ" /> : null}
+                  <HeroMetric value={selectedGeneralSkillCount} label="技能" />
+                  <HeroMetric value={selectedSkillCount} label="SOP" />
+                  <HeroMetric value={selectedToolCount} label="工具" />
+                  <HeroMetric value={activeScheduledTasks.length} label="定时任务" />
+                </div>
               </div>
             </div>
           </div>
@@ -1148,7 +1150,7 @@ function EmployeeProfileTabs({ value, onChange }: { value: ProfileTabKey; onChan
 
 function HeroMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-1 items-end gap-1 rounded-[10px] bg-[#f2f1ee] px-5 py-2">
+    <div className="inline-flex items-end gap-1 rounded-[10px] bg-[#f2f1ee] px-[10px] py-2 whitespace-nowrap">
       <strong className="text-[14px] leading-none font-medium text-[#18181a]">{value}</strong>
       <span className="text-[12px] leading-none text-[#3d3d3f]">{label}</span>
     </div>
