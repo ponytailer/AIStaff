@@ -96,7 +96,7 @@ const FILTER_TABS: UnderlineTabItem<ConversationLogFilter>[] = [
 const ASSET_ATTRIBUTION_FILTERS = new Set<ConversationLogFilter>(['tool', 'knowledge', 'sop']);
 
 const MOBILE_CARD_CLASS =
-  'min-w-0 rounded-[8px] border border-[#eceef1] bg-white p-[14px]';
+  'min-w-0 rounded-[8px] border border-[#ecebe7] bg-white p-[14px]';
 
 export default function ConversationLogsTab({
   hideAttribution = false,
@@ -470,7 +470,7 @@ export default function ConversationLogsTab({
             variant="link"
             disabled={Boolean(exportingKey)}
             onClick={() => void exportSingleSession(row)}
-            className="h-auto gap-[4px] p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#c0c6d4]"
+            className="h-auto gap-[4px] p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#d6d1c9]"
           >
             {exportingKey === row.id ? (
               <LoaderCircle className="size-[12px] animate-spin" />
@@ -483,7 +483,7 @@ export default function ConversationLogsTab({
             variant="link"
             disabled={detailLoading}
             onClick={() => void openDetail(row)}
-            className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#c0c6d4]"
+            className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#d6d1c9]"
           >
             查看
           </UIButton>
@@ -511,18 +511,18 @@ export default function ConversationLogsTab({
           {!row.upFeedback && !row.downFeedback && <StatusBadge tone="blue">未评价</StatusBadge>}
         </div>
       </div>
-      <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#858b9c]">
+      <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#6d6d72]">
         {row.downFeedback?.latest_message ||
           row.upFeedback?.latest_message ||
           row.summary ||
           row.last_agent_question ||
           '-'}
       </p>
-      <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#858b9c]">
+      <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#6d6d72]">
         <span className="truncate" title={agentLabel(row)}>{agentLabel(row)}</span>
         <span className="shrink-0">{formatDateTime(row.updated_at)}</span>
       </div>
-      <div className="mt-[8px] flex items-center gap-[8px] text-[12px] text-[#858b9c]">
+      <div className="mt-[8px] flex items-center gap-[8px] text-[12px] text-[#6d6d72]">
         <ChannelBadge channel={row.channel} />
         <span className="truncate">{row.session_display_name || row.session_username || '-'}</span>
       </div>
@@ -531,7 +531,7 @@ export default function ConversationLogsTab({
           variant="link"
           disabled={Boolean(exportingKey)}
           onClick={() => void exportSingleSession(row)}
-          className="h-auto gap-[4px] p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#c0c6d4]"
+          className="h-auto gap-[4px] p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#d6d1c9]"
         >
           {exportingKey === row.id ? (
             <LoaderCircle className="size-[12px] animate-spin" />
@@ -544,7 +544,7 @@ export default function ConversationLogsTab({
           variant="link"
           disabled={detailLoading}
           onClick={() => void openDetail(row)}
-          className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#c0c6d4]"
+          className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#d6d1c9]"
         >
           查看
         </UIButton>
@@ -558,7 +558,7 @@ export default function ConversationLogsTab({
         aria-busy={loading}
         className="relative mt-[-2px] flex w-full min-w-0 max-w-full flex-col gap-[24px] overflow-hidden rounded-[18px] bg-white p-[14px] shadow-[0_20px_42px_rgba(21,26,38,0.045)] min-[521px]:p-[18px]"
       >
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           <IconCalendar className="size-[14px] shrink-0" />
           <span className="text-[14px] font-normal leading-none">对话记录</span>
         </div>
@@ -573,9 +573,9 @@ export default function ConversationLogsTab({
         {/* 小队没有工具/知识/SOP，后端的 summary 恒为「暂无点踩归因数据。」，
             这张灰卡永远只是一句空话（用户截图红框）。按作用域隐藏。 */}
         {!hideAttribution && summary && (summary.summary || summary.bucket_counts.length > 0) && (
-          <div className="flex flex-col gap-[12px] rounded-[14px] border border-[#eef0f4] bg-[#fafbfc] px-[20px] py-[16px]">
+          <div className="flex flex-col gap-[12px] rounded-[14px] border border-[#ecebe7] bg-[#f2f1ee] px-[20px] py-[16px]">
             {summary.summary && (
-              <p className="wrap-break-word text-[13px] leading-[1.7] text-[#464c5e]">
+              <p className="wrap-break-word text-[13px] leading-[1.7] text-[#3d3d3f]">
                 {summary.summary}
               </p>
             )}
@@ -602,8 +602,8 @@ export default function ConversationLogsTab({
             />
           </div>
           <div className="flex shrink-0 items-center gap-[8px] max-[1099px]:w-full max-[520px]:flex-col">
-            <label className="flex h-[34px] w-[280px] shrink-0 items-center overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white transition-colors focus-within:border-[#18181a] max-[1099px]:flex-1 max-[520px]:w-full">
-              <span className="flex h-full w-[72px] shrink-0 items-center justify-center border-r-[0.5px] border-[#e3e7f1] bg-[#f6f6f6] text-[12px] text-[#858b9c]">
+            <label className="flex h-[34px] w-[280px] shrink-0 items-center overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white transition-colors focus-within:border-[#18181a] max-[1099px]:flex-1 max-[520px]:w-full">
+              <span className="flex h-full w-[72px] shrink-0 items-center justify-center border-r-[0.5px] border-[#e6e4df] bg-[#f2f1ee] text-[12px] text-[#6d6d72]">
                 对话用户
               </span>
               <UISelect value={conversationUserId} onValueChange={setConversationUserId}>
@@ -632,7 +632,7 @@ export default function ConversationLogsTab({
               variant="outline"
               disabled={batchRows.length === 0 || Boolean(exportingKey)}
               onClick={() => void exportBatch()}
-              className="h-[34px] shrink-0 gap-[6px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] text-[12px] font-normal text-[#464c5e] hover:border-[#cbd3e6] hover:bg-[#fafbfc] disabled:text-[#c0c6d4] max-[520px]:w-full"
+              className="h-[34px] shrink-0 gap-[6px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] text-[12px] font-normal text-[#3d3d3f] hover:border-[#ddd9d2] hover:bg-[#f2f1ee] disabled:text-[#d6d1c9] max-[520px]:w-full"
             >
               {exportingKey === 'batch' ? (
                 <LoaderCircle className="size-[14px] animate-spin" />
@@ -650,7 +650,7 @@ export default function ConversationLogsTab({
           {filteredRows.length ? (
             pagination.pagedItems.map(renderMobileCard)
           ) : (
-            <div className="py-[40px] text-center text-[13px] text-[#858b9c]">暂无对话日志</div>
+            <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">暂无对话日志</div>
           )}
         </div>
 
@@ -706,9 +706,9 @@ function FeedbackDetailDialog({
         aria-describedby={undefined}
         className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[1180px]"
       >
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           <Clock className="size-[14px] shrink-0" />
-          <DialogTitle className="text-[14px] font-normal leading-none text-[#757f9c]">
+          <DialogTitle className="text-[14px] font-normal leading-none text-[#6d6d72]">
             对话日志详情
           </DialogTitle>
         </div>
@@ -770,11 +770,11 @@ function FeedbackDetailDialog({
 
             <ModelCallLogSection events={detail.events} />
 
-            <section className="rounded-[14px] border border-[#e3e7f1] bg-[#fafbfc] p-[14px]">
+            <section className="rounded-[14px] border border-[#e6e4df] bg-[#f2f1ee] p-[14px]">
               <div className="flex flex-wrap items-center justify-between gap-[8px]">
                 <div>
                   <strong className="text-[13px] font-semibold text-[#18181a]">工具调用与原始日志 JSON</strong>
-                  <p className="m-0 mt-[3px] text-[11px] text-[#858b9c]">
+                  <p className="m-0 mt-[3px] text-[11px] text-[#6d6d72]">
                     包含工具参数、返回结果、Trace、事件和消息，敏感字段使用服务端审计副本。
                   </p>
                 </div>
@@ -785,7 +785,7 @@ function FeedbackDetailDialog({
                 <div className="mt-[12px] grid gap-[8px]">
                   {detail.toolInvocations.map((invocation) => (
                     <details key={invocation.id} className="rounded-[10px] border border-[#e6e9ef] bg-white px-[12px] py-[9px]">
-                      <summary className="cursor-pointer text-[12px] font-medium text-[#464c5e]">
+                      <summary className="cursor-pointer text-[12px] font-medium text-[#3d3d3f]">
                         {invocation.tool_name} · {invocation.status} · {formatDateTime(invocation.started_at)}
                       </summary>
                       <pre className="mt-[10px] max-h-[360px] overflow-auto rounded-[8px] bg-[#18181a] p-[12px] text-[11px] leading-[1.55] text-[#d8e2f0]">
@@ -797,7 +797,7 @@ function FeedbackDetailDialog({
               )}
 
               <details className="mt-[10px] rounded-[10px] border border-[#e6e9ef] bg-white px-[12px] py-[9px]">
-                <summary className="cursor-pointer text-[12px] font-medium text-[#464c5e]">查看完整会话日志 JSON</summary>
+                <summary className="cursor-pointer text-[12px] font-medium text-[#3d3d3f]">查看完整会话日志 JSON</summary>
                 <pre className="mt-[10px] max-h-[520px] overflow-auto rounded-[8px] bg-[#18181a] p-[12px] text-[11px] leading-[1.55] text-[#d8e2f0]">
                   {JSON.stringify({
                     session: detail.session,
@@ -858,7 +858,7 @@ function ModelCallLogSection({ events }: { events: SessionEvent[] }) {
               key={call.spanId}
               className="rounded-[10px] border border-[#dfe6f1] bg-white px-[12px] py-[9px]"
             >
-              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-[6px] text-[12px] font-medium text-[#464c5e]">
+              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-[6px] text-[12px] font-medium text-[#3d3d3f]">
                 <span>第 {index + 1} 次 · {operation} · {modelName}</span>
                 <StatusBadge tone={failed ? 'red' : running ? 'orange' : 'green'}>
                   {failed ? '失败' : running ? '执行中' : '完成'}
@@ -1007,7 +1007,7 @@ function FeedbackMessage({
                 variant="outline"
                 disabled={reanalyzing}
                 onClick={() => onReanalyze(item.feedback_id as string)}
-                className="mt-[8px] h-[30px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:text-[#18181a]"
+                className="mt-[8px] h-[30px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:text-[#18181a]"
               >
                 <RefreshCw className={cn('size-3.5', reanalyzing && 'animate-spin')} />
                 重新分析

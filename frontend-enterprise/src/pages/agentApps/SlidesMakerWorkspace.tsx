@@ -48,12 +48,12 @@ const NARRATIVE_PLACEHOLDER =
 
 const FIELD_LABEL_CLASS = 'flex items-center gap-[6px] text-[12px] font-medium leading-none text-[#18181a]';
 const FIELD_INPUT_CLASS =
-  'h-[34px] w-full rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] text-[12px] text-[#18181a] outline-none transition-colors placeholder:text-[#a3aab9] focus:border-[#18181a]';
-const HINT_CLASS = 'text-[11px] leading-[1.5] text-[#a3aab9]';
+  'h-[34px] w-full rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] text-[12px] text-[#18181a] outline-none transition-colors placeholder:text-[#9a9a9f] focus:border-[#18181a]';
+const HINT_CLASS = 'text-[11px] leading-[1.5] text-[#9a9a9f]';
 
 function OptionalBadge({ text }: { text: string }) {
   return (
-    <span className="rounded-[4px] border-[0.5px] border-[#e3e7f1] px-[5px] py-[1px] text-[10px] font-normal text-[#858b9c]">
+    <span className="rounded-[4px] border-[0.5px] border-[#e6e4df] px-[5px] py-[1px] text-[10px] font-normal text-[#6d6d72]">
       {text}
     </span>
   );
@@ -340,9 +340,9 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
                     onChange={(event) => setNarrative(event.target.value)}
                     placeholder={NARRATIVE_PLACEHOLDER}
                     rows={6}
-                    className="w-full resize-none rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] py-[8px] pb-[24px] text-[12px] leading-[1.6] text-[#18181a] outline-none transition-colors placeholder:text-[#a3aab9] focus:border-[#18181a]"
+                    className="w-full resize-none rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] py-[8px] pb-[24px] text-[12px] leading-[1.6] text-[#18181a] outline-none transition-colors placeholder:text-[#9a9a9f] focus:border-[#18181a]"
                   />
-                  <span className="pointer-events-none absolute bottom-[8px] right-[10px] text-[11px] text-[#a3aab9]">
+                  <span className="pointer-events-none absolute bottom-[8px] right-[10px] text-[11px] text-[#9a9a9f]">
                     {narrative.length} 字
                   </span>
                 </div>
@@ -350,7 +350,7 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
 
               <Field label="页数" hint={pageCountHint}>
                 <div className="flex items-center gap-[10px]">
-                  <div className="flex rounded-[8px] border-[0.5px] border-[#e3e7f1] p-[2px]">
+                  <div className="flex rounded-[8px] border-[0.5px] border-[#e6e4df] p-[2px]">
                     {(['custom', 'auto'] as const).map((mode) => (
                       <button
                         key={mode}
@@ -361,7 +361,7 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
                           'rounded-[6px] px-[10px] py-[4px] text-[11px] transition-colors',
                           pageCountMode === mode
                             ? 'bg-[#18181a] font-medium text-white'
-                            : 'text-[#757f9c] hover:text-[#18181a]',
+                            : 'text-[#6d6d72] hover:text-[#18181a]',
                         )}
                       >
                         {mode === 'custom' ? '自定义' : 'AI 自动'}
@@ -384,9 +384,9 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
                               : floor,
                           );
                         }}
-                        className="h-[30px] w-[56px] rounded-[8px] border-[0.5px] border-[#e3e7f1] px-[8px] text-center text-[12px] text-[#18181a] outline-none focus:border-[#18181a]"
+                        className="h-[30px] w-[56px] rounded-[8px] border-[0.5px] border-[#e6e4df] px-[8px] text-center text-[12px] text-[#18181a] outline-none focus:border-[#18181a]"
                       />
-                      <span className="text-[12px] text-[#757f9c]">页</span>
+                      <span className="text-[12px] text-[#6d6d72]">页</span>
                     </div>
                   )}
                 </div>
@@ -419,7 +419,7 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
                         checked={skeleton[option.key]}
                         onCheckedChange={() => toggleSkeleton(option.key)}
                       />
-                      <span className="whitespace-nowrap text-[12px] text-[#4f5669]">{option.label}</span>
+                      <span className="whitespace-nowrap text-[12px] text-[#4a4a4c]">{option.label}</span>
                     </label>
                   ))}
                 </div>
@@ -432,10 +432,10 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
                     type="button"
                     aria-label="选择模型"
                     disabled={models.length === 0}
-                    className="flex h-[38px] w-full min-w-0 items-center justify-between gap-[6px] rounded-[10px] border-[0.5px] border-[#e3e7f1] px-[12px] text-[12px] text-[#4f5669] transition-colors hover:border-[#cbd3e6] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-[38px] w-full min-w-0 items-center justify-between gap-[6px] rounded-[10px] border-[0.5px] border-[#e6e4df] px-[12px] text-[12px] text-[#4a4a4c] transition-colors hover:border-[#ddd9d2] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <span className="truncate">{selectedModel?.name || (modelsLoading ? '加载中…' : '选择模型')}</span>
-                    <IconChevronDown className="size-[12px] shrink-0 text-[#858b9c]" />
+                    <IconChevronDown className="size-[12px] shrink-0 text-[#6d6d72]" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="top" className="max-h-[260px] min-w-[200px] overflow-y-auto">
@@ -458,7 +458,7 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
                   onClick={() => void exportPptx()}
                   disabled={!canExport}
                   title={deck ? '导出为 PPTX' : '请先生成幻灯片'}
-                  className="h-[38px] w-full min-w-0 justify-center gap-[6px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[13px] font-normal text-[#4f5669] shadow-none transition-colors hover:border-[#cbd3e6] hover:bg-[#f6f7f9] disabled:cursor-not-allowed disabled:border-[#eef0f5] disabled:bg-[#f6f7f9] disabled:text-[#c2c8d4]"
+                  className="h-[38px] w-full min-w-0 justify-center gap-[6px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[13px] font-normal text-[#4a4a4c] shadow-none transition-colors hover:border-[#ddd9d2] hover:bg-[#f6f7f9] disabled:cursor-not-allowed disabled:border-[#eef0f5] disabled:bg-[#f6f7f9] disabled:text-[#c2c8d4]"
                 >
                   {exporting && <IconRefresh className="size-[14px] animate-spin" />}
                   {exporting ? '导出中…' : '导出 PPTX'}
@@ -492,7 +492,7 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
                       'border-b-[2px] pb-[6px] text-[13px] transition-colors',
                       activeTab === key
                         ? 'border-[#18181a] font-medium text-[#18181a]'
-                        : 'border-transparent text-[#858b9c] hover:text-[#4f5669]',
+                        : 'border-transparent text-[#6d6d72] hover:text-[#4a4a4c]',
                     )}
                   >
                     {label}
@@ -506,11 +506,11 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
                     已编辑
                   </span>
                 )}
-                <span className="font-mono text-[11px] text-[#a3aab9]">{deck ? deckSummary(deck) : ''}</span>
+                <span className="font-mono text-[11px] text-[#9a9a9f]">{deck ? deckSummary(deck) : ''}</span>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto rounded-[14px] bg-[#f1f2f5] p-[24px]">
+            <div className="min-h-0 flex-1 overflow-auto rounded-[14px] bg-[#ecebe7] p-[24px]">
               {activeTab === 'source' ? (
                 deck ? (
                   <pre className="whitespace-pre-wrap break-words rounded-[10px] bg-[#1b1f2a] p-[16px] font-mono text-[11px] leading-[1.7] text-[#d6dbe6]">
@@ -547,8 +547,8 @@ export default function SlidesMakerWorkspace({ entry, currentUser, onLogout }: S
 function EmptyDeck() {
   return (
     <div className="grid h-full min-h-[280px] place-items-center content-center gap-[8px] text-center">
-      <span className="text-[13px] font-medium text-[#757f9c]">还没有生成内容</span>
-      <span className="text-[12px] leading-[1.6] text-[#a3aab9]">
+      <span className="text-[13px] font-medium text-[#6d6d72]">还没有生成内容</span>
+      <span className="text-[12px] leading-[1.6] text-[#9a9a9f]">
         左侧填写正文口述、选好模型后点击「生成幻灯片」，
         <br />
         这里会给出整套幻灯片的预览与 HTML 源码。

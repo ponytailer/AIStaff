@@ -233,7 +233,7 @@ function StatCard({
   const toneClass = {
     orange: 'text-[#f59e0b]',
     green: 'text-[#22c55e]',
-    gray: 'text-[#858b9c]',
+    gray: 'text-[#6d6d72]',
   }[tone];
   return (
     <button
@@ -242,11 +242,11 @@ function StatCard({
       className={cn(
         'flex w-[160px] flex-col items-center justify-center gap-[4px] rounded-[12px] border-[0.5px] px-[16px] py-[12px] text-center transition-colors',
         active
-          ? 'border-[#18181a] bg-[#f6f6f6]'
-          : 'border-[#e3e7f1] bg-white hover:border-[#cbd3e6] hover:bg-[#f8f9fb]',
+          ? 'border-[#18181a] bg-[#f2f1ee]'
+          : 'border-[#e6e4df] bg-white hover:border-[#ddd9d2] hover:bg-[#f8f9fb]',
       )}
     >
-      <span className="text-[12px] text-[#858b9c]">{label}</span>
+      <span className="text-[12px] text-[#6d6d72]">{label}</span>
       <span className={cn('text-[24px] font-semibold leading-[28px]', toneClass)}>{value}</span>
     </button>
   );
@@ -805,7 +805,7 @@ export default function ApiKeyApprovalsPage({
       render: (row) => (
         <div className="flex min-w-0 flex-col gap-[2px]">
           <span className="truncate text-[13px] font-medium text-[#18181a]">{row.username || '-'}</span>
-          <span className="truncate text-[12px] text-[#858b9c]">{row.user_id}</span>
+          <span className="truncate text-[12px] text-[#6d6d72]">{row.user_id}</span>
         </div>
       ),
     },
@@ -813,14 +813,14 @@ export default function ApiKeyApprovalsPage({
       key: 'purpose',
       title: '用途',
       render: (row) => (
-        <span className="block truncate text-[13px] text-[#464c5e]">{row.purpose || '（未填写）'}</span>
+        <span className="block truncate text-[13px] text-[#3d3d3f]">{row.purpose || '（未填写）'}</span>
       ),
     },
     {
       key: 'created_at',
       title: '申请时间',
       width: 160,
-      render: (row) => <span className="text-[12px] text-[#858b9c]">{formatTime(row.created_at)}</span>,
+      render: (row) => <span className="text-[12px] text-[#6d6d72]">{formatTime(row.created_at)}</span>,
     },
     {
       key: 'actions',
@@ -845,7 +845,7 @@ export default function ApiKeyApprovalsPage({
                 setRejectTarget(row);
                 setRejectNote('');
               }}
-              className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#c0392b] hover:bg-[#fdeeee] disabled:opacity-60"
+              className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#c0392b] hover:bg-[#fdeeee] disabled:opacity-60"
             >
               <X className="size-[13px]" />
               驳回
@@ -864,7 +864,7 @@ export default function ApiKeyApprovalsPage({
       render: (row) => (
         <div className="flex min-w-0 flex-col gap-[2px]">
           <span className="truncate text-[13px] font-medium text-[#18181a]">{row.username || '-'}</span>
-          <span className="truncate text-[12px] text-[#858b9c]">{row.user_id}</span>
+          <span className="truncate text-[12px] text-[#6d6d72]">{row.user_id}</span>
         </div>
       ),
     },
@@ -872,7 +872,7 @@ export default function ApiKeyApprovalsPage({
       key: 'purpose',
       title: '用途',
       render: (row) => (
-        <span className="block truncate text-[13px] text-[#464c5e]">{row.purpose || '（未填写）'}</span>
+        <span className="block truncate text-[13px] text-[#3d3d3f]">{row.purpose || '（未填写）'}</span>
       ),
     },
     {
@@ -881,9 +881,9 @@ export default function ApiKeyApprovalsPage({
       width: 110,
       render: (row) =>
         row.gateway_name ? (
-          <span className="block truncate text-[13px] text-[#464c5e]">{row.gateway_name}</span>
+          <span className="block truncate text-[13px] text-[#3d3d3f]">{row.gateway_name}</span>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -892,11 +892,11 @@ export default function ApiKeyApprovalsPage({
       width: 120,
       render: (row) =>
         row.quota_limit ? (
-          <span className="text-[12px] text-[#464c5e]">
+          <span className="text-[12px] text-[#3d3d3f]">
             {row.quota_limit.toLocaleString('zh-CN')} / {PERIOD_LABEL[row.quota_period ?? ''] ?? row.quota_period ?? '-'}
           </span>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -905,9 +905,9 @@ export default function ApiKeyApprovalsPage({
       width: 120,
       render: (row) =>
         row.consumer_group_name ? (
-          <span className="block truncate text-[12px] text-[#464c5e]">{row.consumer_group_name}</span>
+          <span className="block truncate text-[12px] text-[#3d3d3f]">{row.consumer_group_name}</span>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -916,11 +916,11 @@ export default function ApiKeyApprovalsPage({
       className: 'whitespace-normal',
       render: (row) =>
         row.api_url ? (
-          <code className="block truncate font-mono text-[12px] text-[#464c5e]" title={row.api_url}>
+          <code className="block truncate font-mono text-[12px] text-[#3d3d3f]" title={row.api_url}>
             {row.api_url}
           </code>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -929,9 +929,9 @@ export default function ApiKeyApprovalsPage({
       width: 120,
       render: (row) =>
         row.api_key_masked ? (
-          <code className="block truncate font-mono text-[12px] text-[#858b9c]">{row.api_key_masked}</code>
+          <code className="block truncate font-mono text-[12px] text-[#6d6d72]">{row.api_key_masked}</code>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -947,7 +947,7 @@ export default function ApiKeyApprovalsPage({
             </span>
           );
         }
-        return <span className="text-[12px] text-[#c0c6d4]">—</span>;
+        return <span className="text-[12px] text-[#d6d1c9]">—</span>;
       },
     },
     {
@@ -961,7 +961,7 @@ export default function ApiKeyApprovalsPage({
           <UIButton
             disabled={busy}
             onClick={() => void openRevokeConfirm(row)}
-            className="h-[30px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#757f9c] hover:bg-black/5 hover:text-[#18181a] disabled:opacity-60"
+            className="h-[30px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#6d6d72] hover:bg-black/5 hover:text-[#18181a] disabled:opacity-60"
           >
             {busy ? <LoaderCircle className="size-[13px] animate-spin" /> : null}
             吊销
@@ -979,7 +979,7 @@ export default function ApiKeyApprovalsPage({
       render: (row) => (
         <div className="flex min-w-0 flex-col gap-[2px]">
           <span className="truncate text-[13px] font-medium text-[#18181a]">{row.username || '-'}</span>
-          <span className="truncate text-[12px] text-[#858b9c]">{row.user_id}</span>
+          <span className="truncate text-[12px] text-[#6d6d72]">{row.user_id}</span>
         </div>
       ),
     },
@@ -987,7 +987,7 @@ export default function ApiKeyApprovalsPage({
       key: 'purpose',
       title: '用途',
       render: (row) => (
-        <span className="block truncate text-[13px] text-[#464c5e]">{row.purpose || '（未填写）'}</span>
+        <span className="block truncate text-[13px] text-[#3d3d3f]">{row.purpose || '（未填写）'}</span>
       ),
     },
     {
@@ -1004,22 +1004,22 @@ export default function ApiKeyApprovalsPage({
       title: '原因',
       render: (row) =>
         row.reviewer_note ? (
-          <span className="block truncate text-[12px] text-[#858b9c]">{row.reviewer_note}</span>
+          <span className="block truncate text-[12px] text-[#6d6d72]">{row.reviewer_note}</span>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
       key: 'reviewed_at',
       title: '审核时间',
       width: 160,
-      render: (row) => <span className="text-[12px] text-[#858b9c]">{formatTime(row.reviewed_at)}</span>,
+      render: (row) => <span className="text-[12px] text-[#6d6d72]">{formatTime(row.reviewed_at)}</span>,
     },
     {
       key: 'created_at',
       title: '申请时间',
       width: 160,
-      render: (row) => <span className="text-[12px] text-[#858b9c]">{formatTime(row.created_at)}</span>,
+      render: (row) => <span className="text-[12px] text-[#6d6d72]">{formatTime(row.created_at)}</span>,
     },
   ];
 
@@ -1032,7 +1032,7 @@ export default function ApiKeyApprovalsPage({
         <div className="flex min-w-0 flex-col gap-[2px]">
           <span className="truncate text-[13px] font-medium text-[#18181a]">{row.name}</span>
           {row.description && (
-            <span className="truncate text-[12px] text-[#858b9c]">{row.description}</span>
+            <span className="truncate text-[12px] text-[#6d6d72]">{row.description}</span>
           )}
         </div>
       ),
@@ -1043,9 +1043,9 @@ export default function ApiKeyApprovalsPage({
       width: 200,
       render: (row) =>
         row.external_consumer_group_id ? (
-          <code className="block truncate font-mono text-[12px] text-[#858b9c]">{row.external_consumer_group_id}</code>
+          <code className="block truncate font-mono text-[12px] text-[#6d6d72]">{row.external_consumer_group_id}</code>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -1055,9 +1055,9 @@ export default function ApiKeyApprovalsPage({
       render: (row) => (
         <div className="flex min-w-0 items-center justify-between gap-[6px]">
           {row.owner ? (
-            <span className="truncate text-[12px] text-[#464c5e]" title={row.owner}>{row.owner}</span>
+            <span className="truncate text-[12px] text-[#3d3d3f]" title={row.owner}>{row.owner}</span>
           ) : (
-            <span className="truncate text-[12px] text-[#c0c6d4]">—</span>
+            <span className="truncate text-[12px] text-[#d6d1c9]">—</span>
           )}
           <button
             type="button"
@@ -1065,7 +1065,7 @@ export default function ApiKeyApprovalsPage({
               setEditOwnerTarget(row);
               setEditOwnerValue(row.owner ?? '');
             }}
-            className="shrink-0 rounded-[6px] p-[4px] text-[#a3aaba] transition-colors hover:bg-[#f3f4f6] hover:text-[#464c5e]"
+            className="shrink-0 rounded-[6px] p-[4px] text-[#9a9a9f] transition-colors hover:bg-[#f2f1ee] hover:text-[#3d3d3f]"
             title="修改归属"
           >
             <Pencil className="size-[13px]" />
@@ -1083,7 +1083,7 @@ export default function ApiKeyApprovalsPage({
       render: (row) => (
         <div className="flex min-w-0 flex-col gap-[2px]">
           <span className="truncate text-[13px] font-medium text-[#18181a]">{row.name}</span>
-          {row.description && <span className="truncate text-[12px] text-[#858b9c]">{row.description}</span>}
+          {row.description && <span className="truncate text-[12px] text-[#6d6d72]">{row.description}</span>}
         </div>
       ),
     },
@@ -1093,9 +1093,9 @@ export default function ApiKeyApprovalsPage({
       width: 120,
       render: (row) =>
         row.consumer_group_name ? (
-          <span className="block truncate text-[12px] text-[#464c5e]">{row.consumer_group_name}</span>
+          <span className="block truncate text-[12px] text-[#3d3d3f]">{row.consumer_group_name}</span>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">未分组</span>
+          <span className="text-[12px] text-[#d6d1c9]">未分组</span>
         ),
     },
     {
@@ -1104,9 +1104,9 @@ export default function ApiKeyApprovalsPage({
       width: 110,
       render: (row) =>
         row.gateway_name ? (
-          <span className="text-[13px] text-[#464c5e]">{row.gateway_name}</span>
+          <span className="text-[13px] text-[#3d3d3f]">{row.gateway_name}</span>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -1114,9 +1114,9 @@ export default function ApiKeyApprovalsPage({
       title: '消费者 ID',
       render: (row) =>
         row.external_consumer_id ? (
-          <code className="block truncate font-mono text-[12px] text-[#858b9c]">{row.external_consumer_id}</code>
+          <code className="block truncate font-mono text-[12px] text-[#6d6d72]">{row.external_consumer_id}</code>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -1143,7 +1143,7 @@ export default function ApiKeyApprovalsPage({
             setConsumerQuotaTarget(row);
             setConsumerQuotaRuleId('');
           }}
-          className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-60"
+          className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-60"
         >
           <SlidersHorizontal className="size-[13px]" />
           改配额
@@ -1167,16 +1167,16 @@ export default function ApiKeyApprovalsPage({
       width: 120,
       render: (row) =>
         row.gateway_name ? (
-          <span className="text-[13px] text-[#464c5e]">{row.gateway_name}</span>
+          <span className="text-[13px] text-[#3d3d3f]">{row.gateway_name}</span>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
       key: 'dimension',
       title: '维度',
       width: 80,
-      render: (row) => <span className="text-[12px] text-[#464c5e]">{row.quota_dimension}</span>,
+      render: (row) => <span className="text-[12px] text-[#3d3d3f]">{row.quota_dimension}</span>,
     },
     {
       key: 'subject_type',
@@ -1188,7 +1188,7 @@ export default function ApiKeyApprovalsPage({
             消费组
           </span>
         ) : (
-          <span className="inline-flex h-[20px] items-center rounded-[6px] bg-[#f3f4f6] px-[8px] text-[11px] font-medium text-[#6b7280]">
+          <span className="inline-flex h-[20px] items-center rounded-[6px] bg-[#f2f1ee] px-[8px] text-[11px] font-medium text-[#6b7280]">
             消费者
           </span>
         ),
@@ -1208,7 +1208,7 @@ export default function ApiKeyApprovalsPage({
       title: '周期',
       width: 80,
       render: (row) => (
-        <span className="text-[12px] text-[#464c5e]">{PERIOD_LABEL[row.period_type] ?? row.period_type}</span>
+        <span className="text-[12px] text-[#3d3d3f]">{PERIOD_LABEL[row.period_type] ?? row.period_type}</span>
       ),
     },
     {
@@ -1216,9 +1216,9 @@ export default function ApiKeyApprovalsPage({
       title: '规则 ID',
       render: (row) =>
         row.external_rule_id ? (
-          <code className="block truncate font-mono text-[12px] text-[#858b9c]">{row.external_rule_id}</code>
+          <code className="block truncate font-mono text-[12px] text-[#6d6d72]">{row.external_rule_id}</code>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -1233,7 +1233,7 @@ export default function ApiKeyApprovalsPage({
             <UIButton
               disabled={busy}
               onClick={() => void openEditRule(row)}
-              className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-60"
+              className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-60"
             >
               <SlidersHorizontal className="size-[13px]" />
               编辑
@@ -1254,7 +1254,7 @@ export default function ApiKeyApprovalsPage({
         return (
           <div className="flex min-w-0 flex-col gap-[2px]">
             <span className="truncate text-[13px] font-medium text-[#18181a]">{c?.name || row.consumer_name || row.username || '-'}</span>
-            <span className="truncate text-[12px] text-[#858b9c]">{c?.consumer_group_name || row.consumer_id || ''}</span>
+            <span className="truncate text-[12px] text-[#6d6d72]">{c?.consumer_group_name || row.consumer_id || ''}</span>
           </div>
         );
       },
@@ -1265,11 +1265,11 @@ export default function ApiKeyApprovalsPage({
       width: 110,
       render: (row) =>
         row.quota_limit ? (
-          <span className="whitespace-nowrap text-[12px] text-[#464c5e]">
+          <span className="whitespace-nowrap text-[12px] text-[#3d3d3f]">
             {row.quota_limit.toLocaleString('zh-CN')} / {PERIOD_LABEL[row.quota_period ?? ''] ?? '-'}
           </span>
         ) : (
-          <span className="text-[12px] text-[#c0c6d4]">—</span>
+          <span className="text-[12px] text-[#d6d1c9]">—</span>
         ),
     },
     {
@@ -1284,7 +1284,7 @@ export default function ApiKeyApprovalsPage({
               {row.used_amount.toLocaleString('zh-CN')}
             </span>
             {archived > 0 && (
-              <span className="whitespace-nowrap text-[11px] text-[#858b9c] tabular-nums">
+              <span className="whitespace-nowrap text-[11px] text-[#6d6d72] tabular-nums">
                 当前窗口 {(row.current_used_amount ?? 0).toLocaleString('zh-CN')} · 重置前 {archived.toLocaleString('zh-CN')}
               </span>
             )}
@@ -1306,10 +1306,10 @@ export default function ApiKeyApprovalsPage({
               : 'bg-[#22c55e]';
         return (
           <div className="flex items-center gap-[8px]">
-            <div className="h-[6px] min-w-[80px] flex-1 overflow-hidden rounded-full bg-[#eef0f4]">
+            <div className="h-[6px] min-w-[80px] flex-1 overflow-hidden rounded-full bg-[#ecebe7]">
               <div className={cn('h-full rounded-full transition-all', barColor)} style={{ width: `${Math.min(pct, 100)}%` }} />
             </div>
-            <span className="text-[12px] tabular-nums text-[#464c5e]">{pct}%</span>
+            <span className="text-[12px] tabular-nums text-[#3d3d3f]">{pct}%</span>
           </div>
         );
       },
@@ -1329,7 +1329,7 @@ export default function ApiKeyApprovalsPage({
       width: 80,
       render: (row) => {
         const c = getConsumerForUsage(row);
-        if (!c) return <span className="text-[12px] text-[#c0c6d4]">—</span>;
+        if (!c) return <span className="text-[12px] text-[#d6d1c9]">—</span>;
         return (
           <Switch
             size="sm"
@@ -1347,7 +1347,7 @@ export default function ApiKeyApprovalsPage({
       align: 'right',
       render: (row) => {
         const c = getConsumerForUsage(row);
-        if (!c) return <span className="text-[12px] text-[#c0c6d4]">—</span>;
+        if (!c) return <span className="text-[12px] text-[#d6d1c9]">—</span>;
         return (
           <UIButton
             disabled={togglingConsumerId === c.id}
@@ -1355,7 +1355,7 @@ export default function ApiKeyApprovalsPage({
               setConsumerQuotaTarget(c);
               setConsumerQuotaRuleId('');
             }}
-            className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-60"
+            className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-60"
           >
             <SlidersHorizontal className="size-[13px]" />
             改配额
@@ -1426,7 +1426,7 @@ export default function ApiKeyApprovalsPage({
         {/* Pending */}
         {tab === 'pending' && (
           <>
-            <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+            <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
               <KeyRound className="size-[14px] shrink-0" />
               <span className="text-[14px] font-normal leading-none">待审核申请</span>
             </div>
@@ -1443,20 +1443,20 @@ export default function ApiKeyApprovalsPage({
             {/* Mobile fallback */}
             <div className="grid gap-[10px] md:hidden">
               {loading ? (
-                <div className="py-[40px] text-center text-[13px] text-[#858b9c]">加载中</div>
+                <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">加载中</div>
               ) : pendingRows.length === 0 ? (
-                <div className="py-[40px] text-center text-[13px] text-[#858b9c]">暂无待审核申请</div>
+                <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">暂无待审核申请</div>
               ) : (
                 pendingRows.map((row) => (
-                  <article key={row.id} className="min-w-0 rounded-[12px] border border-[#eceef1] bg-white p-[14px]">
+                  <article key={row.id} className="min-w-0 rounded-[12px] border border-[#ecebe7] bg-white p-[14px]">
                     <div className="flex min-w-0 items-start justify-between gap-[10px]">
                       <div className="min-w-0">
                         <span className="block truncate text-[13px] font-medium text-[#18181a]">{row.username || '-'}</span>
-                        <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.purpose || '（未填写用途）'}</span>
+                        <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{row.purpose || '（未填写用途）'}</span>
                       </div>
                       <StatusBadge tone="orange">待审批</StatusBadge>
                     </div>
-                    <span className="mt-[8px] block text-[12px] text-[#858b9c]">申请于 {formatTime(row.created_at)}</span>
+                    <span className="mt-[8px] block text-[12px] text-[#6d6d72]">申请于 {formatTime(row.created_at)}</span>
                     <div className="mt-[12px] flex items-center justify-end gap-[8px]">
                       <UIButton
                         onClick={() => openApprove(row)}
@@ -1470,7 +1470,7 @@ export default function ApiKeyApprovalsPage({
                           setRejectTarget(row);
                           setRejectNote('');
                         }}
-                        className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#c0392b]"
+                        className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#c0392b]"
                       >
                         <X className="size-[13px]" />
                         驳回
@@ -1486,7 +1486,7 @@ export default function ApiKeyApprovalsPage({
         {/* Issued */}
         {tab === 'issued' && (
           <>
-            <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+            <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
               <KeyRound className="size-[14px] shrink-0" />
               <span className="text-[14px] font-normal leading-none">已分配密钥</span>
             </div>
@@ -1504,7 +1504,7 @@ export default function ApiKeyApprovalsPage({
         {/* History */}
         {tab === 'history' && (
           <>
-            <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+            <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
               <KeyRound className="size-[14px] shrink-0" />
               <span className="text-[14px] font-normal leading-none">审核历史</span>
             </div>
@@ -1538,9 +1538,9 @@ export default function ApiKeyApprovalsPage({
                 ].map((card) => (
                   <div
                     key={card.label}
-                    className="flex flex-col gap-[4px] rounded-[12px] border-[0.5px] border-[#e3e7f1] bg-[#f8f9fb] px-[14px] py-[10px]"
+                    className="flex flex-col gap-[4px] rounded-[12px] border-[0.5px] border-[#e6e4df] bg-[#f8f9fb] px-[14px] py-[10px]"
                   >
-                    <span className="text-[11px] text-[#858b9c]">{card.label}</span>
+                    <span className="text-[11px] text-[#6d6d72]">{card.label}</span>
                     <span className="text-[20px] font-semibold leading-[24px] text-[#18181a]">{card.value}</span>
                   </div>
                 ))}
@@ -1559,7 +1559,7 @@ export default function ApiKeyApprovalsPage({
                     setUsageMonth(m);
                     void loadUsage(m);
                   }}
-                  className="grid size-[28px] place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] hover:bg-[#f6f6f6]"
+                  className="grid size-[28px] place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] hover:bg-[#f2f1ee]"
                 >
                   <ChevronLeft className="size-[14px]" />
                 </button>
@@ -1574,13 +1574,13 @@ export default function ApiKeyApprovalsPage({
                     setUsageMonth(m);
                     void loadUsage(m);
                   }}
-                  className="grid size-[28px] place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] hover:bg-[#f6f6f6] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+                  className="grid size-[28px] place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] hover:bg-[#f2f1ee] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
                 >
                   <ChevronRight className="size-[14px]" />
                 </button>
               </div>
               <div className="relative flex-1 max-w-[240px]">
-                <Search className="absolute left-[8px] top-1/2 size-[14px] -translate-y-1/2 text-[#c0c6d4]" />
+                <Search className="absolute left-[8px] top-1/2 size-[14px] -translate-y-1/2 text-[#d6d1c9]" />
                 <Input
                   value={usageSearch}
                   onChange={(e) => setUsageSearch(e.target.value)}
@@ -1602,7 +1602,7 @@ export default function ApiKeyApprovalsPage({
 
             {/* Quota rules section */}
             <div className="flex items-center justify-between px-[12px] pt-[12px]">
-              <div className="flex items-center gap-[6px] text-[#757f9c]">
+              <div className="flex items-center gap-[6px] text-[#6d6d72]">
                 <SlidersHorizontal className="size-[14px] shrink-0" />
                 <span className="text-[14px] font-normal leading-none">配额规则</span>
               </div>
@@ -1635,28 +1635,28 @@ export default function ApiKeyApprovalsPage({
         {/* Consumer groups */}
         {tab === 'groups' && (
           <>
-            <div className="flex items-center justify-between gap-[10px] px-[12px] text-[#757f9c]">
+            <div className="flex items-center justify-between gap-[10px] px-[12px] text-[#6d6d72]">
               <div className="flex items-center gap-[6px]">
                 <Users className="size-[14px] shrink-0" />
                 <span className="text-[14px] font-normal leading-none">消费者列表</span>
-                <span className="text-[12px] text-[#c0c6d4]">随时启用/停用或更换配额规则</span>
+                <span className="text-[12px] text-[#d6d1c9]">随时启用/停用或更换配额规则</span>
               </div>
               <div className="flex items-center gap-[8px]">
                 {lastSyncedAt && (
-                  <span className="hidden text-[12px] text-[#c0c6d4] lg:inline">
+                  <span className="hidden text-[12px] text-[#d6d1c9] lg:inline">
                     上次同步 {formatTime(lastSyncedAt)}
                   </span>
                 )}
                 <UIButton
                   onClick={syncFromAliyun}
                   disabled={syncing}
-                  className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-60"
+                  className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-60"
                 >
                   <RefreshCw className={cn('size-[13px]', syncing && 'animate-spin')} />
                   {syncing ? '同步中…' : '同步阿里云'}
                 </UIButton>
                 <div className="relative w-[200px]">
-                  <Search className="absolute left-[8px] top-1/2 size-[14px] -translate-y-1/2 text-[#c0c6d4]" />
+                  <Search className="absolute left-[8px] top-1/2 size-[14px] -translate-y-1/2 text-[#d6d1c9]" />
                   <Input
                     value={consumerSearch}
                     onChange={(e) => setConsumerSearch(e.target.value)}
@@ -1675,7 +1675,7 @@ export default function ApiKeyApprovalsPage({
               emptyText={consumerSearch.trim() ? '无匹配的消费者' : '暂无消费者'}
             />
 
-            <div className="flex items-center gap-[6px] px-[12px] pt-[8px] text-[#757f9c]">
+            <div className="flex items-center gap-[6px] px-[12px] pt-[8px] text-[#6d6d72]">
               <Users className="size-[14px] shrink-0" />
               <span className="text-[14px] font-normal leading-none">消费组（只读）</span>
             </div>
@@ -1703,27 +1703,27 @@ export default function ApiKeyApprovalsPage({
           className="flex w-[calc(100%-2rem)] flex-col gap-[14px] rounded-[14px] px-[20px] py-[16px] sm:max-w-[480px]"
         >
           <DialogTitle className="text-[15px] font-medium text-[#18181a]">通过申请并创建消费者</DialogTitle>
-          <p className="text-[12px] leading-[18px] text-[#757f9c]">
+          <p className="text-[12px] leading-[18px] text-[#6d6d72]">
             申请：{approveTarget?.purpose || '（未填写用途）'} · 申请人 {approveTarget?.username || '-'}
           </p>
 
           {/* Consumer name input */}
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">消费者名称</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">消费者名称</span>
             <Input
               value={approveConsumerName}
               onChange={(e) => setApproveConsumerName(e.target.value)}
               placeholder="如 ailab_zhangwei"
               className="h-[34px] font-mono text-[13px]"
             />
-            <span className="text-[11px] leading-[16px] text-[#858b9c]">
+            <span className="text-[11px] leading-[16px] text-[#6d6d72]">
               通过后将在阿里云创建同名消费者，API Key 由系统自动生成并回传给申请人。
             </span>
           </label>
 
           {/* Consumer group select */}
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">消费组</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">消费组</span>
             <Select
               value={approveGroupId}
               onValueChange={(value) => {
@@ -1752,7 +1752,7 @@ export default function ApiKeyApprovalsPage({
 
           {/* Quota rule select (filtered to same gateway as group) */}
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">配额规则</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">配额规则</span>
             <Select value={approveRuleId} onValueChange={setApproveRuleId}>
               <SelectTrigger className="h-[34px]">
                 <SelectValue placeholder={approveGroupId ? '选择配额规则' : '请先选择消费组'} />
@@ -1775,19 +1775,19 @@ export default function ApiKeyApprovalsPage({
 
           {/* Gateway URL input */}
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">网关地址</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">网关地址</span>
             <Input
               value={approveApiUrl}
               onChange={(e) => setApproveApiUrl(e.target.value)}
               placeholder="https://ai-gateway.folidaymall.com/ailab/v1/chat/completions"
               className="h-[34px] font-mono text-[12px]"
             />
-            <span className="text-[11px] leading-[16px] text-[#858b9c]">
+            <span className="text-[11px] leading-[16px] text-[#6d6d72]">
               下发给申请人的调用地址，可在审批时手动修改。
             </span>
           </label>
 
-          <p className="text-[12px] leading-[18px] text-[#858b9c]">
+          <p className="text-[12px] leading-[18px] text-[#6d6d72]">
             通过后将在阿里云创建消费者并绑定消费组与配额规则，Model API 授权请在阿里云控制台完成。分配的 API Key 与网关地址仅申请人本人可见。
           </p>
 
@@ -1796,7 +1796,7 @@ export default function ApiKeyApprovalsPage({
               variant="outline"
               disabled={approving}
               onClick={() => setApproveTarget(null)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
             >
               取消
             </UIButton>
@@ -1819,7 +1819,7 @@ export default function ApiKeyApprovalsPage({
           className="flex w-[calc(100%-2rem)] flex-col gap-[14px] rounded-[14px] px-[20px] py-[16px] sm:max-w-[440px]"
         >
           <DialogTitle className="text-[15px] font-medium text-[#18181a]">驳回申请</DialogTitle>
-          <p className="text-[12px] leading-[18px] text-[#757f9c]">
+          <p className="text-[12px] leading-[18px] text-[#6d6d72]">
             申请：{rejectTarget?.purpose || '（未填写用途）'} · 申请人 {rejectTarget?.username || '-'}
           </p>
           <Textarea
@@ -1835,7 +1835,7 @@ export default function ApiKeyApprovalsPage({
               variant="outline"
               disabled={rejecting}
               onClick={() => setRejectTarget(null)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
             >
               取消
             </UIButton>
@@ -1858,11 +1858,11 @@ export default function ApiKeyApprovalsPage({
           className="flex w-[calc(100%-2rem)] flex-col gap-[14px] rounded-[14px] px-[20px] py-[16px] sm:max-w-[440px]"
         >
           <DialogTitle className="text-[15px] font-medium text-[#18181a]">确认吊销 API Key</DialogTitle>
-          <p className="text-[12px] leading-[18px] text-[#757f9c]">
+          <p className="text-[12px] leading-[18px] text-[#6d6d72]">
             申请人：{revokeTarget?.username || '-'} · Key {revokeTarget?.api_key_masked || '-'}
           </p>
           {revokePreviewLoading ? (
-            <div className="flex items-center gap-[8px] text-[12px] text-[#858b9c]">
+            <div className="flex items-center gap-[8px] text-[12px] text-[#6d6d72]">
               <LoaderCircle className="size-[13px] animate-spin" />
               正在检查该消费者名下的 API Key…
             </div>
@@ -1871,11 +1871,11 @@ export default function ApiKeyApprovalsPage({
               当前消费者只有一个 API Key，如果吊销则停用该消费者。
             </div>
           ) : revokePreview ? (
-            <div className="rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-[#f8f9fb] px-[12px] py-[10px] text-[12px] leading-[18px] text-[#464c5e]">
+            <div className="rounded-[10px] border-[0.5px] border-[#e6e4df] bg-[#f8f9fb] px-[12px] py-[10px] text-[12px] leading-[18px] text-[#3d3d3f]">
               该消费者名下共有 {revokePreview.api_key_count} 个 API Key，吊销后仅移除当前这一个，消费者继续可用。
             </div>
           ) : (
-            <div className="rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-[#f8f9fb] px-[12px] py-[10px] text-[12px] leading-[18px] text-[#464c5e]">
+            <div className="rounded-[10px] border-[0.5px] border-[#e6e4df] bg-[#f8f9fb] px-[12px] py-[10px] text-[12px] leading-[18px] text-[#3d3d3f]">
               吊销后将同步删除阿里云网关侧对应的 API Key 凭证，该操作不可恢复。
             </div>
           )}
@@ -1884,7 +1884,7 @@ export default function ApiKeyApprovalsPage({
               variant="outline"
               disabled={revoking}
               onClick={() => setRevokeTarget(null)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
             >
               取消
             </UIButton>
@@ -1908,7 +1908,7 @@ export default function ApiKeyApprovalsPage({
         >
           <DialogTitle className="text-[15px] font-medium text-[#18181a]">新建配额规则</DialogTitle>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">规则名称</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">规则名称</span>
             <Input
               value={qrName}
               onChange={(e) => setQrName(e.target.value)}
@@ -1918,7 +1918,7 @@ export default function ApiKeyApprovalsPage({
             />
           </label>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">网关</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">网关</span>
             <Select value={qrGateway} onValueChange={setQrGateway}>
               <SelectTrigger className="h-[34px]">
                 <SelectValue placeholder="选择网关" />
@@ -1940,7 +1940,7 @@ export default function ApiKeyApprovalsPage({
           </label>
           <div className="flex gap-[12px]">
             <label className="flex flex-1 flex-col gap-[6px]">
-              <span className="text-[12px] font-medium text-[#464c5e]">维度</span>
+              <span className="text-[12px] font-medium text-[#3d3d3f]">维度</span>
               <Select value={qrDimension} onValueChange={(v) => setQrDimension(v as 'token' | 'credit')}>
                 <SelectTrigger className="h-[34px]">
                   <SelectValue />
@@ -1952,7 +1952,7 @@ export default function ApiKeyApprovalsPage({
               </Select>
             </label>
             <label className="flex flex-1 flex-col gap-[6px]">
-              <span className="text-[12px] font-medium text-[#464c5e]">周期</span>
+              <span className="text-[12px] font-medium text-[#3d3d3f]">周期</span>
               <Select value={qrPeriod} onValueChange={(v) => setQrPeriod(v as 'day' | 'week' | 'month')}>
                 <SelectTrigger className="h-[34px]">
                   <SelectValue />
@@ -1966,7 +1966,7 @@ export default function ApiKeyApprovalsPage({
             </label>
           </div>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">主体类型</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">主体类型</span>
             <Select value={qrSubjectType} onValueChange={(v) => setQrSubjectType(v as 'consumer' | 'consumer_group')}>
               <SelectTrigger className="h-[34px]">
                 <SelectValue />
@@ -1979,13 +1979,13 @@ export default function ApiKeyApprovalsPage({
           </label>
           {qrSubjectType === 'consumer_group' && (
             <div className="flex flex-col gap-[6px]">
-              <span className="text-[12px] font-medium text-[#464c5e]">绑定消费组</span>
+              <span className="text-[12px] font-medium text-[#3d3d3f]">绑定消费组</span>
               {groups.length === 0 ? (
-                <p className="text-[12px] text-[#c0c6d4]">暂无消费组，请先在消费组页创建</p>
+                <p className="text-[12px] text-[#d6d1c9]">暂无消费组，请先在消费组页创建</p>
               ) : (
-                <div className="flex max-h-[120px] flex-col gap-[4px] overflow-y-auto rounded-[8px] border border-[#eceef1] p-[8px]">
+                <div className="flex max-h-[120px] flex-col gap-[4px] overflow-y-auto rounded-[8px] border border-[#ecebe7] p-[8px]">
                   {groups.map((g) => (
-                    <label key={g.id} className="flex items-center gap-[8px] text-[12px] text-[#464c5e]">
+                    <label key={g.id} className="flex items-center gap-[8px] text-[12px] text-[#3d3d3f]">
                       <input
                         type="checkbox"
                         checked={qrGroupIds.includes(g.id)}
@@ -2001,15 +2001,15 @@ export default function ApiKeyApprovalsPage({
                   ))}
                 </div>
               )}
-              <p className="text-[11px] leading-[16px] text-[#858b9c]">
+              <p className="text-[11px] leading-[16px] text-[#6d6d72]">
                 组粒度配额（网关 2.1.21+）：整组共享该规则限额，成员入组即生效，无需逐个绑定。
               </p>
             </div>
           )}
           {qrSubjectType === 'consumer' && (
             <div className="flex flex-col gap-[6px]">
-              <span className="text-[12px] font-medium text-[#464c5e]">
-                绑定消费者<span className="ml-[4px] font-normal text-[#a3aaba]">（可选，搜索后逐个选中）</span>
+              <span className="text-[12px] font-medium text-[#3d3d3f]">
+                绑定消费者<span className="ml-[4px] font-normal text-[#9a9a9f]">（可选，搜索后逐个选中）</span>
               </span>
               {/* 已选中的消费者，标签形式可移除 */}
               {qrConsumerIds.length > 0 && (
@@ -2019,14 +2019,14 @@ export default function ApiKeyApprovalsPage({
                     return (
                       <span
                         key={cid}
-                        className="inline-flex h-[24px] items-center gap-[4px] rounded-[6px] bg-[#f3f4f6] px-[8px] text-[12px] text-[#464c5e]"
+                        className="inline-flex h-[24px] items-center gap-[4px] rounded-[6px] bg-[#f2f1ee] px-[8px] text-[12px] text-[#3d3d3f]"
                       >
                         {c?.name ?? cid}
                         <button
                           type="button"
                           disabled={qrSubmitting}
                           onClick={() => setQrConsumerIds((prev) => prev.filter((id) => id !== cid))}
-                          className="rounded-[4px] p-[1px] text-[#a3aaba] transition-colors hover:bg-[#e3e7f1] hover:text-[#464c5e]"
+                          className="rounded-[4px] p-[1px] text-[#9a9a9f] transition-colors hover:bg-[#e6e4df] hover:text-[#3d3d3f]"
                           title="移除"
                         >
                           <X className="size-[12px]" />
@@ -2037,7 +2037,7 @@ export default function ApiKeyApprovalsPage({
                 </div>
               )}
               <div className="relative">
-                <Search className="pointer-events-none absolute left-[10px] top-1/2 size-[14px] -translate-y-1/2 text-[#a3aaba]" />
+                <Search className="pointer-events-none absolute left-[10px] top-1/2 size-[14px] -translate-y-1/2 text-[#9a9a9f]" />
                 <Input
                   value={qrConsumerSearch}
                   onChange={(e) => setQrConsumerSearch(e.target.value)}
@@ -2047,7 +2047,7 @@ export default function ApiKeyApprovalsPage({
                 />
               </div>
               {qrConsumerSearch.trim() && (
-                <div className="flex max-h-[140px] flex-col overflow-y-auto rounded-[8px] border border-[#eceef1]">
+                <div className="flex max-h-[140px] flex-col overflow-y-auto rounded-[8px] border border-[#ecebe7]">
                   {(() => {
                     const kw = qrConsumerSearch.trim().toLowerCase();
                     const matched = consumers.filter(
@@ -2060,7 +2060,7 @@ export default function ApiKeyApprovalsPage({
                     );
                     if (selectable.length === 0) {
                       return (
-                        <p className="px-[10px] py-[8px] text-[12px] text-[#c0c6d4]">
+                        <p className="px-[10px] py-[8px] text-[12px] text-[#d6d1c9]">
                           {matched.length > 0 ? '匹配的消费者均已选中' : '无匹配消费者'}
                         </p>
                       );
@@ -2076,26 +2076,26 @@ export default function ApiKeyApprovalsPage({
                             setQrConsumerIds((prev) => [...prev, cid]);
                             setQrConsumerSearch('');
                           }}
-                          className="flex items-center gap-[8px] px-[10px] py-[7px] text-left text-[12px] text-[#464c5e] transition-colors hover:bg-[#f6f6f6]"
+                          className="flex items-center gap-[8px] px-[10px] py-[7px] text-left text-[12px] text-[#3d3d3f] transition-colors hover:bg-[#f2f1ee]"
                         >
                           <span className="truncate font-medium">{c.name}</span>
                           {c.consumer_group_name && (
-                            <span className="truncate text-[11px] text-[#a3aaba]">{c.consumer_group_name}</span>
+                            <span className="truncate text-[11px] text-[#9a9a9f]">{c.consumer_group_name}</span>
                           )}
-                          <Plus className="ml-auto size-[13px] shrink-0 text-[#a3aaba]" />
+                          <Plus className="ml-auto size-[13px] shrink-0 text-[#9a9a9f]" />
                         </button>
                       );
                     });
                   })()}
                 </div>
               )}
-              <p className="text-[11px] leading-[16px] text-[#858b9c]">
+              <p className="text-[11px] leading-[16px] text-[#6d6d72]">
                 消费者粒度：每个消费者独立占用该规则限额。可留空创建后再绑定。
               </p>
             </div>
           )}
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">配额上限</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">配额上限</span>
             <Input
               type="number"
               min={1}
@@ -2106,7 +2106,7 @@ export default function ApiKeyApprovalsPage({
               className="h-[34px] text-[12px]"
             />
           </label>
-          <p className="text-[12px] leading-[18px] text-[#858b9c]">
+          <p className="text-[12px] leading-[18px] text-[#6d6d72]">
             将在选定网关下创建一个阿里云 QuotaRule。审批时选择此规则即可将消费组纳入限流。
           </p>
           <div className="flex items-center justify-end gap-[8px]">
@@ -2114,7 +2114,7 @@ export default function ApiKeyApprovalsPage({
               variant="outline"
               disabled={qrSubmitting}
               onClick={() => setQrOpen(false)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
             >
               取消
             </UIButton>
@@ -2137,12 +2137,12 @@ export default function ApiKeyApprovalsPage({
           className="flex w-[calc(100%-2rem)] flex-col gap-[14px] rounded-[14px] px-[20px] py-[16px] sm:max-w-[440px]"
         >
           <DialogTitle className="text-[15px] font-medium text-[#18181a]">修改消费组归属</DialogTitle>
-          <p className="text-[12px] leading-[18px] text-[#757f9c]">
+          <p className="text-[12px] leading-[18px] text-[#6d6d72]">
             消费组：{editOwnerTarget?.name}
             {editOwnerTarget?.gateway_name ? ` · 网关 ${editOwnerTarget.gateway_name}` : ''}
           </p>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">归属</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">归属</span>
             <Input
               value={editOwnerValue}
               onChange={(e) => setEditOwnerValue(e.target.value)}
@@ -2151,7 +2151,7 @@ export default function ApiKeyApprovalsPage({
               className="h-[34px] text-[12px]"
             />
           </label>
-          <p className="text-[11px] leading-[16px] text-[#a3aaba]">
+          <p className="text-[11px] leading-[16px] text-[#9a9a9f]">
             归属为业务记录字段，仅保存在本系统，不会同步至阿里云。
           </p>
           <div className="flex items-center justify-end gap-[8px]">
@@ -2159,7 +2159,7 @@ export default function ApiKeyApprovalsPage({
               variant="outline"
               disabled={editOwnerSubmitting}
               onClick={() => setEditOwnerTarget(null)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
             >
               取消
             </UIButton>
@@ -2183,7 +2183,7 @@ export default function ApiKeyApprovalsPage({
         >
           <DialogTitle className="text-[15px] font-medium text-[#18181a]">编辑配额规则</DialogTitle>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">规则名称</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">规则名称</span>
             <Input
               value={editRuleName}
               onChange={(e) => setEditRuleName(e.target.value)}
@@ -2192,7 +2192,7 @@ export default function ApiKeyApprovalsPage({
             />
           </label>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">配额上限</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">配额上限</span>
             <Input
               type="number"
               min={1}
@@ -2203,27 +2203,27 @@ export default function ApiKeyApprovalsPage({
             />
           </label>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">周期</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">周期</span>
             {/* periodType 创建后云端不可改，编辑时只读展示 */}
-            <div className="flex h-[34px] items-center rounded-[8px] border border-[#eceef1] bg-[#f6f6f6] px-[12px] text-[12px] text-[#757f9c]">
+            <div className="flex h-[34px] items-center rounded-[8px] border border-[#ecebe7] bg-[#f2f1ee] px-[12px] text-[12px] text-[#6d6d72]">
               {PERIOD_LABEL[editRulePeriod] ?? editRulePeriod}
-              <span className="ml-auto text-[11px] text-[#a3aaba]">创建后不可修改</span>
+              <span className="ml-auto text-[11px] text-[#9a9a9f]">创建后不可修改</span>
             </div>
           </label>
           <div className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">绑定消费组</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">绑定消费组</span>
             {editRuleGroupsLoading ? (
-              <p className="flex items-center gap-[6px] text-[12px] text-[#858b9c]">
+              <p className="flex items-center gap-[6px] text-[12px] text-[#6d6d72]">
                 <LoaderCircle className="size-[13px] animate-spin" /> 加载绑定信息…
               </p>
             ) : groups.length === 0 ? (
-              <p className="text-[12px] text-[#c0c6d4]">暂无消费组</p>
+              <p className="text-[12px] text-[#d6d1c9]">暂无消费组</p>
             ) : (
-              <div className="flex max-h-[120px] flex-col gap-[4px] overflow-y-auto rounded-[8px] border border-[#eceef1] p-[8px]">
+              <div className="flex max-h-[120px] flex-col gap-[4px] overflow-y-auto rounded-[8px] border border-[#ecebe7] p-[8px]">
                 {groups.map((g) => {
                   const gid = g.external_consumer_group_id || g.id;
                   return (
-                    <label key={g.id} className="flex items-center gap-[8px] text-[12px] text-[#464c5e]">
+                    <label key={g.id} className="flex items-center gap-[8px] text-[12px] text-[#3d3d3f]">
                       <input
                         type="checkbox"
                         checked={editRuleGroups.includes(gid)}
@@ -2240,7 +2240,7 @@ export default function ApiKeyApprovalsPage({
                 })}
               </div>
             )}
-            <p className="text-[11px] leading-[16px] text-[#858b9c]">
+            <p className="text-[11px] leading-[16px] text-[#6d6d72]">
               勾选/取消勾选保存后生效（新增或移出规则）。消费者主体的绑定关系不在本页调整，请到阿里云控制台操作。
             </p>
           </div>
@@ -2249,7 +2249,7 @@ export default function ApiKeyApprovalsPage({
               variant="outline"
               disabled={editRuleSubmitting}
               onClick={() => setEditRule(null)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
             >
               取消
             </UIButton>
@@ -2272,12 +2272,12 @@ export default function ApiKeyApprovalsPage({
           className="flex w-[calc(100%-2rem)] flex-col gap-[14px] rounded-[14px] px-[20px] py-[16px] sm:max-w-[440px]"
         >
           <DialogTitle className="text-[15px] font-medium text-[#18181a]">修改消费者配额规则</DialogTitle>
-          <p className="text-[12px] leading-[18px] text-[#757f9c]">
+          <p className="text-[12px] leading-[18px] text-[#6d6d72]">
             消费者：{consumerQuotaTarget?.name} · 消费组 {consumerQuotaTarget?.consumer_group_name || '未分组'} · 网关{' '}
             {consumerQuotaTarget?.gateway_name || '-'}
           </p>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">配额规则</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">配额规则</span>
             <Select value={consumerQuotaRuleId} onValueChange={setConsumerQuotaRuleId}>
               <SelectTrigger className="h-[34px]">
                 <SelectValue placeholder="选择配额规则" />
@@ -2306,7 +2306,7 @@ export default function ApiKeyApprovalsPage({
               variant="outline"
               disabled={consumerQuotaSubmitting}
               onClick={() => setConsumerQuotaTarget(null)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
             >
               取消
             </UIButton>
@@ -2329,11 +2329,11 @@ export default function ApiKeyApprovalsPage({
           className="flex w-[calc(100%-2rem)] flex-col gap-[14px] rounded-[14px] px-[20px] py-[16px] sm:max-w-[440px]"
         >
           <DialogTitle className="text-[15px] font-medium text-[#18181a]">调整配额</DialogTitle>
-          <p className="text-[12px] leading-[18px] text-[#757f9c]">
+          <p className="text-[12px] leading-[18px] text-[#6d6d72]">
             用户：{adjustTarget?.username || '-'} · 当前用量 {adjustTarget?.used_amount.toLocaleString('zh-CN') ?? 0}
           </p>
           <label className="flex flex-col gap-[6px]">
-            <span className="text-[12px] font-medium text-[#464c5e]">新配额上限</span>
+            <span className="text-[12px] font-medium text-[#3d3d3f]">新配额上限</span>
             <Input
               type="number"
               min={1}
@@ -2348,7 +2348,7 @@ export default function ApiKeyApprovalsPage({
               variant="outline"
               disabled={adjustSubmitting}
               onClick={() => setAdjustTarget(null)}
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
             >
               取消
             </UIButton>

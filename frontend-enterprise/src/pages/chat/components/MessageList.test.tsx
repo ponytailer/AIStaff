@@ -135,3 +135,59 @@ describe('MessageList 总耗时显示', () => {
     expect(screen.queryByText(/总耗时/)).toBeNull();
   });
 });
+
+/**
+ * 分组（对齐 tuffui ai-chat 的 thread 语义）：
+ * 同一侧、5 分钟内的连续消息共享一个组头，只有组首出头像与「谁 + 几点」；
+ * 跨天时插入居中的日期胶囊。这两条一旦坏掉，一次答复就会被拆成好几坨卡片。
+ */
+describe('MessageList 发言分组', () => {
+  afterEach(cleanup);
+
+  const agent = { id: 'agent-wang', name: '王小明', is_overall: false, metadata: {} };
+
+  it('同一侧连续消息只出一份姓名组头', () => {
+    const first: ChatMessage = {
+      id: 'a1',
+      role: 'assistant',
+      content: '第一段回答',
+      created_at: '2026-10-19T10:00:00Z',
+    };
+    const second: ChatMessage = {
+      id: 'a2',
+      role: 'assistant',
+      content: '补充一段回答',
+      created_at: '2026-10-19T10:01:00Z',
+    };
+
+    render(<MessageList chat={chatStub({ displayedMessages: [first, second], displayedAgent: agent })} />);
+
+    expect(screen.getByText('第一段回答')).toBeTruthy();
+    expect(screen.getByText('补充一段回答')).toBeTruthy();
+    expect(screen.getAllByText('王小明')).toHaveLength(1);
+  });
+
+  it('跨天的消息之间插入日期分隔', () => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 86_400_000);
+    const older: ChatMessage = {
+      id: 'b1',
+      role: 'assistant',
+      content: '昨天说的话',
+      created_at: yesterday.toISOString(),
+    };
+    const newer: ChatMessage = {
+      id: 'b2',
+      role: 'assistant',
+      content: '今天说的话',
+      created_at: now.toISOString(),
+    };
+
+    render(<MessageList chat={chatStub({ displayedMessages: [older, newer], displayedAgent: agent })} />);
+
+    expect(screen.getByText('昨天')).toBeTruthy();
+    expect(screen.getByText('今天')).toBeTruthy();
+    // 换天必然换组：两份组头。
+    expect(screen.getAllByText('王小明')).toHaveLength(2);
+  });
+});

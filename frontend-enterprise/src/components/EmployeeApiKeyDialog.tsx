@@ -181,16 +181,16 @@ export default function EmployeeApiKeyDialog({
       <DialogContent
         aria-describedby="employee-api-key-description"
         data-i18n-ignore
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[780px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[780px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[26px] py-[22px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[26px] py-[22px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <KeyRound className="size-[18px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">API 密钥 · {displayName}</DialogTitle>
-              <DialogDescription id="employee-api-key-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="employee-api-key-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 密钥始终绑定当前员工。明文只展示一次，平台不会保存可再次查看的副本。
               </DialogDescription>
             </div>
@@ -209,7 +209,7 @@ export default function EmployeeApiKeyDialog({
                 >
                   <Icon className="size-[20px] text-[#5d6880]" />
                   <h3 className="mt-[13px] text-[14px] font-semibold text-[#18181a]">{meta.label}</h3>
-                  <p className="mt-[4px] text-[12px] font-medium text-[#464c5e]">{meta.summary}</p>
+                  <p className="mt-[4px] text-[12px] font-medium text-[#3d3d3f]">{meta.summary}</p>
                   <p className="mt-[8px] text-[11px] leading-[17px] text-[#7b8498]">{meta.detail}</p>
                   <Button
                     type="button"
@@ -275,7 +275,7 @@ export default function EmployeeApiKeyDialog({
                       </span>
                       <span className={row.status === 'active'
                         ? 'rounded-full bg-[#e8f7ec] px-[7px] py-[2px] text-[9px] text-[#218546]'
-                        : 'rounded-full bg-[#f1f2f5] px-[7px] py-[2px] text-[9px] text-[#8a92a2]'}
+                        : 'rounded-full bg-[#ecebe7] px-[7px] py-[2px] text-[9px] text-[#8a92a2]'}
                       >
                         {row.status === 'active' ? '启用' : '已禁用'}
                       </span>

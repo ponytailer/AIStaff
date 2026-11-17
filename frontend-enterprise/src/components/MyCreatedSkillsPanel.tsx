@@ -218,7 +218,7 @@ export default function MyCreatedSkillsPanel({
               启用
             </DropdownMenuItem>
           )}
-          <DropdownMenuSeparator className="my-[2px] bg-[#eef0f4]" />
+          <DropdownMenuSeparator className="my-[2px] bg-[#ecebe7]" />
           <DropdownMenuItem
             variant="destructive"
             className={MENU_ITEM_DANGER_CLASS}
@@ -243,7 +243,7 @@ export default function MyCreatedSkillsPanel({
           <span className="truncate font-medium leading-[18px] text-[#18181a]" title={row.name}>
             {row.name}
           </span>
-          <span className="truncate text-[#858b9c]" title={row.slug}>
+          <span className="truncate text-[#6d6d72]" title={row.slug}>
             {row.slug}
           </span>
         </div>
@@ -254,7 +254,7 @@ export default function MyCreatedSkillsPanel({
       title: '归属',
       width: 130,
       render: (row) => (
-        <span className="block truncate text-[#858b9c]" title={skillScopeLabel(row, agents)}>
+        <span className="block truncate text-[#6d6d72]" title={skillScopeLabel(row, agents)}>
           {skillScopeLabel(row, agents)}
         </span>
       ),
@@ -290,17 +290,17 @@ export default function MyCreatedSkillsPanel({
         <div className="flex min-w-0 items-start justify-between gap-[10px]">
           <div className="min-w-0">
             <strong className="block truncate text-[14px] font-semibold text-[#18181a]">{row.name}</strong>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.slug}</span>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{row.slug}</span>
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">
               归属：{skillScopeLabel(row, agents)}
             </span>
           </div>
           {renderActions(row)}
         </div>
         {row.description && (
-          <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#858b9c]">{row.description}</p>
+          <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#6d6d72]">{row.description}</p>
         )}
-        <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#858b9c]">
+        <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#6d6d72]">
           <StatusBadge tone={preset.tone}>{preset.text}</StatusBadge>
           <span>{formatDateTime(row.updated_at)}</span>
         </div>
@@ -314,11 +314,11 @@ export default function MyCreatedSkillsPanel({
     <section aria-label="我创建的技能" className="mt-[40px]">
       <div className="mb-[14px] flex flex-wrap items-baseline gap-[8px]">
         <h2 className="text-[16px] font-semibold leading-[22px] text-[#18181a]">我创建的技能</h2>
-        <span className="text-[12px] text-[#858b9c]">{rows.length} 个</span>
+        <span className="text-[12px] text-[#6d6d72]">{rows.length} 个</span>
         <button
           type="button"
           onClick={() => void load()}
-          className="ml-auto inline-flex cursor-pointer items-center gap-[4px] border-0 bg-transparent p-0 text-[12px] text-[#757f9c] transition-colors hover:text-[#18181a]"
+          className="ml-auto inline-flex cursor-pointer items-center gap-[4px] border-0 bg-transparent p-0 text-[12px] text-[#6d6d72] transition-colors hover:text-[#18181a]"
         >
           <IconRefresh className="size-[14px] shrink-0" />
           刷新
@@ -326,7 +326,7 @@ export default function MyCreatedSkillsPanel({
       </div>
 
       {loading && !rows.length ? (
-        <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[24px] text-center text-[12px] text-[#a7adbb]">
+        <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[24px] text-center text-[12px] text-[#9a9a9f]">
           加载中…
         </p>
       ) : filteredRows.length ? (
@@ -353,7 +353,7 @@ export default function MyCreatedSkillsPanel({
           </p>
           {!hasSearchTerm && (
             <>
-              <p className="mt-[4px] text-[11px] leading-[17px] text-[#a7adbb]">
+              <p className="mt-[4px] text-[11px] leading-[17px] text-[#9a9a9f]">
                 在技能广场创建或导入技能后，可在这里编辑、启停和删除
               </p>
               <UIButton

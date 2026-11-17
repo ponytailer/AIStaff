@@ -197,7 +197,7 @@ export default function MyStaticAssetsPanel({
           <span className="truncate font-medium leading-[18px] text-[#18181a]" title={row.filename}>
             {row.filename}
           </span>
-          <span className="truncate text-[#858b9c]" title={assetUrl(row)}>
+          <span className="truncate text-[#6d6d72]" title={assetUrl(row)}>
             {displayUrl(row)}
           </span>
         </div>
@@ -255,7 +255,7 @@ export default function MyStaticAssetsPanel({
         <div className="flex min-w-0 items-start justify-between gap-[10px]">
           <div className="min-w-0">
             <strong className="block truncate text-[14px] font-semibold text-[#18181a]">{row.filename}</strong>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{displayUrl(row)}</span>
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{displayUrl(row)}</span>
           </div>
           <button
             type="button"
@@ -266,7 +266,7 @@ export default function MyStaticAssetsPanel({
             <IconTrash className="size-[14px]" />
           </button>
         </div>
-        <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#858b9c]">
+        <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#6d6d72]">
           <span>{formatBytes(row.size)} · 下载 {row.download_count} 次</span>
           <span>{formatDateTime(row.created_at)}</span>
         </div>
@@ -286,18 +286,18 @@ export default function MyStaticAssetsPanel({
     <section aria-label="我的静态资源" className={embedded ? undefined : 'mt-[40px]'}>
       <div className="mb-[14px] flex flex-wrap items-baseline gap-[8px]">
         <h2 className="text-[16px] font-semibold leading-[22px] text-[#18181a]">我的静态资源</h2>
-        <span className="text-[12px] text-[#858b9c]">{rows.length} 个</span>
+        <span className="text-[12px] text-[#6d6d72]">{rows.length} 个</span>
         <button
           type="button"
           onClick={() => void load()}
-          className="ml-auto inline-flex cursor-pointer items-center gap-[4px] border-0 bg-transparent p-0 text-[12px] text-[#757f9c] transition-colors hover:text-[#18181a]"
+          className="ml-auto inline-flex cursor-pointer items-center gap-[4px] border-0 bg-transparent p-0 text-[12px] text-[#6d6d72] transition-colors hover:text-[#18181a]"
         >
           <IconRefresh className="size-[14px] shrink-0" />
           刷新
         </button>
       </div>
 
-      <p className="mb-[12px] flex flex-wrap items-center gap-x-[10px] gap-y-[4px] text-[11px] leading-[17px] text-[#a7adbb]">
+      <p className="mb-[12px] flex flex-wrap items-center gap-x-[10px] gap-y-[4px] text-[11px] leading-[17px] text-[#9a9a9f]">
         <span className="inline-flex items-center gap-[4px]">
           <HardDrive className="size-[12px]" />
           已用 {formatBytes(usage.used)} / {formatBytes(usage.quota)}
@@ -324,14 +324,14 @@ export default function MyStaticAssetsPanel({
           {uploading ? `上传中 ${progress}%` : '上传文件'}
         </UIButton>
         {/* 这句是「静态资源 vs 知识库」的分工说明，也是这个功能唯一的使用指引。
-            原先是 11px / #a7adbb 的灰字，挤在按钮右侧几乎看不见。改成淡 teal
-            提示块：正文提到 12px / #464c5e，「固定地址」用品牌色加粗做视觉锚点。
+            原先是 11px / #9a9a9f 的灰字，挤在按钮右侧几乎看不见。改成淡 teal
+            提示块：正文提到 12px / #3d3d3f，「固定地址」用品牌色加粗做视觉锚点。
             保持与按钮同一行（窄屏由外层 flex-wrap 自动换行），不新增整行横幅，
             避免抢走「上传文件」这个主操作的注意力。 */}
-        <span className="inline-flex items-center gap-[7px] rounded-[10px] border border-[#dceee9] bg-[#f2f9f7] px-[11px] py-[6px] text-[12px] leading-[18px] text-[#464c5e]">
-          <Link2 className="size-[13px] shrink-0 text-[#0f7268]" />
+        <span className="inline-flex items-center gap-[7px] rounded-[10px] border border-[#dceee9] bg-[#f2f9f7] px-[11px] py-[6px] text-[12px] leading-[18px] text-[#3d3d3f]">
+          <Link2 className="size-[13px] shrink-0 text-[#0f766e]" />
           <span>
-            <strong className="font-semibold text-[#0f7268]">上传后得到一个固定地址</strong>
+            <strong className="font-semibold text-[#0f766e]">上传后得到一个固定地址</strong>
             ，可粘进知识库，让员工回答时把链接回给用户
           </span>
         </span>
@@ -344,7 +344,7 @@ export default function MyStaticAssetsPanel({
       )}
 
       {loading && !rows.length ? (
-        <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[24px] text-center text-[12px] text-[#a7adbb]">
+        <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[24px] text-center text-[12px] text-[#9a9a9f]">
           加载中…
         </p>
       ) : filteredRows.length ? (
@@ -370,7 +370,7 @@ export default function MyStaticAssetsPanel({
             {searchTerm.trim() ? '没有匹配的文件' : '还没有上传过文件'}
           </p>
           {!searchTerm.trim() && (
-            <p className="mt-[4px] text-[11px] leading-[17px] text-[#a7adbb]">
+            <p className="mt-[4px] text-[11px] leading-[17px] text-[#9a9a9f]">
               上传说明书、模板、附件等静态文件，得到一个可以直接发给用户的下载地址
             </p>
           )}

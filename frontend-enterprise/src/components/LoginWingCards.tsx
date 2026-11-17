@@ -28,7 +28,7 @@ const WINGS = [
 ] as const;
 
 const TONE_DOT: Record<'teal' | 'orange', string> = {
-  teal: 'bg-[#0f7268] shadow-[0_0_0_3px_rgba(15,118,110,0.15)]',
+  teal: 'bg-[#0f766e] shadow-[0_0_0_3px_rgba(15,118,110,0.15)]',
   orange: 'bg-[#c2703e] shadow-[0_0_0_3px_rgba(194,112,62,0.15)]',
 };
 
@@ -40,8 +40,8 @@ const STEPS = [
 ] as const;
 
 const STEP_CLASS: Record<string, string> = {
-  done: 'text-[#5b6274]',
-  now: 'font-medium text-[#0f7268]',
+  done: 'text-[#55555a]',
+  now: 'font-medium text-[#0f766e]',
   todo: 'text-[#9aa3b8]',
 };
 
@@ -54,15 +54,15 @@ const STATS = [
 function StepIcon({ state }: { state: 'done' | 'now' | 'todo' }) {
   if (state === 'done') {
     return (
-      <i className="grid size-[15px] shrink-0 place-items-center rounded-full border border-[#0f7268] bg-[rgba(15,118,110,0.08)] text-[10px] leading-none text-[#0f7268]">
+      <i className="grid size-[15px] shrink-0 place-items-center rounded-full border border-[#0f766e] bg-[rgba(15,118,110,0.08)] text-[10px] leading-none text-[#0f766e]">
         ✓
       </i>
     );
   }
   if (state === 'now') {
-    return <i className="size-[15px] shrink-0 rounded-full border border-[#0f7268] bg-[#0f7268] shadow-[0_0_0_3px_rgba(15,118,110,0.18)]" />;
+    return <i className="size-[15px] shrink-0 rounded-full border border-[#0f766e] bg-[#0f766e] shadow-[0_0_0_3px_rgba(15,118,110,0.18)]" />;
   }
-  return <i className="size-[15px] shrink-0 rounded-full border-[1.5px] border-[#e3e7f1]" />;
+  return <i className="size-[15px] shrink-0 rounded-full border-[1.5px] border-[#e6e4df]" />;
 }
 
 /**
@@ -145,7 +145,7 @@ export default function LoginWingCards() {
               className="rounded-[16px] border border-black/[0.06] bg-white p-[18px] shadow-[0_20px_50px_rgba(17,17,17,0.10)]"
               style={{ transform: `rotate(${wing.rotate}deg)` }}
             >
-              <div className="flex items-center gap-[8px] text-[12px] tracking-[0.04em] text-[#757f9c]">
+              <div className="flex items-center gap-[8px] text-[12px] tracking-[0.04em] text-[#6d6d72]">
                 <i className={`size-[7px] shrink-0 rounded-full ${TONE_DOT[wing.tone]}`} />
                 <b className="font-medium text-[#18181a]">{wing.status}</b>
                 <span>{wing.statusNote}</span>
@@ -168,7 +168,7 @@ export default function LoginWingCards() {
                   <div className="mt-[14px] h-[6px] overflow-hidden rounded-[4px] bg-[#eef1f6]">
                     <i
                       data-wing-bar
-                      className="block h-full w-full origin-left rounded-[4px] bg-[linear-gradient(90deg,#0f7268,#2a9d8f)] [transform:scaleX(0)]"
+                      className="block h-full w-full origin-left rounded-[4px] bg-[linear-gradient(90deg,#0f766e,#2a9d8f)] [transform:scaleX(0)]"
                     />
                   </div>
                 </>
@@ -179,13 +179,13 @@ export default function LoginWingCards() {
                       <b className="block text-[21px] font-semibold leading-[26px] tracking-[-0.01em] text-[#c2703e]">
                         {stat.value}
                       </b>
-                      <span className="text-[11.5px] text-[#757f9c]">{stat.label}</span>
+                      <span className="text-[11.5px] text-[#6d6d72]">{stat.label}</span>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="mt-[14px] border-t border-dashed border-[#e3e7f1] pt-[12px] text-[11.5px] text-[#757f9c]">
+              <div className="mt-[14px] border-t border-dashed border-[#e6e4df] pt-[12px] text-[11.5px] text-[#6d6d72]">
                 {wing.meta}
               </div>
             </div>

@@ -8,7 +8,12 @@ import EmployeeAvatar from '@/components/EmployeeAvatar';
 import { cn } from '@/lib/utils';
 import { formatClientMonthDayTime } from '@/lib/timezone';
 
-import { CHAT_HEADER_ACTIONS_CLASS, CHAT_MAIN_CLASS } from './chat/chatPageStyles';
+import {
+  CHAT_COLUMN_CLASS,
+  CHAT_HEADER_ACTIONS_CLASS,
+  CHAT_MAIN_CLASS,
+  CHAT_MESSAGE_SHELL_CLASS,
+} from './chat/chatPageStyles';
 import Composer from './chat/components/Composer';
 import MessageList from './chat/components/MessageList';
 import { useChatSession } from './chat/useChatSession';
@@ -115,11 +120,11 @@ export default function ShareChatPage() {
   if (error) {
     return (
       <ShareFallbackState>
-        <span className="grid size-[46px] place-items-center rounded-[16px] bg-[#f2f3f7] text-[#8a92a3]">
+        <span className="grid size-[46px] place-items-center rounded-[16px] bg-[#f2f1ee] text-[#8a92a3]">
           <Link2Off className="size-[20px]" />
         </span>
         <strong className="mt-[16px] text-[15px] font-semibold text-[#18181a]">分享链接不可用</strong>
-        <p className="mt-[6px] max-w-[320px] text-center text-[12px] leading-[18px] text-[#757f9c]">{error}</p>
+        <p className="mt-[6px] max-w-[320px] text-center text-[12px] leading-[18px] text-[#6d6d72]">{error}</p>
         <p className="mt-[14px] text-[11px] text-[#a0a7b6]">请联系发送链接的同事重新生成</p>
       </ShareFallbackState>
     );
@@ -129,7 +134,7 @@ export default function ShareChatPage() {
     return (
       <ShareFallbackState>
         <LoaderCircle className="size-[22px] animate-spin text-[#8a92a3]" />
-        <p className="mt-[12px] text-[12px] text-[#757f9c]">正在进入对话…</p>
+        <p className="mt-[12px] text-[12px] text-[#6d6d72]">正在进入对话…</p>
       </ShareFallbackState>
     );
   }
@@ -143,7 +148,7 @@ function ShareChatSurface({ share }: { share: SharePublicInfo }) {
 
   return (
     <div className="flex h-screen min-h-0 flex-col sd1-canvas text-[#18181a]">
-      <div className="flex h-[88px] shrink-0 items-center justify-between gap-[12px] border-b border-[#f4f4f4] pt-[32px] pl-[18px] pr-[24px]">
+      <div className="flex h-[88px] shrink-0 items-center justify-between gap-[12px] border-b border-[#f2f1ee] pt-[32px] pl-[18px] pr-[24px]">
         <div className="flex min-w-0 items-center gap-[10px]">
           {agent && (
             <EmployeeAvatar
@@ -157,18 +162,23 @@ function ShareChatSurface({ share }: { share: SharePublicInfo }) {
           )}
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-[14px] text-[#18181a]">{share.agent_name}</span>
-            <span className="truncate text-[10px] text-[#757f9c]">
+            <span className="truncate text-[10px] text-[#6d6d72]">
               {share.expires_at ? `分享链接将于 ${formatExpiry(share.expires_at)} 失效` : '长期有效'}
             </span>
           </div>
         </div>
         <div className={CHAT_HEADER_ACTIONS_CLASS}>
-          <span className="rounded-full bg-[#f2f3f7] px-[9px] py-[4px] text-[10px] text-[#757f9c]">免登录体验</span>
+          <span className="rounded-full bg-[#f2f1ee] px-[9px] py-[4px] text-[10px] text-[#6d6d72]">免登录体验</span>
         </div>
       </div>
       <main className={cn(CHAT_MAIN_CLASS, 'flex-1')}>
-        <MessageList chat={chat} />
-        <Composer chat={chat} hideModelSelector hideScheduledTask />
+        {/* 与对话端同一套上下双卡结构：分享页也该是一个「窗口」，不是裸文字。 */}
+        <div className={cn(CHAT_COLUMN_CLASS, 'px-[12px] pb-[12px] pt-[2px]')}>
+          <div className={CHAT_MESSAGE_SHELL_CLASS}>
+            <MessageList chat={chat} />
+          </div>
+          <Composer chat={chat} hideModelSelector hideScheduledTask />
+        </div>
       </main>
     </div>
   );
@@ -176,7 +186,7 @@ function ShareChatSurface({ share }: { share: SharePublicInfo }) {
 
 function ShareFallbackState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen min-h-0 flex-col items-center justify-center bg-[#fcfcfc] px-[24px]">
+    <div className="flex h-screen min-h-0 flex-col items-center justify-center bg-[#f7f7f6] px-[24px]">
       {children}
     </div>
   );

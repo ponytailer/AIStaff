@@ -160,22 +160,22 @@ function ChampionCard({ item, onOpen }: { item: HotItem; onOpen: () => void }) {
           style={{ background: 'radial-gradient(340px circle at var(--mx,50%) var(--my,50%), rgba(15,114,110,0.09), transparent 62%)' }}
         />
         {/* 右上角 № 角标：hover 放大点亮 */}
-        <span className="pointer-events-none absolute right-[24px] top-[20px] font-mono text-[11px] tracking-[0.08em] text-[#757f9c] transition-all duration-300 group-hover:scale-[1.2] group-hover:font-bold group-hover:text-[#0f7268]">
+        <span className="pointer-events-none absolute right-[24px] top-[20px] font-mono text-[11px] tracking-[0.08em] text-[#6d6d72] transition-all duration-300 group-hover:scale-[1.2] group-hover:font-bold group-hover:text-[#0f766e]">
           № 01 · 热度冠军
         </span>
 
         <div className="relative p-[24px_26px_14px]">
-          <span className="flex h-[46px] w-[46px] items-center justify-center rounded-[15px] border border-black/[0.07] bg-white shadow-[0_2px_8px_rgba(17,17,17,0.04)] text-[#0f7268] transition-transform duration-500 [transform:rotate(-3deg)] group-hover:[transform:rotate(2deg)_scale(1.04)]">
+          <span className="flex h-[46px] w-[46px] items-center justify-center rounded-[15px] border border-black/[0.07] bg-white shadow-[0_2px_8px_rgba(17,17,17,0.04)] text-[#0f766e] transition-transform duration-500 [transform:rotate(-3deg)] group-hover:[transform:rotate(2deg)_scale(1.04)]">
             <KindIcon kind={item.kind} className="size-[21px]" />
           </span>
-          <span className="mt-[14px] block font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[#0f7268]">
+          <span className="mt-[14px] block font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-[#0f766e]">
             {meta.en} · Champion
           </span>
           <h3 className="mt-[5px] text-[24px] font-black leading-tight tracking-[-0.025em] text-[#18181a]">
             {item.title}
           </h3>
           {item.description && (
-            <p className="mt-[7px] max-w-[460px] text-[13px] leading-[1.7] text-[#5b6274]">
+            <p className="mt-[7px] max-w-[460px] text-[13px] leading-[1.7] text-[#55555a]">
               {item.description}
             </p>
           )}
@@ -186,30 +186,30 @@ function ChampionCard({ item, onOpen }: { item: HotItem; onOpen: () => void }) {
                 <b className="block font-mono text-[22px] font-bold leading-none tracking-[-0.02em] tabular-nums text-[#18181a]">
                   {fmt(item.metric_value)}
                 </b>
-                <span className="mt-[4px] block text-[10.5px] text-[#757f9c]">{item.metric_label}</span>
+                <span className="mt-[4px] block text-[10.5px] text-[#6d6d72]">{item.metric_label}</span>
               </span>
               <span>
-                <b className="block font-mono text-[22px] font-bold leading-none tracking-[-0.02em] tabular-nums text-[#0f7268]">
+                <b className="block font-mono text-[22px] font-bold leading-none tracking-[-0.02em] tabular-nums text-[#0f766e]">
                   {fmt(Math.round(item.score))}
                 </b>
-                <span className="mt-[4px] block text-[10.5px] text-[#757f9c]">综合热度</span>
+                <span className="mt-[4px] block text-[10.5px] text-[#6d6d72]">综合热度</span>
               </span>
             </div>
             {/* 右侧大水印编号：保持 demo 右侧体量 */}
             <span
               aria-hidden
-              className="ml-auto select-none self-end font-mono text-[64px] font-bold leading-none tracking-[-0.04em] text-[#0f7268]/[0.10] transition-colors duration-500 group-hover:text-[#0f7268]/[0.16]"
+              className="ml-auto select-none self-end font-mono text-[64px] font-bold leading-none tracking-[-0.04em] text-[#0f766e]/[0.10] transition-colors duration-500 group-hover:text-[#0f766e]/[0.16]"
             >
               01
             </span>
           </div>
         </div>
 
-        <div className="relative flex items-center gap-[8px] border-t border-dashed border-black/[0.12] px-[26px] py-[10px] font-mono text-[11px] text-[#757f9c]">
+        <div className="relative flex items-center gap-[8px] border-t border-dashed border-black/[0.12] px-[26px] py-[10px] font-mono text-[11px] text-[#6d6d72]">
           <span>{meta.label}</span>
           <i className="h-[3px] w-[3px] rounded-full bg-black/25" />
           <span>{updated ? `更新于 ${updated}` : '按真实使用计数'}</span>
-          <span className="ml-auto inline-flex -translate-x-[6px] items-center gap-[4px] font-medium text-[#0f7268] opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
+          <span className="ml-auto inline-flex -translate-x-[6px] items-center gap-[4px] font-medium text-[#0f766e] opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
             打开 →
           </span>
         </div>
@@ -259,19 +259,19 @@ function RankRow({
       <button
         type="button"
         onClick={onOpen}
-        className="grid w-full grid-cols-[46px_44px_minmax(0,1fr)_minmax(150px,210px)] items-center gap-[14px] rounded-[16px] px-[14px] py-[12px] text-left transition-colors duration-200 hover:bg-[rgba(15,114,110,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f7268]/40 max-[900px]:grid-cols-[40px_40px_minmax(0,1fr)] max-[900px]:[&>*:last-child]:hidden"
+        className="grid w-full grid-cols-[46px_44px_minmax(0,1fr)_minmax(150px,210px)] items-center gap-[14px] rounded-[16px] px-[14px] py-[12px] text-left transition-colors duration-200 hover:bg-[rgba(15,114,110,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/40 max-[900px]:grid-cols-[40px_40px_minmax(0,1fr)] max-[900px]:[&>*:last-child]:hidden"
       >
         {/* 名次：前三名 teal 大号 */}
         <span
           className={cn(
             'font-mono font-bold tabular-nums leading-none',
-            top3 ? 'text-[24px] text-[#0f7268]' : 'text-[15px] text-[#b9bfcc]',
+            top3 ? 'text-[24px] text-[#0f766e]' : 'text-[15px] text-[#b9bfcc]',
           )}
         >
           {String(rank).padStart(2, '0')}
         </span>
         {/* 图标框 */}
-        <span className="flex h-[42px] w-[42px] items-center justify-center rounded-[13px] border border-black/[0.07] bg-white shadow-[0_2px_8px_rgba(17,17,17,0.04)] text-[#0f7268]">
+        <span className="flex h-[42px] w-[42px] items-center justify-center rounded-[13px] border border-black/[0.07] bg-white shadow-[0_2px_8px_rgba(17,17,17,0.04)] text-[#0f766e]">
           <KindIcon kind={item.kind} className="size-[18px]" />
         </span>
         {/* 名称 + 类型 */}
@@ -279,7 +279,7 @@ function RankRow({
           <b className="block overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-bold tracking-[-0.01em] text-[#18181a]">
             {item.title}
           </b>
-          <small className="mt-[2px] block font-mono text-[10px] tracking-[0.05em] text-[#757f9c]">
+          <small className="mt-[2px] block font-mono text-[10px] tracking-[0.05em] text-[#6d6d72]">
             {meta.en}
           </small>
         </span>
@@ -291,12 +291,12 @@ function RankRow({
               style={{
                 width: barOn ? `${Math.max(percent, 4)}%` : '0%',
                 background: top3
-                  ? 'linear-gradient(90deg, #0f7268, #4bd3be)'
-                  : 'linear-gradient(90deg, rgba(15,114,110,0.45), #0f7268)',
+                  ? 'linear-gradient(90deg, #0f766e, #4bd3be)'
+                  : 'linear-gradient(90deg, rgba(15,114,110,0.45), #0f766e)',
               }}
             />
           </span>
-          <span className="min-w-[64px] text-right font-mono text-[11.5px] font-medium tabular-nums text-[#5b6274]">
+          <span className="min-w-[64px] text-right font-mono text-[11.5px] font-medium tabular-nums text-[#55555a]">
             {fmt(item.metric_value)} {item.metric_label}
           </span>
         </span>
@@ -434,7 +434,7 @@ export default function PlazaAllTab({ toolbar }: { toolbar?: ReactNode }) {
                     <h2 className="flex items-center gap-[10px] text-[19px] font-black tracking-[-0.02em] text-[#18181a]">
                       <svg
                         viewBox="0 0 24 24"
-                        className="size-[19px] text-[#0f7268]"
+                        className="size-[19px] text-[#0f766e]"
                         fill="none"
                         stroke="currentColor"
                         strokeWidth={1.8}
@@ -445,11 +445,11 @@ export default function PlazaAllTab({ toolbar }: { toolbar?: ReactNode }) {
                         <path d="M12 2.5c1 3-.5 4.5-2 6C8.5 10 7 11.8 7 14.5a5 5 0 0 0 10 0c0-1.6-.6-3-1.5-4.2-.4 1-1 1.7-2 2.2.6-2.6.2-6.4-1.5-10z" />
                       </svg>
                       热门排行榜
-                      <span className="font-mono text-[10.5px] font-normal text-[#757f9c]">
-                        · <b className="font-medium text-[#0f7268]">全站</b> TOP 10
+                      <span className="font-mono text-[10.5px] font-normal text-[#6d6d72]">
+                        · <b className="font-medium text-[#0f766e]">全站</b> TOP 10
                       </span>
                     </h2>
-                    <span className="font-mono text-[10.5px] text-[#757f9c]">
+                    <span className="font-mono text-[10.5px] text-[#6d6d72]">
                       {payload?.generated_at ? `更新于 ${fmtDate(payload.generated_at)}` : '按真实使用计数'}
                     </span>
                   </div>
@@ -465,7 +465,7 @@ export default function PlazaAllTab({ toolbar }: { toolbar?: ReactNode }) {
                       />
                     ))}
                     {rest.length === 0 && (
-                      <li className="px-[18px] py-[22px] text-center text-[12.5px] text-[#757f9c]">
+                      <li className="px-[18px] py-[22px] text-center text-[12.5px] text-[#6d6d72]">
                         榜单暂时只有 1 个资源，去各广场发布更多内容吧
                       </li>
                     )}

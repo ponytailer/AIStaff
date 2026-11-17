@@ -73,7 +73,7 @@ export function GrowthTimelineSection({
 
   return (
     <section className="flex w-full min-w-0 max-w-full flex-col gap-[10px] rounded-[18px] bg-white p-[18px] shadow-[0_20px_42px_rgba(21,26,38,0.045)] in-data-[theme=dark]:border-[#343741] in-data-[theme=dark]:bg-[#202126] in-data-[theme=dark]:text-[#f0f2f6]">
-      <div className="inline-flex items-center gap-[6px] self-start text-[14px] capitalize leading-none text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]">
+      <div className="inline-flex items-center gap-[6px] self-start text-[14px] capitalize leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
         <IconGrowthArrow className="size-[14px] shrink-0" />
         成长记录
       </div>
@@ -82,15 +82,15 @@ export function GrowthTimelineSection({
           <div className="grid grid-flow-col auto-cols-[minmax(160px,1fr)] gap-[20px] pb-[20px]">
             {growthItems.map((item) => (
               <div className="relative flex flex-col items-center gap-[8px]" key={item.id}>
-                <span className="pointer-events-none absolute left-[-10px] right-[-10px] top-[28px] z-0 h-px bg-[#e3e7f1] in-data-[theme=dark]:bg-[#363a45]" />
+                <span className="pointer-events-none absolute left-[-10px] right-[-10px] top-[28px] z-0 h-px bg-[#e6e4df] in-data-[theme=dark]:bg-[#363a45]" />
                 <p className="m-0 text-center text-[12px] font-medium leading-[16px] text-[#18181a] in-data-[theme=dark]:text-[#f0f2f6]">
                   {formatMonthDay(item.timestamp)}
                 </p>
                 <span className="relative z-10 size-[8px] shrink-0 rounded-full bg-[#18181a] in-data-[theme=dark]:bg-[#f0f2f6]" />
-                <div className="relative flex w-[136px] flex-col gap-[4px] rounded-[14px] bg-[#f6f6f6] px-[16px] py-[10px] in-data-[theme=dark]:bg-[#2b2d33]">
-                  <span className="absolute top-[-8px] left-1/2 size-0 -translate-x-1/2 border-x-6 border-b-8 border-x-transparent border-b-[#f6f6f6] in-data-[theme=dark]:border-b-[#2b2d33]" />
-                  <span className="truncate text-[10px] leading-none text-[#757f9c]">{item.kind}</span>
-                  <span className="truncate text-[12px] leading-none text-[#464c5e] in-data-[theme=dark]:text-[#c9cede]">
+                <div className="relative flex w-[136px] flex-col gap-[4px] rounded-[14px] bg-[#f2f1ee] px-[16px] py-[10px] in-data-[theme=dark]:bg-[#2b2d33]">
+                  <span className="absolute top-[-8px] left-1/2 size-0 -translate-x-1/2 border-x-6 border-b-8 border-x-transparent border-b-[#f2f1ee] in-data-[theme=dark]:border-b-[#2b2d33]" />
+                  <span className="truncate text-[10px] leading-none text-[#6d6d72]">{item.kind}</span>
+                  <span className="truncate text-[12px] leading-none text-[#3d3d3f] in-data-[theme=dark]:text-[#c9cede]">
                     {staffdeckDisplayText(item.title)}
                   </span>
                 </div>
@@ -140,7 +140,7 @@ type MetricTone = 'default' | 'positive' | 'negative';
 
 const metricToneClass: Record<MetricTone, string> = {
   default:
-    'border-[0.5px] border-[#e3e7f1] bg-transparent hover:bg-[#f7f8fa] in-data-[theme=dark]:border-[#343741] in-data-[theme=dark]:hover:bg-white/5',
+    'border-[0.5px] border-[#e6e4df] bg-transparent hover:bg-[#f2f1ee] in-data-[theme=dark]:border-[#343741] in-data-[theme=dark]:hover:bg-white/5',
   positive: 'bg-[#e9f7ef] hover:bg-[#dcf1e5] in-data-[theme=dark]:bg-[#173a29] in-data-[theme=dark]:hover:bg-[#1c452f]',
   negative: 'bg-[#fce7e7] hover:bg-[#f9dada] in-data-[theme=dark]:bg-[#3d1f1f] in-data-[theme=dark]:hover:bg-[#4a2626]',
 };
@@ -171,7 +171,7 @@ function ClickableMetric({
       className={`flex min-w-px flex-[1_0_0] cursor-pointer flex-col justify-center gap-[4px] rounded-[20px] px-[32px] py-[16px] text-left transition-colors ${metricToneClass[tone]}`}
     >
       <strong className={`text-[18px] font-medium leading-none ${metricValueToneClass[tone]}`}>{value}{suffix}</strong>
-      <span className="text-[12px] leading-none text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]">{label}</span>
+      <span className="text-[12px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">{label}</span>
     </button>
   );
 }
@@ -298,15 +298,15 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
   return (
     <div className="flex w-full min-w-0 flex-col gap-[16px]">
       <div className="flex h-[36px] flex-wrap items-center justify-between gap-[12px]">
-        <div className="flex items-center gap-[6px] text-[14px] text-[#858b9c] in-data-[theme=dark]:text-[#8b93a6]">
+        <div className="flex items-center gap-[6px] text-[14px] text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
           <IconProfileCalendar className="size-[14px] shrink-0" />
           {formatAnchorLabel(mode, range)}
         </div>
-        <div className="flex items-center gap-[24px] rounded-[8px] border border-[#e3e7f1] px-[12px] py-[8px] in-data-[theme=dark]:border-[#343741]">
+        <div className="flex items-center gap-[24px] rounded-[8px] border border-[#e6e4df] px-[12px] py-[8px] in-data-[theme=dark]:border-[#343741]">
           <button
             type="button"
             onClick={() => shift(-1)}
-            className="flex size-[14px] items-center justify-center text-[#464c5e] transition-colors hover:text-[#18181a] in-data-[theme=dark]:text-[#c9cede]"
+            className="flex size-[14px] items-center justify-center text-[#3d3d3f] transition-colors hover:text-[#18181a] in-data-[theme=dark]:text-[#c9cede]"
             aria-label="上一个周期"
           >
             <TimelineChevron direction="left" />
@@ -320,7 +320,7 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
           <button
             type="button"
             onClick={() => shift(1)}
-            className="flex size-[14px] items-center justify-center text-[#464c5e] transition-colors hover:text-[#18181a] in-data-[theme=dark]:text-[#c9cede]"
+            className="flex size-[14px] items-center justify-center text-[#3d3d3f] transition-colors hover:text-[#18181a] in-data-[theme=dark]:text-[#c9cede]"
             aria-label="下一个周期"
           >
             <TimelineChevron direction="right" />
@@ -334,8 +334,8 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
               onClick={() => changeMode(item.key)}
               className={`flex w-[50px] items-center justify-center px-[8px] text-[12px] transition-colors ${
                 mode === item.key
-                  ? 'font-medium text-[#464c5e] in-data-[theme=dark]:text-[#f0f2f6]'
-                  : 'text-[#757f9c] hover:text-[#464c5e] in-data-[theme=dark]:text-[#8b93a6]'
+                  ? 'font-medium text-[#3d3d3f] in-data-[theme=dark]:text-[#f0f2f6]'
+                  : 'text-[#6d6d72] hover:text-[#3d3d3f] in-data-[theme=dark]:text-[#8b93a6]'
               }`}
             >
               {item.label}
@@ -371,7 +371,7 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
                             style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
                           >
                             <span className={`size-[6px] shrink-0 rounded-full ${track.dot}`} />
-                            <span className="truncate text-[10px] leading-none capitalize text-[#464c5e] in-data-[theme=dark]:text-[#f0f2f6]">
+                            <span className="truncate text-[10px] leading-none capitalize text-[#3d3d3f] in-data-[theme=dark]:text-[#f0f2f6]">
                               {label}
                             </span>
                           </div>
@@ -382,7 +382,7 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
                             <span className="text-[12px] font-medium text-[#18181a] in-data-[theme=dark]:text-[#f0f2f6]">
                               {track.label}
                             </span>
-                            <span className="text-[11px] text-[#858b9c]">
+                            <span className="text-[11px] text-[#6d6d72]">
                               共{segment.count}
                               {track.unit}
                             </span>
@@ -393,16 +393,16 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
                                 key={`${track.key}-${event.time}-${eventIndex}`}
                                 className="flex items-start gap-[8px] text-[11px] leading-[15px]"
                               >
-                                <span className="shrink-0 tabular-nums text-[#858b9c]">
+                                <span className="shrink-0 tabular-nums text-[#6d6d72]">
                                   {formatHm(new Date(event.time))}
                                 </span>
-                                <span className="flex-1 break-words text-[#464c5e] in-data-[theme=dark]:text-[#c9cede]">
+                                <span className="flex-1 break-words text-[#3d3d3f] in-data-[theme=dark]:text-[#c9cede]">
                                   {event.name || track.label}
                                 </span>
                               </div>
                             ))}
                             {segment.events.length > 12 && (
-                              <div className="text-[11px] text-[#858b9c]">…等{segment.events.length}项</div>
+                              <div className="text-[11px] text-[#6d6d72]">…等{segment.events.length}项</div>
                             )}
                           </div>
                         </HoverCardContent>
@@ -414,7 +414,7 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
             </div>
           </div>
 
-          <div className="flex h-[16px] w-full items-center justify-between px-[12px] text-[12px] leading-none text-[#858b9c] in-data-[theme=dark]:text-[#8b93a6]">
+          <div className="flex h-[16px] w-full items-center justify-between px-[12px] text-[12px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
             {ticks.map((tick, index) => (
               <span key={`tick-${index}`} className="relative w-0">
                 <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap">
@@ -431,9 +431,9 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
 
 function TimelineEmptyState({ text }: { text: string }) {
   return (
-    <div className="flex min-h-[178px] w-full flex-col items-center justify-center gap-[10px] rounded-[20px] border border-dashed border-[#e3e7f1] in-data-[theme=dark]:border-[#343741]">
+    <div className="flex min-h-[178px] w-full flex-col items-center justify-center gap-[10px] rounded-[20px] border border-dashed border-[#e6e4df] in-data-[theme=dark]:border-[#343741]">
       <IconProfileCalendar className="size-[24px] text-[#c0c5d2] in-data-[theme=dark]:text-[#5b606d]" />
-      <span className="text-[13px] leading-none text-[#858b9c] in-data-[theme=dark]:text-[#8b93a6]">
+      <span className="text-[13px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
         {text}
       </span>
     </div>
@@ -482,16 +482,16 @@ function WeekCalendar({
                 isToday ? 'bg-[#e8f0ff] in-data-[theme=dark]:bg-[#1d2c47]' : ''
               }`}
             >
-              <span className="text-[14px] leading-none text-[#858b9c] in-data-[theme=dark]:text-[#8b93a6]">
+              <span className="text-[14px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
                 {date.getDate()}
               </span>
               <div className="flex w-full flex-col gap-[2px]">
                 {visible.map((item, itemIndex) => (
                   <HoverCard key={`${key}-${itemIndex}`} openDelay={120} closeDelay={80}>
                     <HoverCardTrigger asChild>
-                      <div className="flex cursor-default items-center gap-[6px] rounded-[8px] p-[4px] transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:hover:bg-[#2b2d33]">
+                      <div className="flex cursor-default items-center gap-[6px] rounded-[8px] p-[4px] transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:hover:bg-[#2b2d33]">
                         <span className={`size-[6px] shrink-0 rounded-full ${item.dot}`} />
-                        <span className="truncate text-[10px] leading-none capitalize text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]">
+                        <span className="truncate text-[10px] leading-none capitalize text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
                           {item.label}
                         </span>
                       </div>
@@ -499,9 +499,9 @@ function WeekCalendar({
                     <HoverCardContent align="start" sideOffset={6} className="w-auto max-w-[300px] p-[10px]">
                       <div className="flex items-start gap-[8px]">
                         <span className={`mt-[4px] size-[6px] shrink-0 rounded-full ${item.dot}`} />
-                        <span className="flex-1 break-words text-[12px] leading-[17px] text-[#464c5e] in-data-[theme=dark]:text-[#c9cede]">
+                        <span className="flex-1 break-words text-[12px] leading-[17px] text-[#3d3d3f] in-data-[theme=dark]:text-[#c9cede]">
                           {item.time ? (
-                            <span className="mr-[6px] tabular-nums text-[#858b9c]">{item.time}</span>
+                            <span className="mr-[6px] tabular-nums text-[#6d6d72]">{item.time}</span>
                           ) : null}
                           {item.label}
                         </span>
@@ -513,9 +513,9 @@ function WeekCalendar({
                   <button
                     type="button"
                     onClick={() => toggle(key)}
-                    className="flex items-center gap-[6px] rounded-[8px] p-[4px] text-left transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:hover:bg-[#2b2d33]"
+                    className="flex items-center gap-[6px] rounded-[8px] p-[4px] text-left transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:hover:bg-[#2b2d33]"
                   >
-                    <span className="truncate text-[10px] leading-none text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]">
+                    <span className="truncate text-[10px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
                       还有{overflow}项
                     </span>
                   </button>
@@ -524,9 +524,9 @@ function WeekCalendar({
                   <button
                     type="button"
                     onClick={() => toggle(key)}
-                    className="flex items-center gap-[6px] rounded-[8px] p-[4px] text-left transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:hover:bg-[#2b2d33]"
+                    className="flex items-center gap-[6px] rounded-[8px] p-[4px] text-left transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:hover:bg-[#2b2d33]"
                   >
-                    <span className="truncate text-[10px] leading-none text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]">
+                    <span className="truncate text-[10px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
                       收起
                     </span>
                   </button>
@@ -557,7 +557,7 @@ function MonthCalendar({
         {['周日', '周一', '周二', '周三', '周四', '周五', '周六'].map((day) => (
           <div
             key={day}
-            className="px-[12px] py-[8px] text-[12px] leading-none text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]"
+            className="px-[12px] py-[8px] text-[12px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]"
           >
             {day}
           </div>
@@ -581,16 +581,16 @@ function MonthCalendar({
                 key={key}
                 className={`flex min-h-[136px] flex-col gap-[8px] px-[12px] py-[10px] ${inMonth ? '' : 'opacity-45'}`}
               >
-                <span className="text-[14px] leading-none text-[#858b9c] in-data-[theme=dark]:text-[#8b93a6]">
+                <span className="text-[14px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
                   {dayLabel}
                 </span>
                 <div className="flex flex-col gap-[2px]">
                   {visible.map((item, index) => (
                     <HoverCard key={`${key}-${index}`} openDelay={120} closeDelay={80}>
                       <HoverCardTrigger asChild>
-                        <div className="flex cursor-default items-center gap-[6px] rounded-[8px] p-[4px] transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:hover:bg-[#2b2d33]">
+                        <div className="flex cursor-default items-center gap-[6px] rounded-[8px] p-[4px] transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:hover:bg-[#2b2d33]">
                           <span className={`size-[6px] shrink-0 rounded-full ${item.dot}`} />
-                          <span className="truncate text-[10px] leading-none capitalize text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]">
+                          <span className="truncate text-[10px] leading-none capitalize text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
                             {item.label}
                           </span>
                         </div>
@@ -598,9 +598,9 @@ function MonthCalendar({
                       <HoverCardContent align="start" sideOffset={6} className="w-auto max-w-[300px] p-[10px]">
                         <div className="flex items-start gap-[8px]">
                           <span className={`mt-[4px] size-[6px] shrink-0 rounded-full ${item.dot}`} />
-                          <span className="flex-1 break-words text-[12px] leading-[17px] text-[#464c5e] in-data-[theme=dark]:text-[#c9cede]">
+                          <span className="flex-1 break-words text-[12px] leading-[17px] text-[#3d3d3f] in-data-[theme=dark]:text-[#c9cede]">
                             {item.time ? (
-                              <span className="mr-[6px] tabular-nums text-[#858b9c]">{item.time}</span>
+                              <span className="mr-[6px] tabular-nums text-[#6d6d72]">{item.time}</span>
                             ) : null}
                             {item.label}
                           </span>
@@ -612,9 +612,9 @@ function MonthCalendar({
                     <button
                       type="button"
                       onClick={() => toggle(key)}
-                      className="flex items-center gap-[6px] rounded-[8px] p-[4px] text-left transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:hover:bg-[#2b2d33]"
+                      className="flex items-center gap-[6px] rounded-[8px] p-[4px] text-left transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:hover:bg-[#2b2d33]"
                     >
-                      <span className="truncate text-[10px] leading-none text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]">
+                      <span className="truncate text-[10px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
                         还有{overflow}项
                       </span>
                     </button>
@@ -623,9 +623,9 @@ function MonthCalendar({
                     <button
                       type="button"
                       onClick={() => toggle(key)}
-                      className="flex items-center gap-[6px] rounded-[8px] p-[4px] text-left transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:hover:bg-[#2b2d33]"
+                      className="flex items-center gap-[6px] rounded-[8px] p-[4px] text-left transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:hover:bg-[#2b2d33]"
                     >
-                      <span className="truncate text-[10px] leading-none text-[#757f9c] in-data-[theme=dark]:text-[#8b93a6]">
+                      <span className="truncate text-[10px] leading-none text-[#6d6d72] in-data-[theme=dark]:text-[#8b93a6]">
                         收起
                       </span>
                     </button>
@@ -830,7 +830,7 @@ function TimelineDatePicker({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="text-[12px] whitespace-nowrap text-[#464c5e] transition-colors hover:text-[#18181a] in-data-[theme=dark]:text-[#c9cede]"
+          className="text-[12px] whitespace-nowrap text-[#3d3d3f] transition-colors hover:text-[#18181a] in-data-[theme=dark]:text-[#c9cede]"
         >
           {label}
         </button>
@@ -840,7 +840,7 @@ function TimelineDatePicker({
           <button
             type="button"
             onClick={() => shiftView(mode === 'month' ? 0 : -1, mode === 'month' ? -1 : 0)}
-            className="flex size-[24px] items-center justify-center rounded-[6px] text-[#464c5e] transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]"
+            className="flex size-[24px] items-center justify-center rounded-[6px] text-[#3d3d3f] transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]"
             aria-label="上一页"
           >
             <TimelineChevron direction="left" />
@@ -853,7 +853,7 @@ function TimelineDatePicker({
           <button
             type="button"
             onClick={() => shiftView(mode === 'month' ? 0 : 1, mode === 'month' ? 1 : 0)}
-            className="flex size-[24px] items-center justify-center rounded-[6px] text-[#464c5e] transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]"
+            className="flex size-[24px] items-center justify-center rounded-[6px] text-[#3d3d3f] transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]"
             aria-label="下一页"
           >
             <TimelineChevron direction="right" />
@@ -872,7 +872,7 @@ function TimelineDatePicker({
                   className={`flex h-[36px] w-[64px] items-center justify-center rounded-[8px] text-[12px] transition-colors ${
                     isSelected
                       ? 'bg-[#4f92ff] text-white'
-                      : 'text-[#464c5e] hover:bg-[#f6f6f6] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]'
+                      : 'text-[#3d3d3f] hover:bg-[#f2f1ee] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]'
                   }`}
                 >
                   {index + 1}月
@@ -905,8 +905,8 @@ function TimelineDatePicker({
                     : inWeek
                       ? `${bandRounding} bg-[#e8f0ff] text-[#18181a] in-data-[theme=dark]:bg-[#1d2c47] in-data-[theme=dark]:text-[#f0f2f6]`
                       : inMonth
-                        ? 'rounded-[8px] text-[#464c5e] hover:bg-[#f6f6f6] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]'
-                        : 'rounded-[8px] text-[#c0c5d2] hover:bg-[#f6f6f6] in-data-[theme=dark]:text-[#5b606d]';
+                        ? 'rounded-[8px] text-[#3d3d3f] hover:bg-[#f2f1ee] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]'
+                        : 'rounded-[8px] text-[#c0c5d2] hover:bg-[#f2f1ee] in-data-[theme=dark]:text-[#5b606d]';
                   return (
                     <button
                       key={dateKey(date)}
@@ -929,7 +929,7 @@ function TimelineDatePicker({
               key={shortcut.label}
               type="button"
               onClick={() => commit(shortcut.date)}
-              className="rounded-[6px] px-[10px] py-[4px] text-[12px] text-[#464c5e] transition-colors hover:bg-[#f6f6f6] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]"
+              className="rounded-[6px] px-[10px] py-[4px] text-[12px] text-[#3d3d3f] transition-colors hover:bg-[#f2f1ee] in-data-[theme=dark]:text-[#c9cede] in-data-[theme=dark]:hover:bg-[#2b2d33]"
             >
               {shortcut.label}
             </button>

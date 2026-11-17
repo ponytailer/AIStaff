@@ -404,8 +404,18 @@ class TurnPlanner:
                             else _unique_task_id(None, seen_ids)
                         ),
                         kind="conversation",
+                        # handoff_human 必须在这一支保留：纯对话员工（无活跃
+                        # SOP）收到「转人工」时，LLM 常给出顶层 decision=
+                        # handoff_human + 空 task_frames，落到这个兜底分支。
+                        # 之前这里写死 answer_only，决策在帧上丢失，下游
+                        # turn_frames 的 conversation handoff 分支永远不触发，
+                        # HumanHandoffRequest 不会被创建 → owner 收不到待回答。
                         decision=(
-                            "clarify" if plan.decision == "clarify" else "answer_only"
+                            "handoff_human"
+                            if plan.decision == "handoff_human"
+                            else "clarify"
+                            if plan.decision == "clarify"
+                            else "answer_only"
                         ),
                         user_intent=_one_line(plan.user_intent or message),
                         requirements=_requirements(

@@ -276,7 +276,7 @@ export default function RuntimeSettingsPage({ currentUser }: { currentUser: Ente
                 </div>
               </div>
               <div className="rounded-[11px] border border-[#e6e9f0] bg-[#fbfbfc] px-[13px] py-[12px]">
-                <p className="text-[12px] font-medium text-[#464c5e]">纳入历史上下文的角色</p>
+                <p className="text-[12px] font-medium text-[#3d3d3f]">纳入历史上下文的角色</p>
                 <p className="mt-[3px] text-[11px] leading-[16px] text-muted-foreground">至少保留一种角色；图片只随用户消息进入上下文。</p>
                 <div className="mt-[10px] grid gap-[8px] sm:grid-cols-2">
                   <SwitchRow label="用户消息" checked={form.context_allowed_roles.includes('user')} onChange={(checked) => update({ context_allowed_roles: toggleContextRole(form.context_allowed_roles, 'user', checked) })} />
@@ -384,11 +384,11 @@ function toggleContextRole(
 }
 
 function LabeledField({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return <label className="flex flex-col gap-[6px]"><span className="text-[12px] font-medium text-[#464c5e]">{label}</span>{hint && <span className="text-[11px] leading-[16px] text-muted-foreground">{hint}</span>}{children}</label>;
+  return <label className="flex flex-col gap-[6px]"><span className="text-[12px] font-medium text-[#3d3d3f]">{label}</span>{hint && <span className="text-[11px] leading-[16px] text-muted-foreground">{hint}</span>}{children}</label>;
 }
 
 function SwitchRow({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (next: boolean) => void }) {
-  return <label className="flex items-center justify-between gap-[16px]"><span><span className="block text-[12px] font-medium text-[#464c5e]">{label}</span>{hint && <span className="mt-[3px] block text-[11px] leading-[16px] text-muted-foreground">{hint}</span>}</span><Switch checked={checked} onCheckedChange={onChange} /></label>;
+  return <label className="flex items-center justify-between gap-[16px]"><span><span className="block text-[12px] font-medium text-[#3d3d3f]">{label}</span>{hint && <span className="mt-[3px] block text-[11px] leading-[16px] text-muted-foreground">{hint}</span>}</span><Switch checked={checked} onCheckedChange={onChange} /></label>;
 }
 
 async function waitForApplicationRestart(): Promise<void> {

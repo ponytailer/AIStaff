@@ -41,10 +41,10 @@ export {
 
 const MOBILE_CARD_HEAD_CLASS = 'flex min-w-0 items-start justify-between gap-[10px]';
 const MOBILE_META_CLASS =
-  'mt-[12px] grid grid-cols-2 gap-[8px] max-[520px]:grid-cols-1 [&>span]:min-w-0 [&>span]:rounded-[10px] [&>span]:border [&>span]:border-[#eef0f4] [&>span]:bg-[#fafbfc] [&>span]:px-[10px] [&>span]:py-[9px] [&>span]:text-[12px] [&>span]:leading-[1.45] [&>span]:text-[#18181a] [&>span]:[overflow-wrap:anywhere] [&_b]:mb-[3px] [&_b]:block [&_b]:text-[11px] [&_b]:font-semibold [&_b]:text-[#858b9c]';
+  'mt-[12px] grid grid-cols-2 gap-[8px] max-[520px]:grid-cols-1 [&>span]:min-w-0 [&>span]:rounded-[10px] [&>span]:border [&>span]:border-[#ecebe7] [&>span]:bg-[#f2f1ee] [&>span]:px-[10px] [&>span]:py-[9px] [&>span]:text-[12px] [&>span]:leading-[1.45] [&>span]:text-[#18181a] [&>span]:[overflow-wrap:anywhere] [&_b]:mb-[3px] [&_b]:block [&_b]:text-[11px] [&_b]:font-semibold [&_b]:text-[#6d6d72]';
 const MOBILE_TITLE_CLASS =
   'min-w-0 wrap-break-word text-[14px] font-semibold text-[#18181a]';
-const MOBILE_SUMMARY_CLASS = 'mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#858b9c]';
+const MOBILE_SUMMARY_CLASS = 'mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#6d6d72]';
 
 export default function ScheduledTasksTab() {
   const [rows, setRows] = useState<ScheduledTaskRead[]>([]);
@@ -293,7 +293,7 @@ export default function ScheduledTasksTab() {
           variant="link"
           disabled={!row.session_id}
           onClick={() => openChatSession(row.session_id)}
-          className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#c0c6d4]"
+          className="h-auto p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#d6d1c9]"
         >
           查看会话
         </UIButton>
@@ -395,7 +395,7 @@ export default function ScheduledTasksTab() {
           variant="link"
           disabled={!row.session_id}
           onClick={() => openChatSession(row.session_id)}
-          className="h-auto gap-1 p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#c0c6d4]"
+          className="h-auto gap-1 p-0 text-[12px] font-normal text-[#1a71ff] hover:text-[#4a8dff] hover:no-underline disabled:text-[#d6d1c9]"
         >
           <IconSearch className="size-3.5" />
           查看会话
@@ -419,7 +419,7 @@ export default function ScheduledTasksTab() {
   );
 
   const scheduledBody = selectedAgent?.is_overall ? (
-    <div className="flex min-h-[200px] items-center justify-center rounded-[14px] bg-[#f6f6f6] text-[13px] text-[#858b9c]">
+    <div className="flex min-h-[200px] items-center justify-center rounded-[14px] bg-[#f2f1ee] text-[13px] text-[#6d6d72]">
       请先选择一个数字员工再配置定时任务。
     </div>
   ) : (
@@ -488,9 +488,9 @@ export default function ScheduledTasksTab() {
           aria-describedby={undefined}
           className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[920px]"
         >
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <IconAlignJustify className="size-[14px] shrink-0" />
-            <DialogTitle className="text-[14px] font-normal leading-none text-[#757f9c]">
+            <DialogTitle className="text-[14px] font-normal leading-none text-[#6d6d72]">
               执行记录
             </DialogTitle>
           </div>

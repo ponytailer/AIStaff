@@ -52,7 +52,7 @@ export default function PlatformColumn({
   return (
     <section
       className={cn(
-        'flex h-full min-h-0 w-full min-w-[180px] flex-col items-center gap-[10px] rounded-[14px] border-[0.5px] border-[#e3e7f1] px-[12px] py-[14px]',
+        'flex h-full min-h-0 w-full min-w-[180px] flex-col items-center gap-[10px] rounded-[14px] border-[0.5px] border-[#e6e4df] px-[12px] py-[14px]',
         '',
         className,
       )}
@@ -61,15 +61,15 @@ export default function PlatformColumn({
         <div className="flex w-full shrink-0 flex-col gap-[10px]">
           <div className="flex w-full items-center justify-between">
             <div className="flex items-center gap-[4px]">
-              <span className="flex size-[14px] shrink-0 items-center justify-center text-[#464c5e]">
+              <span className="flex size-[14px] shrink-0 items-center justify-center text-[#3d3d3f]">
                 {icon}
               </span>
-              <p className="truncate text-[12px] font-medium text-[#464c5e]">{title}</p>
+              <p className="truncate text-[12px] font-medium text-[#3d3d3f]">{title}</p>
             </div>
-            <div className="flex shrink-0 items-center gap-[2px] text-[12px] text-[#464c5e]">
+            <div className="flex shrink-0 items-center gap-[2px] text-[12px] text-[#3d3d3f]">
               <span>{count}</span>
               {/* <span>{countLabel}</span> */}
-              {/* <IconChevronDown className="size-[14px] text-[#757f9c]" /> */}
+              {/* <IconChevronDown className="size-[14px] text-[#6d6d72]" /> */}
             </div>
           </div>
 
@@ -78,7 +78,7 @@ export default function PlatformColumn({
               {filters.map((filter) => (
                 <span
                   key={filter}
-                  className="rounded-[20px] border-[0.5px] border-[#e3e7f1] px-[8px] py-[2px] text-[10px] leading-[normal] text-[#757f9c]"
+                  className="rounded-[20px] border-[0.5px] border-[#e6e4df] px-[8px] py-[2px] text-[10px] leading-[normal] text-[#6d6d72]"
                 >
                   {filter}
                 </span>
@@ -86,7 +86,7 @@ export default function PlatformColumn({
             </div>
           )}
 
-          <div className="h-px w-full bg-[#e3e7f1]" />
+          <div className="h-px w-full bg-[#e6e4df]" />
         </div>
 
         <div className="mr-[-12px] flex min-h-0 w-[calc(100%+12px)] flex-1 flex-col gap-[16px] overflow-y-auto pr-[12px]">
@@ -101,7 +101,7 @@ export default function PlatformColumn({
                 <p className="mt-[12px] text-[13px] font-medium leading-[19px] text-[#7f879a]">
                   {emptyText}
                 </p>
-                <p className="mt-[4px] text-[10px] leading-[16px] text-[#a7adbb]">
+                <p className="mt-[4px] text-[10px] leading-[16px] text-[#9a9a9f]">
                   发布内容后会在这里展示
                 </p>
               </div>
@@ -114,12 +114,12 @@ export default function PlatformColumn({
 
       {!isEmpty && (
         <>
-          <div className="h-px w-full shrink-0 bg-[#e3e7f1]" />
+          <div className="h-px w-full shrink-0 bg-[#e6e4df]" />
 
           <button
             type="button"
             onClick={onViewAll}
-            className="flex w-[120px] shrink-0 items-center justify-center gap-[2px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[20px] py-[8px] text-[12px] text-[#757f9c] transition-colors hover:text-[#18181a]"
+            className="flex w-[120px] shrink-0 items-center justify-center gap-[2px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[20px] py-[8px] text-[12px] text-[#6d6d72] transition-colors hover:text-[#18181a]"
           >
             查看全部
             <IconChevronDown className="size-[14px] shrink-0 -rotate-90" />

@@ -105,9 +105,9 @@ export function ResourceImportDialog({
         aria-describedby={undefined}
         className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[640px]"
       >
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           {icon}
-          <DialogTitle className="text-[14px] font-normal leading-none text-[#757f9c]">
+          <DialogTitle className="text-[14px] font-normal leading-none text-[#6d6d72]">
             {title}
           </DialogTitle>
         </div>
@@ -115,7 +115,7 @@ export function ResourceImportDialog({
         <div className="flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto px-[12px]">
           {showTargetSelect && (
             <div className="flex flex-col gap-[6px]">
-              <span className="text-[11px] font-semibold text-[#858b9c]">{targetLabel}</span>
+              <span className="text-[11px] font-semibold text-[#6d6d72]">{targetLabel}</span>
               <Select value={targetId || undefined} onValueChange={onTargetChange}>
                 <SelectTrigger className={cn(SELECT_TRIGGER_CLASS, 'w-full')}>
                   <SelectValue placeholder={targetPlaceholder || targetLabel} />
@@ -132,7 +132,7 @@ export function ResourceImportDialog({
           )}
 
           <div className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-semibold text-[#858b9c]">复制来源</span>
+            <span className="text-[11px] font-semibold text-[#6d6d72]">复制来源</span>
             <div className="relative">
               <select
                 value={effectiveSourceId}
@@ -151,15 +151,15 @@ export function ResourceImportDialog({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#858b9c]" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#6d6d72]" />
             </div>
           </div>
 
           <div className="flex flex-col gap-[6px]">
-            <span className="text-[11px] font-semibold text-[#858b9c]">{itemsLabel}</span>
-            <div className="max-h-[300px] overflow-y-auto rounded-[10px] border border-[#eef0f4] p-[6px]">
+            <span className="text-[11px] font-semibold text-[#6d6d72]">{itemsLabel}</span>
+            <div className="max-h-[300px] overflow-y-auto rounded-[10px] border border-[#ecebe7] p-[6px]">
               {items.length === 0 ? (
-                <div className="py-[28px] text-center text-[12px] text-[#858b9c]">
+                <div className="py-[28px] text-center text-[12px] text-[#6d6d72]">
                   {sourceId ? emptyText : emptySourceText}
                 </div>
               ) : (
@@ -168,7 +168,7 @@ export function ResourceImportDialog({
                     key={item.id}
                     className={item.disabled
                       ? 'flex cursor-not-allowed items-center gap-[10px] rounded-[8px] px-[8px] py-[7px] opacity-60'
-                      : 'flex cursor-pointer items-center gap-[10px] rounded-[8px] px-[8px] py-[7px] hover:bg-[#f6f6f6]'}
+                      : 'flex cursor-pointer items-center gap-[10px] rounded-[8px] px-[8px] py-[7px] hover:bg-[#f2f1ee]'}
                   >
                     <Checkbox
                       checked={item.disabled ? true : selectedIds.includes(item.id)}
@@ -177,7 +177,7 @@ export function ResourceImportDialog({
                     />
                     <span className="min-w-0 flex-1 truncate text-[12px] text-[#18181a]">
                       {item.label}
-                      {item.disabled && <span className="ml-[6px] text-[11px] text-[#858b9c]">{item.disabledHint || '已添加'}</span>}
+                      {item.disabled && <span className="ml-[6px] text-[11px] text-[#6d6d72]">{item.disabledHint || '已添加'}</span>}
                     </span>
                   </label>
                 ))
@@ -185,15 +185,15 @@ export function ResourceImportDialog({
             </div>
           </div>
 
-          <p className="text-[12px] leading-[1.6] text-[#858b9c]">{note}</p>
+          <p className="text-[12px] leading-[1.6] text-[#6d6d72]">{note}</p>
         </div>
 
         <div className="flex items-center justify-end gap-[8px] px-[12px]">
           {progress && (
             <div className="mr-auto flex min-w-0 flex-1 flex-col gap-[4px]" aria-live="polite">
-              <p className="flex items-center justify-between text-[11px] text-[#464C5E]">
+              <p className="flex items-center justify-between text-[11px] text-[#3d3d3f]">
                 <span className="truncate">{progress.current ? `正在复制「${progress.current}」…` : '复制完成'}</span>
-                <span className="tabular-nums text-[#858b9c]">{progress.done}/{progress.total}</span>
+                <span className="tabular-nums text-[#6d6d72]">{progress.done}/{progress.total}</span>
               </p>
               <div
                 role="progressbar"
@@ -214,7 +214,7 @@ export function ResourceImportDialog({
             variant="outline"
             disabled={loading}
             onClick={onClose}
-            className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+            className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
           >
             取消
           </Button>

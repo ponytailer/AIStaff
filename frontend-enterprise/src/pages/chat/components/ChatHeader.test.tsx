@@ -65,4 +65,20 @@ describe('ChatHeader session title', () => {
 
     expect(screen.queryByText(/团队/)).toBeNull();
   });
+
+  /**
+   * 右上角那组「分享 / 语言 / 账户」已按用户要求移除：它们悬在右栏卡片正上方，
+   * 让右侧看起来是「工具栏 + 一张被压住的卡」。这里锁死，避免后续又悄悄加回来。
+   * （账户菜单与语言切换在管理端顶栏仍有入口，分享在广场与员工档案页仍有入口。）
+   */
+  it('keeps the right side of the header empty', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse([])));
+    const { container } = renderHeader(buildChat({ title: '计划讨论' }));
+
+    expect(screen.queryByLabelText('账户菜单')).toBeNull();
+    expect(screen.queryByLabelText('分享数字员工')).toBeNull();
+    // 页头只剩一个子节点（标题栈）；右侧动作区不再渲染。
+    const header = container.firstElementChild as HTMLElement;
+    expect(header.children).toHaveLength(1);
+  });
 });

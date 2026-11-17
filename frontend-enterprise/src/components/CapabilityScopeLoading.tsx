@@ -9,7 +9,7 @@ export default function CapabilityScopeLoading() {
       <div className="mt-[12px] h-[14px] w-[280px] max-w-[70%] rounded-[6px] bg-[#f4f6f9]" />
       <div className="mt-[44px] grid grid-cols-1 gap-[16px] sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-[72px] rounded-[16px] bg-[#f4f5f7]" />
+          <div key={index} className="h-[72px] rounded-[16px] bg-[#f2f1ee]" />
         ))}
       </div>
       <div className="mt-[20px] h-[360px] rounded-[20px] bg-white shadow-[0_0_6px_rgba(0,0,0,0.05)]">

@@ -528,7 +528,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, {
           selector: 'node[?archived]',
           style: {
             opacity: 0.42,
-            'border-color': '#858b9c',
+            'border-color': '#6d6d72',
             'border-style': 'dashed',
           },
         },

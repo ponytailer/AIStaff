@@ -7,10 +7,7 @@ import type { HarnessWorkspaceArtifact } from '@/types';
 
 import {
   CHAT_ARTIFACTS_CLASS,
-  CHAT_ARTIFACT_BUTTON_CLASS,
-  CHAT_ARTIFACT_COPY_CLASS,
   CHAT_ARTIFACT_HEADING_CLASS,
-  CHAT_ARTIFACT_ICON_CLASS,
   CHAT_ARTIFACT_IMAGE_CARD_CLASS,
   CHAT_ARTIFACT_IMAGE_CLASS,
   CHAT_ARTIFACT_IMAGE_DOWNLOAD_CLASS,
@@ -18,8 +15,16 @@ import {
   CHAT_ARTIFACT_IMAGE_LINK_CLASS,
   CHAT_ARTIFACT_IMAGE_PLACEHOLDER_CLASS,
   CHAT_ARTIFACT_LIST_CLASS,
-  CHAT_ARTIFACT_META_CLASS,
-  CHAT_ARTIFACT_NAME_CLASS,
+  CHAT_ARTIFACT_PROGRESS_BAR_CLASS,
+  CHAT_ARTIFACT_PROGRESS_PENDING_CLASS,
+  CHAT_ARTIFACT_PROGRESS_TRACK_CLASS,
+  CHAT_ARTIFACT_ZIP_CLASS,
+  CHAT_FILE_CHIP_BUTTON_CLASS,
+  CHAT_FILE_CHIP_CLASS,
+  CHAT_FILE_CHIP_GLYPH_CLASS,
+  CHAT_FILE_CHIP_ICON_CLASS,
+  CHAT_FILE_CHIP_META_CLASS,
+  CHAT_FILE_CHIP_NAME_CLASS,
 } from '../chatPageStyles';
 
 type HarnessArtifactDownloadsProps = {
@@ -98,7 +103,7 @@ export default function HarnessArtifactDownloads({
         {artifacts.length > 1 && (
           <button
             type="button"
-            className="ml-auto inline-flex cursor-pointer items-center gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] py-[4px] text-[11px] text-[#464C5E] transition-colors hover:border-[#c9d2e3] hover:bg-[#f6f7fa] disabled:cursor-not-allowed disabled:opacity-60"
+            className={CHAT_ARTIFACT_ZIP_CLASS}
             disabled={Boolean(downloading) || !sessionId || !tenantId}
             aria-label="打包下载全部生成文件"
             onClick={() => void downloadTaskZip()}
@@ -116,14 +121,18 @@ export default function HarnessArtifactDownloads({
             aria-valuenow={zipProgress.percent > 0 ? zipProgress.percent : undefined}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="h-[5px] w-full overflow-hidden rounded-full bg-[#eef1f7]"
+            className={CHAT_ARTIFACT_PROGRESS_TRACK_CLASS}
           >
             <div
-              className={zipProgress.percent < 0 ? 'h-full w-1/3 animate-pulse rounded-full bg-[#18181a]' : 'h-full rounded-full bg-[#18181a] transition-[width] duration-150'}
+              className={
+                zipProgress.percent < 0
+                  ? CHAT_ARTIFACT_PROGRESS_PENDING_CLASS
+                  : CHAT_ARTIFACT_PROGRESS_BAR_CLASS
+              }
               style={zipProgress.percent >= 0 ? { width: `${zipProgress.percent}%` } : undefined}
             />
           </div>
-          <p className="mt-[4px] text-[11px] text-[#858b9c]">
+          <p className="mt-[5px] text-[11px] text-[#9a9a9f] [font-variant-numeric:tabular-nums]">
             {zipProgress.percent >= 0
               ? `${zipProgress.percent}%`
               : `已接收 ${(zipProgress.received / 1_048_576).toFixed(1)} MB`}
@@ -152,25 +161,26 @@ export default function HarnessArtifactDownloads({
           return (
             <button
               type="button"
-              className={CHAT_ARTIFACT_BUTTON_CLASS}
+              className={`${CHAT_FILE_CHIP_CLASS} ${CHAT_FILE_CHIP_BUTTON_CLASS}`}
               key={identity}
               disabled={isDownloading || !sessionId || !tenantId}
               aria-label={`下载文件 ${filename}`}
               aria-busy={isDownloading}
+              title={filename}
               onClick={() => void downloadArtifact(artifact)}
             >
-              <span className={CHAT_ARTIFACT_ICON_CLASS}>
-                <StaffdeckIcon name="file" size={17} />
+              <span className={CHAT_FILE_CHIP_ICON_CLASS}>
+                <StaffdeckIcon name="file" size={14} />
               </span>
-              <span className={CHAT_ARTIFACT_COPY_CLASS}>
-                <span className={CHAT_ARTIFACT_NAME_CLASS} data-i18n-ignore>
-                  {filename}
-                </span>
-                <span className={CHAT_ARTIFACT_META_CLASS}>
-                  {isDownloading ? '下载中' : artifactMeta(artifact)}
-                </span>
+              <span className={CHAT_FILE_CHIP_NAME_CLASS} data-i18n-ignore>
+                {filename}
               </span>
-              <StaffdeckIcon name="download" size={16} />
+              <span className={CHAT_FILE_CHIP_META_CLASS}>
+                {isDownloading ? '下载中' : artifactMeta(artifact)}
+              </span>
+              <span className={CHAT_FILE_CHIP_GLYPH_CLASS} aria-hidden="true">
+                <StaffdeckIcon name="download" size={12} />
+              </span>
             </button>
           );
         })}
@@ -248,9 +258,13 @@ function ArtifactImagePreview({
         </div>
       )}
       <figcaption className={CHAT_ARTIFACT_IMAGE_FOOTER_CLASS}>
-        <span className={CHAT_ARTIFACT_COPY_CLASS}>
-          <span className={CHAT_ARTIFACT_NAME_CLASS} data-i18n-ignore>{filename}</span>
-          <span className={CHAT_ARTIFACT_META_CLASS}>{artifactMeta(artifact)}</span>
+        <span className="grid min-w-0 gap-[3px]">
+          <span className={`${CHAT_FILE_CHIP_NAME_CLASS} text-[12px] leading-none`} data-i18n-ignore>
+            {filename}
+          </span>
+          <span className="truncate text-[11px] leading-none text-[#9a9a9f]">
+            {artifactMeta(artifact)}
+          </span>
         </span>
         <button
           type="button"
@@ -260,7 +274,7 @@ function ArtifactImagePreview({
           aria-busy={isDownloading}
           onClick={onDownload}
         >
-          <StaffdeckIcon name="download" size={16} />
+          <StaffdeckIcon name="download" size={14} />
         </button>
       </figcaption>
     </figure>

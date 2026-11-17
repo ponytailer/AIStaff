@@ -396,7 +396,7 @@ function PlatformTab({
         'flex items-center justify-center gap-[7px] whitespace-nowrap rounded-full px-[15px] py-[8px] text-[14px] leading-[normal] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#1a71ff] focus-visible:ring-offset-2',
         active
           ? 'bg-[#18181a] font-medium text-white shadow-[0_2px_8px_rgba(24,24,26,0.18)]'
-          : 'font-normal text-[#4f5669] hover:bg-[#f4f4f2] hover:text-[#18181a]',
+          : 'font-normal text-[#4a4a4c] hover:bg-[#f4f4f2] hover:text-[#18181a]',
         'max-[560px]:px-[11px] max-[560px]:py-[6px] max-[560px]:text-[12px]',
       )}
     >
@@ -406,7 +406,7 @@ function PlatformTab({
           ref={badgeRef}
           className={cn(
             'text-[12px] leading-none tabular-nums',
-            active ? 'text-white/55' : 'text-[#a2a8b8]',
+            active ? 'text-white/55' : 'text-[#9a9a9f]',
           )}
         >
           {count}
@@ -1131,7 +1131,7 @@ export default function OpenPlatformPage({
         platformTitle={config.title}
         icon={PLATFORM_RESOURCE_ICON[detailItem.kind]
           ? <img src={PLATFORM_RESOURCE_ICON[detailItem.kind]} alt="" className="size-[36px] object-contain" />
-          : <span className="grid size-[36px] place-items-center text-[#757f9c]">{config.icon}</span>}
+          : <span className="grid size-[36px] place-items-center text-[#6d6d72]">{config.icon}</span>}
         accent={PLATFORM_ACCENT[detailItem.kind]}
         title={item.title}
         description={item.agentEntry?.description || item.description}
@@ -1212,17 +1212,17 @@ export default function OpenPlatformPage({
         }}
       >
         <DialogContent className="flex w-[calc(100%-32px)] flex-col gap-0 overflow-hidden rounded-[16px] p-0 sm:max-w-[500px]">
-          <div className="border-b border-[#eceef1] px-[20px] py-[16px]">
+          <div className="border-b border-[#ecebe7] px-[20px] py-[16px]">
             <DialogTitle className="text-[16px] font-semibold text-[#18181a]">
               申请使用工具
             </DialogTitle>
           </div>
           <div className="flex flex-col gap-[16px] px-[20px] py-[18px]">
-            <div className="rounded-[12px] border border-[#eceef1] bg-[#fafbfc] px-[14px] py-[12px]">
+            <div className="rounded-[12px] border border-[#ecebe7] bg-[#f2f1ee] px-[14px] py-[12px]">
               <strong className="block text-[14px] font-medium text-[#18181a]">
                 {toolRequestItem?.title || ''}
               </strong>
-              <p className="mt-[4px] text-[12px] leading-[1.55] text-[#858b9c]">
+              <p className="mt-[4px] text-[12px] leading-[1.55] text-[#6d6d72]">
                 {toolRequestItem?.description || '申请审批通过后，工具会绑定到所选员工，并默认关闭。'}
               </p>
             </div>
@@ -1231,7 +1231,7 @@ export default function OpenPlatformPage({
                 使用该工具的数字员工
               </label>
               <UISelect value={toolRequestAgentId} onValueChange={setToolRequestAgentId}>
-                <SelectTrigger id="tool-request-agent" className="h-[38px] w-full rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[13px]">
+                <SelectTrigger id="tool-request-agent" className="h-[38px] w-full rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[13px]">
                   <SelectValue placeholder="选择数字员工" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1254,19 +1254,19 @@ export default function OpenPlatformPage({
                 onChange={(event) => setToolRequestNote(event.target.value)}
                 placeholder="说明为什么需要使用这个工具，例如：销售员工需要查询客户所在城市的天气，用于安排上门拜访。"
               />
-              <span className="text-[11px] leading-[1.5] text-[#858b9c]">
+              <span className="text-[11px] leading-[1.5] text-[#6d6d72]">
                 备注会展示给工具创建者，用于判断是否通过申请。
               </span>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-[10px] border-t border-[#eceef1] px-[20px] py-[12px]">
+          <div className="flex items-center justify-end gap-[10px] border-t border-[#ecebe7] px-[20px] py-[12px]">
             <UIButton
               variant="outline"
               onClick={() => {
                 setToolRequestItem(null);
                 setToolRequestNote('');
               }}
-              className="h-8 rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-5 text-[12px] font-normal text-[#757f9c]"
+              className="h-8 rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-5 text-[12px] font-normal text-[#6d6d72]"
             >
               取消
             </UIButton>
@@ -1328,7 +1328,7 @@ export default function OpenPlatformPage({
                   void loadKindData(activeKind, { force: true });
                 }}
                 disabled={loading}
-                className="h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-5 text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+                className="h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-5 text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
               >
                 <IconRefresh className={cn('size-[14px]', loading && 'animate-spin')} />
                 刷新
@@ -1369,7 +1369,7 @@ export default function OpenPlatformPage({
               {config.signals.map((signal) => (
                 <span
                   key={signal}
-                  className="rounded-[20px] border-[0.5px] border-[#e3e7f1] px-[10px] py-[3px] text-[11px] leading-[normal] text-[#757f9c]"
+                  className="rounded-[20px] border-[0.5px] border-[#e6e4df] px-[10px] py-[3px] text-[11px] leading-[normal] text-[#6d6d72]"
                 >
                   {signal}
                 </span>
@@ -1380,8 +1380,8 @@ export default function OpenPlatformPage({
 
         <div className="flex flex-col gap-[16px]">
           <div className="flex flex-wrap items-center gap-[12px]">
-            <label className="flex h-[34px] w-full max-w-[360px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] transition-colors focus-within:border-[#18181a]">
-              <IconSearch className="size-[14px] shrink-0 text-[#858b9c]" />
+            <label className="flex h-[34px] w-full max-w-[360px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] transition-colors focus-within:border-[#18181a]">
+              <IconSearch className="size-[14px] shrink-0 text-[#6d6d72]" />
               <input
                 autoComplete="off"
                 data-1p-ignore="true"
@@ -1390,7 +1390,7 @@ export default function OpenPlatformPage({
                 value={searchText}
                 placeholder={`搜索${platformCountLabel(activeKind)}`}
                 onChange={(event) => setSearchText(event.target.value)}
-                className="min-w-0 flex-1 border-0 bg-transparent text-[12px] text-[#18181a] outline-none placeholder:text-[#858b9c]"
+                className="min-w-0 flex-1 border-0 bg-transparent text-[12px] text-[#18181a] outline-none placeholder:text-[#6d6d72]"
               />
             </label>
 
@@ -1408,11 +1408,11 @@ export default function OpenPlatformPage({
                         'flex h-[34px] items-center gap-[6px] rounded-[10px] border-[0.5px] px-[12px] text-[12px] leading-[normal] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#1a71ff] focus-visible:ring-offset-2',
                         active
                           ? 'border-[#1a71ff] bg-[#eef0ff] font-medium text-[#1a71ff]'
-                          : 'border-[#e3e7f1] bg-white font-normal text-[#4f5669] hover:border-[#cbd3e6] hover:bg-[#f6f7fa] hover:text-[#18181a]',
+                          : 'border-[#e6e4df] bg-white font-normal text-[#4a4a4c] hover:border-[#ddd9d2] hover:bg-[#f6f7fa] hover:text-[#18181a]',
                       )}
                     >
                       {chip.label}
-                      <span className={cn('text-[10px]', active ? 'text-[#1a71ff]' : 'text-[#858b9c]')}>
+                      <span className={cn('text-[10px]', active ? 'text-[#1a71ff]' : 'text-[#6d6d72]')}>
                         {chip.count}
                       </span>
                     </button>
@@ -1503,9 +1503,9 @@ export default function OpenPlatformPage({
 
       {transfer && (
         <div aria-live="polite" className="fixed bottom-[24px] right-[24px] z-[60] w-[300px] rounded-[14px] border border-[#e4e9f2] bg-white/95 p-[14px] shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
-          <p className="mb-[8px] flex items-center justify-between gap-[8px] text-[12px] text-[#464C5E]">
+          <p className="mb-[8px] flex items-center justify-between gap-[8px] text-[12px] text-[#3d3d3f]">
             <span className="truncate">{transfer.label}</span>
-            <span className="tabular-nums text-[#757F9C]">
+            <span className="tabular-nums text-[#6d6d72]">
               {transfer.percent !== null && transfer.percent > 0
                 ? `${transfer.percent}%`
                 : transfer.receivedBytes

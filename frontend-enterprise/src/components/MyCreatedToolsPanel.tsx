@@ -208,7 +208,7 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
             {row.published ? <EyeOff /> : <UploadCloud />}
             {row.published ? '从广场下架' : '发布到广场'}
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="my-[2px] bg-[#eef0f4]" />
+          <DropdownMenuSeparator className="my-[2px] bg-[#ecebe7]" />
           <DropdownMenuItem
             variant="destructive"
             className={MENU_ITEM_DANGER_CLASS}
@@ -233,7 +233,7 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
           <span className="truncate font-medium leading-[18px] text-[#18181a]" title={row.display_name || row.name}>
             {row.display_name || row.name}
           </span>
-          <span className="truncate text-[#858b9c]" title={row.name}>
+          <span className="truncate text-[#6d6d72]" title={row.name}>
             {row.name}
           </span>
         </div>
@@ -244,7 +244,7 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
       title: '归属',
       width: 130,
       render: (row) => (
-        <span className="block truncate text-[#858b9c]" title={toolScopeLabel(row, agents)}>
+        <span className="block truncate text-[#6d6d72]" title={toolScopeLabel(row, agents)}>
           {toolScopeLabel(row, agents)}
         </span>
       ),
@@ -308,19 +308,19 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
             <strong className="block truncate text-[14px] font-semibold text-[#18181a]">
               {row.display_name || row.name}
             </strong>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.name}</span>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{row.name}</span>
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">
               归属：{toolScopeLabel(row, agents)}
             </span>
           </div>
           {renderActions(row)}
         </div>
         {row.description && (
-          <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#858b9c]">
+          <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#6d6d72]">
             {row.description}
           </p>
         )}
-        <div className="mt-[10px] flex flex-wrap items-center gap-[6px] text-[12px] text-[#858b9c]">
+        <div className="mt-[10px] flex flex-wrap items-center gap-[6px] text-[12px] text-[#6d6d72]">
           <StatusBadge tone={row.tool_type === 'mcp' ? 'blue' : 'gray'}>
             {row.tool_type === 'mcp' ? 'MCP' : 'HTTP'}
           </StatusBadge>
@@ -342,18 +342,18 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
       <section aria-label="工具使用审批">
         <div className="mb-[14px] flex flex-wrap items-baseline gap-[8px]">
           <h2 className="text-[16px] font-semibold leading-[22px] text-[#18181a]">使用审批</h2>
-          <span className="text-[12px] text-[#858b9c]">{requests.length} 个待处理</span>
+          <span className="text-[12px] text-[#6d6d72]">{requests.length} 个待处理</span>
           <button
             type="button"
             onClick={() => void loadRequests()}
-            className="ml-auto inline-flex cursor-pointer items-center gap-[4px] border-0 bg-transparent p-0 text-[12px] text-[#757f9c] transition-colors hover:text-[#18181a]"
+            className="ml-auto inline-flex cursor-pointer items-center gap-[4px] border-0 bg-transparent p-0 text-[12px] text-[#6d6d72] transition-colors hover:text-[#18181a]"
           >
             <IconRefresh className={`size-[14px] shrink-0 ${requestLoading ? 'animate-spin' : ''}`} />
             刷新
           </button>
         </div>
         {requestLoading && !requests.length ? (
-          <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[20px] text-center text-[12px] text-[#a7adbb]">
+          <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[20px] text-center text-[12px] text-[#9a9a9f]">
             加载中…
           </p>
         ) : requests.length ? (
@@ -361,7 +361,7 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
             {requests.map((row) => (
               <article
                 key={row.id}
-                className="flex flex-wrap items-center gap-[14px] rounded-[14px] border border-[#eceef1] bg-white px-[16px] py-[14px]"
+                className="flex flex-wrap items-center gap-[14px] rounded-[14px] border border-[#ecebe7] bg-white px-[16px] py-[14px]"
               >
                 <div className="min-w-[220px] flex-1">
                   <div className="flex flex-wrap items-center gap-[8px]">
@@ -370,17 +370,17 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
                     </strong>
                     <StatusBadge tone="blue">待审批</StatusBadge>
                   </div>
-                  <p className="mt-[4px] text-[12px] leading-[1.55] text-[#858b9c]">
+                  <p className="mt-[4px] text-[12px] leading-[1.55] text-[#6d6d72]">
                     {row.requested_by_username} 申请给「{row.agent_name}」使用
                     {row.tool_description ? ` · ${row.tool_description}` : ''}
                   </p>
                   {row.review_note && (
-                    <p className="mt-[4px] rounded-[8px] bg-[#f6f7fa] px-[8px] py-[5px] text-[11px] leading-[1.55] text-[#757f9c]">
+                    <p className="mt-[4px] rounded-[8px] bg-[#f6f7fa] px-[8px] py-[5px] text-[11px] leading-[1.55] text-[#6d6d72]">
                       备注：{row.review_note}
                     </p>
                   )}
                 </div>
-                <span className="text-[11px] text-[#a7adbb]">{formatDateTime(row.created_at)}</span>
+                <span className="text-[11px] text-[#9a9a9f]">{formatDateTime(row.created_at)}</span>
                 <div className="flex items-center gap-[8px]">
                   <UIButton
                     variant="outline"
@@ -403,7 +403,7 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
             ))}
           </div>
         ) : (
-          <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[20px] text-center text-[12px] text-[#a7adbb]">
+          <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[20px] text-center text-[12px] text-[#9a9a9f]">
             暂无待审批的工具使用申请
           </p>
         )}
@@ -412,13 +412,13 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
       <section aria-label="我创建的工具">
         <div className="mb-[14px] flex flex-wrap items-baseline gap-[8px]">
         <h2 className="text-[16px] font-semibold leading-[22px] text-[#18181a]">我创建的工具</h2>
-        <span className="text-[12px] text-[#858b9c]">
+        <span className="text-[12px] text-[#6d6d72]">
           {rows.length} 个 · 合计 {referenceTotal} 个员工引用
         </span>
         <button
           type="button"
           onClick={() => void load()}
-          className="ml-auto inline-flex cursor-pointer items-center gap-[4px] border-0 bg-transparent p-0 text-[12px] text-[#757f9c] transition-colors hover:text-[#18181a]"
+          className="ml-auto inline-flex cursor-pointer items-center gap-[4px] border-0 bg-transparent p-0 text-[12px] text-[#6d6d72] transition-colors hover:text-[#18181a]"
         >
           <IconRefresh className="size-[14px] shrink-0" />
           刷新
@@ -426,7 +426,7 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
       </div>
 
       {loading && !rows.length ? (
-        <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[24px] text-center text-[12px] text-[#a7adbb]">
+        <p className="rounded-[16px] border border-dashed border-[#e4e9f2] bg-[#fbfcfe] px-[24px] py-[24px] text-center text-[12px] text-[#9a9a9f]">
           加载中…
         </p>
       ) : rows.length ? (
@@ -451,7 +451,7 @@ export default function MyCreatedToolsPanel({ agents }: { agents: AgentProfileRe
           <p className="mt-[12px] text-[14px] font-medium leading-[20px] text-[#7f879a]">
             还没有创建过工具
           </p>
-          <p className="mt-[4px] text-[11px] leading-[17px] text-[#a7adbb]">
+          <p className="mt-[4px] text-[11px] leading-[17px] text-[#9a9a9f]">
             创建或导入 HTTP 工具后，可在这里统一编辑、查看引用和删除
           </p>
           <UIButton

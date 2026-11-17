@@ -72,7 +72,7 @@ export default function AgentAppPage({ currentUser, onLogout }: AgentAppPageProp
       <AppHeader className="mb-[16px]" onLogout={onLogout} userName={currentUser?.username} title="Agent 广场" />
       <div className="grid min-h-[320px] place-items-center content-center gap-[12px] rounded-[20px] bg-white px-[20px] py-[48px] text-center shadow-[0_-4px_16px_0_rgba(0,0,0,0.05)]">
         <span className="text-[15px] font-medium text-[#18181a]">该 Agent 暂时无法打开</span>
-        <span className="text-[12px] leading-[1.7] text-[#858b9c]">
+        <span className="text-[12px] leading-[1.7] text-[#6d6d72]">
           {entry
             ? `Agent「${entry.name}」声明了未知的能力「${entry.capability || '空'}」，请联系平台维护者确认清单配置。`
             : '清单里没有这个 Agent，可能已被移除。'}

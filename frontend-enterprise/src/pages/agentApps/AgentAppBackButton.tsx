@@ -10,7 +10,7 @@ export default function AgentAppBackButton() {
     <button
       type="button"
       onClick={() => navigate('/enterprise/platform/agent-apps')}
-      className="text-[12px] text-[#757f9c] transition-colors hover:text-[#18181a]"
+      className="text-[12px] text-[#6d6d72] transition-colors hover:text-[#18181a]"
     >
       ← 返回 Agent 广场
     </button>

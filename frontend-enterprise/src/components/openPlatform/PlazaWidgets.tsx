@@ -47,7 +47,7 @@ type NewsPayload = { date: string; items: { ai?: NewsItem[]; travel?: NewsItem[]
 
 const LAYOUT_STORAGE_KEY = 'ultrarag_plaza_home_layout_v1';
 
-const PALETTE = ['#0f7268', '#c2703e', '#6f7b42', '#5b6fa8', '#8a5aa8'];
+const PALETTE = ['#0f766e', '#c2703e', '#6f7b42', '#5b6fa8', '#8a5aa8'];
 
 // 默认磁贴：Agent 应用清单全部上墙（本地清单即时可得，不依赖接口）。
 function defaultChips(): PlazaChip[] {
@@ -200,13 +200,13 @@ function QuickTile({
           <b className="block overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold text-[#18181a]">
             {chip.name}
           </b>
-          <small className="mt-[1px] block font-mono text-[10px] tracking-[0.05em] text-[#757f9c]">
+          <small className="mt-[1px] block font-mono text-[10px] tracking-[0.05em] text-[#6d6d72]">
             {KIND_LABEL[chip.kind]}
           </small>
         </span>
         <span
           aria-hidden
-          className="absolute right-[12px] top-1/2 -translate-x-[5px] -translate-y-1/2 font-mono text-[12px] font-medium text-[#0f7268] opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
+          className="absolute right-[12px] top-1/2 -translate-x-[5px] -translate-y-1/2 font-mono text-[12px] font-medium text-[#0f766e] opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
         >
           →
         </span>
@@ -219,7 +219,7 @@ function QuickTile({
             event.stopPropagation();
             onRemove();
           }}
-          className="absolute -right-[7px] -top-[7px] z-[2] hidden h-[20px] w-[20px] items-center justify-center rounded-full border border-black/[0.08] bg-white text-[11px] text-[#757f9c] hover:border-[#c0392b] hover:text-[#c0392b] group-hover:flex"
+          className="absolute -right-[7px] -top-[7px] z-[2] hidden h-[20px] w-[20px] items-center justify-center rounded-full border border-black/[0.08] bg-white text-[11px] text-[#6d6d72] hover:border-[#c0392b] hover:text-[#c0392b] group-hover:flex"
         >
           ✕
         </button>
@@ -267,7 +267,7 @@ export function NewsPanel() {
         <button
           type="button"
           onClick={() => load(true)}
-          className="flex items-center gap-[6px] rounded-[9px] px-[8px] py-[5px] text-[12px] text-[#5b6274] transition-colors hover:bg-[#f4f2ec]"
+          className="flex items-center gap-[6px] rounded-[9px] px-[8px] py-[5px] text-[12px] text-[#55555a] transition-colors hover:bg-[#f4f2ec]"
           title="换一批（后端按天缓存，一日一更新）"
         >
           <IconRefresh className={cn('size-[13px]', loading && 'animate-spin')} />
@@ -288,9 +288,9 @@ export function NewsPanel() {
           </div>
         )}
         {error && (
-          <div className="px-[18px] py-[30px] text-center text-[12.5px] text-[#757f9c]">
+          <div className="px-[18px] py-[30px] text-center text-[12.5px] text-[#6d6d72]">
             {error}
-            <button type="button" onClick={() => load()} className="ml-[8px] text-[#0f7268] underline">
+            <button type="button" onClick={() => load()} className="ml-[8px] text-[#0f766e] underline">
               重试
             </button>
           </div>
@@ -301,13 +301,13 @@ export function NewsPanel() {
               <span
                 className={cn(
                   'rounded-full px-[9px] py-[2px] text-[11px] font-semibold',
-                  group.key === 'ai' ? 'bg-[#e3efed] text-[#0f7268]' : 'bg-[#f7ece4] text-[#c2703e]',
+                  group.key === 'ai' ? 'bg-[#e3efed] text-[#0f766e]' : 'bg-[#f7ece4] text-[#c2703e]',
                 )}
               >
                 {group.label}
               </span>
               {group.key === 'travel' && payload?.date && (
-                <span className="text-[11px] text-[#757f9c]">{payload.date} 更新</span>
+                <span className="text-[11px] text-[#6d6d72]">{payload.date} 更新</span>
               )}
             </div>
             {group.items.map((item) => {
@@ -328,14 +328,14 @@ export function NewsPanel() {
                     {String(rank).padStart(2, '0')}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-semibold leading-[1.45] text-[#18181a] group-hover:text-[#0f7268]">
+                    <span className="block text-[13px] font-semibold leading-[1.45] text-[#18181a] group-hover:text-[#0f766e]">
                       {item.title}
-                      <span className="ml-[4px] text-[11px] font-normal text-[#757f9c]">↗</span>
+                      <span className="ml-[4px] text-[11px] font-normal text-[#6d6d72]">↗</span>
                     </span>
                     {item.summary && (
-                      <span className="mt-[3px] block text-[11.5px] leading-[1.6] text-[#5b6274]">{item.summary}</span>
+                      <span className="mt-[3px] block text-[11.5px] leading-[1.6] text-[#55555a]">{item.summary}</span>
                     )}
-                    <span className="mt-[6px] flex items-center gap-[8px] text-[11px] text-[#757f9c]">
+                    <span className="mt-[6px] flex items-center gap-[8px] text-[11px] text-[#6d6d72]">
                       {item.source && (
                         <span
                           className="rounded-full px-[8px] py-[2px] font-medium"
@@ -351,7 +351,7 @@ export function NewsPanel() {
               );
             })}
             {group.items.length === 0 && !loading && (
-              <div className="px-[18px] pb-[10px] text-[12px] text-[#757f9c]">暂无内容</div>
+              <div className="px-[18px] pb-[10px] text-[12px] text-[#6d6d72]">暂无内容</div>
             )}
           </div>
         ))}
@@ -428,7 +428,7 @@ function AddChipDialog({
           <button
             type="button"
             onClick={onClose}
-            className="h-[28px] w-[28px] rounded-[8px] text-[16px] text-[#757f9c] hover:bg-[#f4f2ec] hover:text-[#18181a]"
+            className="h-[28px] w-[28px] rounded-[8px] text-[16px] text-[#6d6d72] hover:bg-[#f4f2ec] hover:text-[#18181a]"
             aria-label="关闭"
           >
             ✕
@@ -449,8 +449,8 @@ function AddChipDialog({
               className={cn(
                 'rounded-full border px-[13px] py-[6px] text-[12.5px] transition-colors',
                 tab === value
-                  ? 'border-[rgba(15,114,104,0.18)] bg-[#e3efed] font-semibold text-[#0f7268]'
-                  : 'border-transparent text-[#5b6274] hover:bg-[#f4f2ec]',
+                  ? 'border-[rgba(15,114,104,0.18)] bg-[#e3efed] font-semibold text-[#0f766e]'
+                  : 'border-transparent text-[#55555a] hover:bg-[#f4f2ec]',
               )}
             >
               {label}
@@ -461,7 +461,7 @@ function AddChipDialog({
         {tab === 'employees' && (
           <div className="flex flex-col gap-[6px] overflow-y-auto p-[14px]">
             {employees.length === 0 && (
-              <div className="py-[20px] text-center text-[12.5px] text-[#757f9c]">暂无已发布到广场的数字员工</div>
+              <div className="py-[20px] text-center text-[12.5px] text-[#6d6d72]">暂无已发布到广场的数字员工</div>
             )}
             {employees.map((agent, index) => {
               const key = `employee:${agent.id}`;
@@ -474,7 +474,7 @@ function AddChipDialog({
                   onClick={() => onPickEmployee(agent)}
                   className={cn(
                     'flex items-center gap-[12px] rounded-[12px] border border-black/[0.05] bg-white px-[12px] py-[10px] text-left transition-colors',
-                    added ? 'cursor-not-allowed opacity-50' : 'hover:border-[#0f7268] hover:bg-[#f7fbfa]',
+                    added ? 'cursor-not-allowed opacity-50' : 'hover:border-[#0f766e] hover:bg-[#f7fbfa]',
                   )}
                 >
                   <span
@@ -485,11 +485,11 @@ function AddChipDialog({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-semibold text-[#18181a]">{agent.name}</span>
-                    <span className="mt-[2px] block text-[11.5px] text-[#757f9c]">
+                    <span className="mt-[2px] block text-[11.5px] text-[#6d6d72]">
                       {agent.description || '数字员工'}
                     </span>
                   </span>
-                  <span className="text-[11.5px] font-semibold text-[#0f7268]">{added ? '已添加' : '＋ 添加'}</span>
+                  <span className="text-[11.5px] font-semibold text-[#0f766e]">{added ? '已添加' : '＋ 添加'}</span>
                 </button>
               );
             })}
@@ -509,7 +509,7 @@ function AddChipDialog({
                   onClick={() => onPickAgentApp(entry.entry)}
                   className={cn(
                     'flex items-center gap-[12px] rounded-[12px] border border-black/[0.05] bg-white px-[12px] py-[10px] text-left transition-colors',
-                    added ? 'cursor-not-allowed opacity-50' : 'hover:border-[#0f7268] hover:bg-[#f7fbfa]',
+                    added ? 'cursor-not-allowed opacity-50' : 'hover:border-[#0f766e] hover:bg-[#f7fbfa]',
                   )}
                 >
                   <span
@@ -520,9 +520,9 @@ function AddChipDialog({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-semibold text-[#18181a]">{entry.name}</span>
-                    <span className="mt-[2px] block text-[11.5px] text-[#757f9c]">{entry.summary}</span>
+                    <span className="mt-[2px] block text-[11.5px] text-[#6d6d72]">{entry.summary}</span>
                   </span>
-                  <span className="text-[11.5px] font-semibold text-[#0f7268]">{added ? '已添加' : '＋ 添加'}</span>
+                  <span className="text-[11.5px] font-semibold text-[#0f766e]">{added ? '已添加' : '＋ 添加'}</span>
                 </button>
               );
             })}
@@ -531,23 +531,23 @@ function AddChipDialog({
 
         {tab === 'links' && (
           <div className="flex flex-col gap-[10px] p-[20px]">
-            <label className="text-[12px] font-medium text-[#5b6274]">名称</label>
+            <label className="text-[12px] font-medium text-[#55555a]">名称</label>
             <input
               value={linkName}
               onChange={(event) => setLinkName(event.target.value)}
               placeholder="例如：Hacker News"
-              className="rounded-[10px] border border-black/[0.05] px-[12px] py-[9px] text-[13px] outline-none focus:border-[#0f7268] focus:shadow-[0_0_0_3px_rgba(15,114,104,0.1)]"
+              className="rounded-[10px] border border-black/[0.05] px-[12px] py-[9px] text-[13px] outline-none focus:border-[#0f766e] focus:shadow-[0_0_0_3px_rgba(15,114,104,0.1)]"
             />
-            <label className="text-[12px] font-medium text-[#5b6274]">链接地址</label>
+            <label className="text-[12px] font-medium text-[#55555a]">链接地址</label>
             <input
               value={linkUrl}
               onChange={(event) => setLinkUrl(event.target.value)}
               placeholder="https://…"
-              className="rounded-[10px] border border-black/[0.05] px-[12px] py-[9px] text-[13px] outline-none focus:border-[#0f7268] focus:shadow-[0_0_0_3px_rgba(15,114,104,0.1)]"
+              className="rounded-[10px] border border-black/[0.05] px-[12px] py-[9px] text-[13px] outline-none focus:border-[#0f766e] focus:shadow-[0_0_0_3px_rgba(15,114,104,0.1)]"
             />
             <button
               type="button"
-              className="mt-[4px] self-start rounded-[9px] bg-[#0f7268] px-[16px] py-[7px] text-[12.5px] font-medium text-white hover:bg-[#0c6158]"
+              className="mt-[4px] self-start rounded-[9px] bg-[#0f766e] px-[16px] py-[7px] text-[12.5px] font-medium text-white hover:bg-[#0c6158]"
               onClick={() => {
                 if (!linkName.trim() || !linkUrl.trim()) {
                   notify.warning('请填写名称和链接');
@@ -676,14 +676,14 @@ export function QuickAccessTiles() {
               <button
                 type="button"
                 onClick={resetLayout}
-                className="rounded-[9px] px-[9px] py-[5px] font-mono text-[11px] text-[#5b6274] transition-colors hover:bg-[#f4f2ec]"
+                className="rounded-[9px] px-[9px] py-[5px] font-mono text-[11px] text-[#55555a] transition-colors hover:bg-[#f4f2ec]"
               >
                 ↺ 重置
               </button>
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="rounded-[9px] border border-[#e3e7f1] bg-white px-[12px] py-[5px] font-mono text-[11px] text-[#5b6274] transition-colors hover:border-[#cbd3e6]"
+                className="rounded-[9px] border border-[#e6e4df] bg-white px-[12px] py-[5px] font-mono text-[11px] text-[#55555a] transition-colors hover:border-[#ddd9d2]"
               >
                 取消
               </button>
@@ -699,7 +699,7 @@ export function QuickAccessTiles() {
             <button
               type="button"
               onClick={startEdit}
-              className="inline-flex items-center gap-[5px] font-mono text-[11px] font-medium text-[#0f7268] transition-opacity hover:opacity-70"
+              className="inline-flex items-center gap-[5px] font-mono text-[11px] font-medium text-[#0f766e] transition-opacity hover:opacity-70"
             >
               管理 →
             </button>
@@ -721,7 +721,7 @@ export function QuickAccessTiles() {
           );
         })}
         {chips.length === 0 && (
-          <div className="col-span-full py-[18px] text-center text-[12.5px] text-[#757f9c]">
+          <div className="col-span-full py-[18px] text-center text-[12.5px] text-[#6d6d72]">
             还没有快捷方式——点下方虚线格添加
           </div>
         )}
@@ -729,7 +729,7 @@ export function QuickAccessTiles() {
         <button
           type="button"
           onClick={() => setAddOpen(true)}
-          className="grid min-h-[66px] place-items-center rounded-[16px] border border-dashed border-black/[0.12] font-mono text-[11px] text-[#757f9c] transition-colors hover:border-[rgba(15,114,110,0.45)] hover:text-[#0f7268]"
+          className="grid min-h-[66px] place-items-center rounded-[16px] border border-dashed border-black/[0.12] font-mono text-[11px] text-[#6d6d72] transition-colors hover:border-[rgba(15,114,110,0.45)] hover:text-[#0f766e]"
         >
           + 添加快捷方式
         </button>

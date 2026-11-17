@@ -56,7 +56,7 @@ export function TaskSection<TFilter extends string, TRow>({
 }: TaskSectionProps<TFilter, TRow>) {
   return (
     <section aria-label={title}>
-      <div className="mb-[16px] flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+      <div className="mb-[16px] flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
         {icon}
         <span className="text-[14px] font-normal leading-none">{title}</span>
       </div>
@@ -72,7 +72,7 @@ export function TaskSection<TFilter extends string, TRow>({
         {rows.length ? (
           rows.map(renderMobileCard)
         ) : (
-          <div className="py-[40px] text-center text-[13px] text-[#858b9c]">{emptyText}</div>
+          <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">{emptyText}</div>
         )}
       </div>
       <div className="hidden md:block">

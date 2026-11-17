@@ -18,9 +18,9 @@ const BACK_CARDS = [
 ] as const;
 
 const TONE_CLASS: Record<string, string> = {
-  teal: 'bg-[rgba(15,118,110,0.10)] text-[#0f7268]',
+  teal: 'bg-[rgba(15,118,110,0.10)] text-[#0f766e]',
   orange: 'bg-[rgba(194,112,62,0.12)] text-[#c2703e]',
-  plain: 'bg-[#eef1f6] text-[#757f9c]',
+  plain: 'bg-[#eef1f6] text-[#6d6d72]',
 };
 
 /** 卡片骨架条的公共样式。 */

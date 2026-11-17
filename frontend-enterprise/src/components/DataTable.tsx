@@ -58,16 +58,16 @@ const ALIGN_CLASS = {
 } as const;
 
 const HEAD_CELL_CLASS =
-  'h-[36px] whitespace-nowrap bg-[#f2f3f7] px-[16px] py-[12px] align-middle text-[12px] font-normal text-[#464c5e]';
-const BODY_CELL_CLASS = 'px-[16px] py-[12px] align-middle text-[12px] text-[#858b9c]';
+  'h-[36px] whitespace-nowrap bg-[#f2f1ee] px-[16px] py-[12px] align-middle text-[12px] font-normal text-[#3d3d3f]';
+const BODY_CELL_CLASS = 'px-[16px] py-[12px] align-middle text-[12px] text-[#6d6d72]';
 const BODY_HEIGHT = {
   default: 'min-h-[64px]',
   compact: 'min-h-[46px]',
 } as const;
-const CELL_BORDER = 'border border-[#f2f3f7]';
+const CELL_BORDER = 'border border-[#f2f1ee]';
 const STICKY_HEAD_CLASS = {
-  left: 'sticky left-0 z-20 border-r border-[#e3e6ed] bg-[#f2f3f7]',
-  right: 'sticky right-0 z-20 border-l border-[#e3e6ed] bg-[#f2f3f7]',
+  left: 'sticky left-0 z-20 border-r border-[#e3e6ed] bg-[#f2f1ee]',
+  right: 'sticky right-0 z-20 border-l border-[#e3e6ed] bg-[#f2f1ee]',
 } as const;
 const STICKY_BODY_CLASS = {
   left: 'sticky left-0 z-10 border-r border-[#e3e6ed]',
@@ -76,7 +76,7 @@ const STICKY_BODY_CLASS = {
 
 /**
  * Business data table (SD1 designs: node 281:1942 default, 281:2040 compact grid).
- * Rounded `#f2f3f7` frame, gray header row, white body rows with hairline dividers.
+ * Rounded `#f2f1ee` frame, gray header row, white body rows with hairline dividers.
  * Built on top of the shadcn `Table` primitives but owns the product-specific styling.
  */
 export function DataTable<T>({
@@ -109,7 +109,7 @@ export function DataTable<T>({
     <div
       ref={rowsRef}
       className={cn(
-        'overflow-x-auto rounded-[14px] border border-[#f2f3f7]',
+        'overflow-x-auto rounded-[14px] border border-[#f2f1ee]',
         className,
       )}
     >
@@ -147,12 +147,12 @@ export function DataTable<T>({
                   'group has-aria-expanded:bg-transparent',
                   bordered
                     ? 'border-0'
-                    : 'border-b border-[#f2f3f7] last:border-0',
+                    : 'border-b border-[#f2f1ee] last:border-0',
                   striped
                     ? index % 2 === 1
-                      ? 'bg-[#fbfbfb] hover:bg-[#f2f3f7]'
-                      : 'bg-white hover:bg-[#f2f3f7]'
-                    : 'hover:bg-[#fafbfc]',
+                      ? 'bg-[#fbfbfb] hover:bg-[#f2f1ee]'
+                      : 'bg-white hover:bg-[#f2f1ee]'
+                    : 'hover:bg-[#f2f1ee]',
                   onRowClick && 'cursor-pointer',
                 )}
               >
@@ -167,8 +167,8 @@ export function DataTable<T>({
                       column.sticky && STICKY_BODY_CLASS[column.sticky],
                       column.sticky &&
                         (striped && index % 2 === 1
-                          ? 'bg-[#fbfbfb] group-hover:bg-[#f2f3f7]'
-                          : 'bg-white group-hover:bg-[#fafbfc]'),
+                          ? 'bg-[#fbfbfb] group-hover:bg-[#f2f1ee]'
+                          : 'bg-white group-hover:bg-[#f2f1ee]'),
                       column.className,
                     )}
                   >
@@ -183,7 +183,7 @@ export function DataTable<T>({
             ))
           ) : (
             <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={columns.length} className="h-[160px] text-center align-middle text-[13px] text-[#858b9c]">
+              <TableCell colSpan={columns.length} className="h-[160px] text-center align-middle text-[13px] text-[#6d6d72]">
                 {loading ? loadingText : emptyText}
               </TableCell>
             </TableRow>

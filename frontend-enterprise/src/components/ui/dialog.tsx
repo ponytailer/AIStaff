@@ -77,7 +77,7 @@ const DialogContent = React.forwardRef<
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2 text-[#858b9c] hover:bg-[#f2f3f7] hover:text-[#18181a]"
+              className="absolute top-2 right-2 text-[#6d6d72] hover:bg-[#f2f1ee] hover:text-[#18181a]"
               size="icon-sm"
             >
               <XIcon

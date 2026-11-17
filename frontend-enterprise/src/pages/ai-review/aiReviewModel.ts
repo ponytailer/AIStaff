@@ -8,8 +8,8 @@ export const TASK_STATUS_META: Record<
 > = {
   queued: {
     label: '排队中',
-    tone: 'bg-[#f3f4f6] text-[#757f9c]',
-    dot: 'bg-[#a3aaba]',
+    tone: 'bg-[#f2f1ee] text-[#6d6d72]',
+    dot: 'bg-[#9a9a9f]',
   },
   running: {
     label: '评审中',
@@ -29,7 +29,7 @@ export const TASK_STATUS_META: Record<
 };
 
 export const PLATFORM_META: Record<string, { label: string; tone: string }> = {
-  github: { label: 'GitHub', tone: 'bg-[#f3f4f6] text-[#464c5e]' },
+  github: { label: 'GitHub', tone: 'bg-[#f2f1ee] text-[#3d3d3f]' },
   gitlab: { label: 'GitLab', tone: 'bg-[#fff7e8] text-[#8a4b00]' },
 };
 
@@ -55,7 +55,7 @@ export function ocrStatusMeta(status: string | undefined | null): OcrStatusMeta 
   if (['running', 'in_progress', 'in-progress'].includes(key)) {
     return { label: '评审中', tone: 'bg-[#e8f0ff] text-[#1a71ff]', dot: 'bg-[#1a71ff] animate-pulse' };
   }
-  return { label: key, tone: 'bg-[#f3f4f6] text-[#757f9c]', dot: 'bg-[#a3aaba]' };
+  return { label: key, tone: 'bg-[#f2f1ee] text-[#6d6d72]', dot: 'bg-[#9a9a9f]' };
 }
 
 /** ocr 是否因为「没有可评审文件」而跳过。 */

@@ -158,7 +158,7 @@ export default function OnboardingGuide() {
               type="button"
               onClick={finish}
               aria-label="关闭引导"
-              className="flex size-[20px] items-center justify-center text-[#757f9c] transition-colors hover:text-[#18181a]"
+              className="flex size-[20px] items-center justify-center text-[#6d6d72] transition-colors hover:text-[#18181a]"
             >
               <XIcon className="size-[14px]" />
             </button>
@@ -166,7 +166,7 @@ export default function OnboardingGuide() {
 
           <div className="flex flex-col gap-[24px]">
             <div className="flex flex-col gap-[4px]">
-              <span className="-skew-x-6 text-[12px] leading-none text-[#464c5e]">
+              <span className="-skew-x-6 text-[12px] leading-none text-[#3d3d3f]">
                 {current.eyebrow}
               </span>
               <div className="-skew-x-6">
@@ -179,7 +179,7 @@ export default function OnboardingGuide() {
                   </p>
                 ))}
               </div>
-              <p className="text-[12px] leading-[20px] text-[#757f9c]">
+              <p className="text-[12px] leading-[20px] text-[#6d6d72]">
                 {current.description}
               </p>
             </div>
@@ -194,10 +194,10 @@ export default function OnboardingGuide() {
                     {card.icon}
                   </div>
                   <div className="flex min-w-0 flex-col gap-[4px]">
-                    <p className="truncate text-[14px] leading-none text-[#464c5e]">
+                    <p className="truncate text-[14px] leading-none text-[#3d3d3f]">
                       {card.title}
                     </p>
-                    <p className="truncate text-[12px] leading-none text-[#757f9c]">
+                    <p className="truncate text-[12px] leading-none text-[#6d6d72]">
                       {card.description}
                     </p>
                   </div>
@@ -207,7 +207,7 @@ export default function OnboardingGuide() {
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-[4px] text-[#757f9c]">
+            <div className="flex items-center gap-[4px] text-[#6d6d72]">
               <button
                 type="button"
                 onClick={goPrev}
@@ -235,7 +235,7 @@ export default function OnboardingGuide() {
               <button
                 type="button"
                 onClick={finish}
-                className="flex w-[80px] items-center justify-center rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[20px] py-[8px] text-[14px] text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+                className="flex w-[80px] items-center justify-center rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[20px] py-[8px] text-[14px] text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
               >
                 跳过
               </button>

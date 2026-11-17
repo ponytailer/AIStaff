@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { ImageOff } from 'lucide-react';
 
 import CodeBlock from '@/components/CodeBlock';
 import { API_BASE_URL, ApiError } from '@/api/client';
@@ -20,6 +21,7 @@ import {
   CHAT_MARKDOWN_CLASS,
   CHAT_MARKDOWN_IMAGE_CLASS,
   CHAT_MARKDOWN_IMAGE_LINK_CLASS,
+  CHAT_MARKDOWN_IMAGE_MISSING_CLASS,
   CHAT_MD_TABLE_CLASS,
   CHAT_MD_TABLE_SCROLL_CLASS,
 } from './chatPageStyles';
@@ -231,7 +233,12 @@ function ExternalMarkdownImage({ alt, src }: { alt: string; src: string }) {
   const [failed, setFailed] = useState(false);
 
   if (failed) {
-    return <span title={src}>{alt}</span>;
+    return (
+      <span className={CHAT_MARKDOWN_IMAGE_MISSING_CLASS} title={`${alt}\n${src}`}>
+        <ImageOff aria-hidden className="size-[12px] shrink-0" strokeWidth={1.8} />
+        配图缺失
+      </span>
+    );
   }
 
   return (

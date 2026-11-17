@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 export type StatCardTone = 'default' | 'green' | 'red';
 
 const SURFACE_CLASS: Record<StatCardTone, string> = {
-  default: 'bg-[#f6f6f6]',
+  default: 'bg-[#f2f1ee]',
   green: 'bg-[#e9f7ef]',
   red: 'bg-[#fce7e7]',
 };
@@ -16,7 +16,7 @@ const VALUE_CLASS: Record<StatCardTone, string> = {
   red: 'text-[#d20b0b]',
 };
 const LABEL_CLASS: Record<StatCardTone, string> = {
-  default: 'text-[#464c5e]',
+  default: 'text-[#3d3d3f]',
   green: 'text-[#2cb360]',
   red: 'text-[#d20b0b]',
 };

@@ -226,8 +226,8 @@ export default function MemoriesTab({
           <MemoryKindBadge key={kind} kind={kind} />
         ))}
       </div>
-      <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#858b9c]">{row.preview || '-'}</p>
-      <div className="mt-[10px] flex items-center justify-between text-[12px] text-[#858b9c]">
+      <p className="mt-[8px] line-clamp-2 text-[12px] leading-[1.55] text-[#6d6d72]">{row.preview || '-'}</p>
+      <div className="mt-[10px] flex items-center justify-between text-[12px] text-[#6d6d72]">
         <span>{row.memories.length} 条记忆</span>
         <span>{formatDateTime(row.latest_at)}</span>
       </div>
@@ -241,7 +241,7 @@ export default function MemoriesTab({
         className="relative mt-[-2px] flex w-full min-w-0 max-w-full flex-col gap-[24px] overflow-hidden rounded-[18px] bg-white p-[14px] shadow-[0_20px_42px_rgba(21,26,38,0.045)] min-[521px]:p-[18px]"
       >
         <div className="flex flex-col gap-[18px]">
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <IconHistory className="size-[14px] shrink-0" />
             <span className="text-[14px] font-normal leading-none">记忆查询</span>
           </div>
@@ -254,8 +254,8 @@ export default function MemoriesTab({
             }}
           >
             {canFilterUsers && (
-              <label className="flex h-[34px] w-[260px] items-center overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
-                <span className="flex h-full w-[58px] shrink-0 items-center justify-center border-r-[0.5px] border-[#e3e7f1] bg-[#f6f6f6] text-[12px] text-[#858b9c]">
+              <label className="flex h-[34px] w-[260px] items-center overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
+                <span className="flex h-full w-[58px] shrink-0 items-center justify-center border-r-[0.5px] border-[#e6e4df] bg-[#f2f1ee] text-[12px] text-[#6d6d72]">
                   用户
                 </span>
                 <UISelect
@@ -314,7 +314,7 @@ export default function MemoriesTab({
               variant="outline"
               onClick={resetFilter}
               disabled={loading}
-              className="h-[34px] w-[80px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[20px] text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+              className="h-[34px] w-[80px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[20px] text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
             >
               <IconRefresh className={cn('size-[14px]', loading && 'animate-spin')} />
               重置
@@ -334,7 +334,7 @@ export default function MemoriesTab({
             {groups.length ? (
               pagination.pagedItems.map(renderMobileCard)
             ) : (
-              <div className="py-[40px] text-center text-[13px] text-[#858b9c]">{emptyText}</div>
+              <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">{emptyText}</div>
             )}
           </div>
 
@@ -392,8 +392,8 @@ function PrefixInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex h-[34px] w-[260px] items-center overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
-      <span className="flex h-full w-[58px] shrink-0 items-center justify-center border-r-[0.5px] border-[#e3e7f1] bg-[#f6f6f6] text-[12px] text-[#858b9c]">
+    <label className="flex h-[34px] w-[260px] items-center overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
+      <span className="flex h-full w-[58px] shrink-0 items-center justify-center border-r-[0.5px] border-[#e6e4df] bg-[#f2f1ee] text-[12px] text-[#6d6d72]">
         {label}
       </span>
       <input
@@ -404,7 +404,7 @@ function PrefixInput({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="h-full min-w-0 flex-1 bg-transparent px-[12px] text-[12px] text-[#17191f] outline-none placeholder:text-[#c0c6d4]"
+        className="h-full min-w-0 flex-1 bg-transparent px-[12px] text-[12px] text-[#17191f] outline-none placeholder:text-[#d6d1c9]"
       />
     </label>
   );
@@ -437,9 +437,9 @@ function MemoryDetailDialog({
         aria-describedby={undefined}
         className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[720px]"
       >
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           <IconListBulleted className="size-[14px] shrink-0" />
-          <DialogTitle className="text-[14px] font-normal leading-none text-[#757f9c]">
+          <DialogTitle className="text-[14px] font-normal leading-none text-[#6d6d72]">
             员工记忆详情
           </DialogTitle>
         </div>
@@ -463,13 +463,13 @@ function MemoryDetailDialog({
               {detail.memories.map((item) => (
                 <article
                   key={item.id}
-                  className="rounded-[12px] border border-[#eef0f4] bg-white p-[14px]"
+                  className="rounded-[12px] border border-[#ecebe7] bg-white p-[14px]"
                 >
                   <div className="flex items-center justify-between gap-[10px]">
                     <MemoryKindBadge kind={item.kind} />
-                    <span className="text-[12px] text-[#858b9c]">{formatDateTime(item.updated_at)}</span>
+                    <span className="text-[12px] text-[#6d6d72]">{formatDateTime(item.updated_at)}</span>
                   </div>
-                  <div className="mt-[10px] flex flex-wrap gap-x-[16px] gap-y-[4px] text-[12px] text-[#858b9c]">
+                  <div className="mt-[10px] flex flex-wrap gap-x-[16px] gap-y-[4px] text-[12px] text-[#6d6d72]">
                     <span>importance: {item.importance}</span>
                     <span>session: {item.session_id || '-'}</span>
                   </div>
@@ -477,9 +477,9 @@ function MemoryDetailDialog({
                     {item.content}
                   </p>
                   {Object.keys(item.metadata || {}).length > 0 && (
-                    <details className="mt-[10px] text-[12px] text-[#858b9c]">
+                    <details className="mt-[10px] text-[12px] text-[#6d6d72]">
                       <summary className="cursor-pointer select-none">metadata</summary>
-                      <pre className="mt-[6px] overflow-x-auto rounded-[8px] bg-[#f6f6f6] p-[10px] text-[11px] leading-normal text-[#464c5e]">
+                      <pre className="mt-[6px] overflow-x-auto rounded-[8px] bg-[#f2f1ee] p-[10px] text-[11px] leading-normal text-[#3d3d3f]">
                         {JSON.stringify(item.metadata, null, 2)}
                       </pre>
                     </details>
@@ -504,7 +504,7 @@ const MEMORY_KIND_TONE: Record<string, MemoryTone> = {
 const MEMORY_KIND_TONE_CLASS: Record<MemoryTone, string> = {
   blue: 'bg-[#e8f0ff] text-[#1a71ff]',
   green: 'bg-[#e9f7ef] text-[#2cb360]',
-  gray: 'bg-[#f2f3f7] text-[#858b9c]',
+  gray: 'bg-[#f2f1ee] text-[#6d6d72]',
 };
 
 function groupMemories(rows: MemoryRead[]): MemoryUserGroup[] {

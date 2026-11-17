@@ -248,13 +248,13 @@ export default function QuickStartGuide({ isAdmin }: { isAdmin: boolean }) {
           <PopoverTitle className="text-[14px] leading-[22px] font-medium text-white">
             {current.title}
           </PopoverTitle>
-          <PopoverDescription className="text-[14px] leading-[22px] font-normal text-[#f6f6f6]">
+          <PopoverDescription className="text-[14px] leading-[22px] font-normal text-[#f2f1ee]">
             {current.description}
           </PopoverDescription>
         </div>
 
         <div className="flex items-center justify-between gap-[16px]">
-          <span className="shrink-0 py-[3px] text-[14px] leading-normal text-[#858b9c]">
+          <span className="shrink-0 py-[3px] text-[14px] leading-normal text-[#6d6d72]">
             {step + 1} / {steps.length}
           </span>
           <div className="flex min-w-0 items-center gap-[16px] max-[420px]:gap-[8px]">

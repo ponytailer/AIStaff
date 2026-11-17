@@ -26,7 +26,7 @@ export type TopologyFallbackMode = 'clarify' | 'reply' | 'default_member';
 
 const AVATAR_GRADIENTS = [
   ['#4b5563', '#1f2937'],
-  ['#0f7268', '#0b5a52'],
+  ['#0f766e', '#0b5a52'],
   ['#a85d32', '#8a4622'],
   ['#6f7b42', '#57622f'],
   ['#6b5b95', '#514178'],
@@ -98,9 +98,9 @@ export default function DispatcherTopology({
   const fbX = (TOPO_W - fbW) / 2;
 
   const fbMeta = {
-    clarify: { label: '反问用户 + 列出可选同事', color: '#757f9c', dash: '4 3' },
-    reply: { label: '直接回复固定话术', color: '#757f9c', dash: '4 3' },
-    default_member: { label: '转给默认同事', color: '#0f7268', dash: '' },
+    clarify: { label: '反问用户 + 列出可选同事', color: '#6d6d72', dash: '4 3' },
+    reply: { label: '直接回复固定话术', color: '#6d6d72', dash: '4 3' },
+    default_member: { label: '转给默认同事', color: '#0f766e', dash: '' },
   }[fallbackMode];
 
   return (
@@ -111,7 +111,7 @@ export default function DispatcherTopology({
       )}
     >
       <div className="mb-[6px] flex items-center justify-between">
-        <span className="flex items-center gap-[5px] text-[11.5px] font-medium text-[#5b6274]">
+        <span className="flex items-center gap-[5px] text-[11.5px] font-medium text-[#55555a]">
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
             <circle cx="8" cy="3.2" r="1.9" />
             <circle cx="3.4" cy="12.4" r="1.9" />
@@ -120,7 +120,7 @@ export default function DispatcherTopology({
           </svg>
           关系拓扑
         </span>
-        <span className="text-[10.5px] text-[#9aa1b1]">配置变化会实时反映在这里</span>
+        <span className="text-[10.5px] text-[#9a9a9f]">配置变化会实时反映在这里</span>
       </div>
       <svg
         viewBox={`0 0 ${TOPO_W} ${height}`}
@@ -133,7 +133,7 @@ export default function DispatcherTopology({
             <path d="M1 1.2 6 4 1 6.8" fill="none" stroke="#c3cadb" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
           </marker>
           <marker id="disp-arw-hot" viewBox="0 0 8 8" refX="6.4" refY="4" markerWidth="6" markerHeight="6" orient="auto">
-            <path d="M1 1.2 6 4 1 6.8" fill="none" stroke="#0f7268" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M1 1.2 6 4 1 6.8" fill="none" stroke="#0f766e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
           </marker>
           <marker id="disp-arw-fb" viewBox="0 0 8 8" refX="6.4" refY="4" markerWidth="6" markerHeight="6" orient="auto">
             <path d="M1 1.2 6 4 1 6.8" fill="none" stroke="#b45309" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
@@ -155,27 +155,27 @@ export default function DispatcherTopology({
             height={rootH}
             rx="12"
             fill="#fff"
-            stroke="#0f7268"
+            stroke="#0f766e"
             strokeWidth="1.4"
           />
           <rect x={rootX + 11} y={rootY + 11} width="20" height="20" rx="6" fill="#e1f1ed" />
           <path
             d={`M${rootX + 17.5} ${rootY + 21.5}h7M${rootX + 21} ${rootY + 18}v7`}
-            stroke="#0f7268"
+            stroke="#0f766e"
             strokeWidth="1.3"
             strokeLinecap="round"
           />
           <text x={rootX + 38} y={rootY + 19} fontSize="11.5" fontWeight="600" fill="#18181a">
             {trunc(entryName, 14)}
           </text>
-          <text x={rootX + 38} y={rootY + 32} fontSize="9.5" fill="#757f9c">
+          <text x={rootX + 38} y={rootY + 32} fontSize="9.5" fill="#6d6d72">
             员工小队 · {trunc(entryModel, 16)}
           </text>
           <text
             x={rootX + rootW - 10}
             y={rootY + 19}
             fontSize="9.5"
-            fill="#9aa1b1"
+            fill="#9a9a9f"
             textAnchor="end"
           >
             唯一对话入口
@@ -207,7 +207,7 @@ export default function DispatcherTopology({
               x={TOPO_W / 2}
               y={rowY + 21.5}
               fontSize="10.5"
-              fill="#9aa1b1"
+              fill="#9a9a9f"
               textAnchor="middle"
             >
               还没有成员，问题会全部走兜底
@@ -238,7 +238,7 @@ export default function DispatcherTopology({
                 <path
                   d={`M${TOPO_W / 2} ${fromY} V${midY} H${cx} V${rowY - 5}`}
                   fill="none"
-                  stroke={hot ? '#0f7268' : '#d3d9e6'}
+                  stroke={hot ? '#0f766e' : '#d3d9e6'}
                   strokeWidth={hot ? 2 : 1.3}
                   markerEnd="url(#disp-arw)"
                 />
@@ -249,7 +249,7 @@ export default function DispatcherTopology({
                   height={ROW_H}
                   rx="11"
                   fill="#fff"
-                  stroke={hot ? '#0f7268' : hasRule ? '#e3e7f1' : '#f0d5a8'}
+                  stroke={hot ? '#0f766e' : hasRule ? '#e6e4df' : '#f0d5a8'}
                   strokeWidth={hot ? 1.8 : 1.2}
                 />
                 <circle cx={x + 22} cy={rowY + 22} r="10" fill={`url(#disp-g${index % 5})`} />
@@ -266,14 +266,14 @@ export default function DispatcherTopology({
                 <text x={x + 38} y={rowY + 20} fontSize="11" fontWeight="600" fill="#18181a">
                   {trunc(member.name, nameChars)}
                 </text>
-                <text x={x + 38} y={rowY + 32} fontSize="9.5" fill="#9aa1b1">
+                <text x={x + 38} y={rowY + 32} fontSize="9.5" fill="#9a9a9f">
                   {trunc(member.description, nameChars + 2)}
                 </text>
                 <text
                   x={x + 13}
                   y={rowY + 48}
                   fontSize="9.5"
-                  fill={hasRule ? '#757f9c' : '#c08a3e'}
+                  fill={hasRule ? '#6d6d72' : '#c08a3e'}
                 >
                   {summary}
                 </text>
@@ -338,7 +338,7 @@ export default function DispatcherTopology({
             fill={highlightFallback ? '#b45309' : fbMeta.color}
             opacity=".8"
           />
-          <text x={fbX + 27} y={fallbackY + 21} fontSize="10.5" fill="#5b6274">
+          <text x={fbX + 27} y={fallbackY + 21} fontSize="10.5" fill="#55555a">
             无法匹配 → {fbMeta.label}
             {fallbackMode === 'default_member' && fallbackMemberName
               ? `（${trunc(fallbackMemberName, 8)}）`

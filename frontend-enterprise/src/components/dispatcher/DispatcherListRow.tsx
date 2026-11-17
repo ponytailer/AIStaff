@@ -41,7 +41,7 @@ export default function DispatcherListRow({
         'group flex w-full items-center gap-[10px] rounded-[14px] px-[10px] py-[9px] text-left transition-colors',
         selected
           ? 'bg-[#eef7f5] ring-1 ring-[#cfe7e2]'
-          : 'hover:bg-[#f7f8fa]',
+          : 'hover:bg-[#f2f1ee]',
         busy && 'opacity-60',
       )}
     >
@@ -57,12 +57,12 @@ export default function DispatcherListRow({
             {dispatcher.name}
           </span>
           {dispatcher.published_to_gallery && (
-            <span className="flex-none rounded-[4px] bg-[#e1f1ed] px-[4px] py-[1px] text-[9.5px] text-[#0f7268]">
+            <span className="flex-none rounded-[4px] bg-[#e1f1ed] px-[4px] py-[1px] text-[9.5px] text-[#0f766e]">
               广场
             </span>
           )}
         </span>
-        <span className="truncate text-[11px] text-[#858b9c]">
+        <span className="truncate text-[11px] text-[#6d6d72]">
           {dispatcher.members.length} 位同事
           {typeof transferCount === 'number' ? ` · ${transferCount} 次转接` : ''}
         </span>

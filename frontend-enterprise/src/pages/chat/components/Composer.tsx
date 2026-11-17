@@ -13,16 +13,20 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
 import type { ChatSlashCommand } from '@/types';
 
+import type { ComposerAttachment } from '../chatTypes';
 import {
+  CHAT_COMMAND_KIND_TONE_CLASS,
   CHAT_COMPOSER_ACTIONS_ROW_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_CHIP_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_COPY_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_ERROR_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_IMG_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_NAME_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_MORE_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS,
   CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS,
-  CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_TILE_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_TILE_ERROR_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_TILE_IMG_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_WRAP_CLASS,
   CHAT_COMPOSER_ATTACHMENTS_CLASS,
+  CHAT_COMPOSER_COMMAND_KIND_CLASS,
   CHAT_COMPOSER_CONTEXT_ROW_CLASS,
   CHAT_COMPOSER_DROP_HINT_CLASS,
   CHAT_COMPOSER_FORM_CLASS,
@@ -58,6 +62,17 @@ import {
 } from '../slashCommands';
 import type { UseChatSession } from '../useChatSession';
 import SlashCommandChip from './SlashCommandChip';
+
+/** 附件的第二行信息：上传中是进度，成功后是「PDF · 1.2 MB」，失败是错误原因。 */
+function composerAttachmentStatus(attachment: ComposerAttachment): string {
+  if (attachment.uploadStatus === 'uploading') {
+    return attachment.parse_job_id
+      ? `云端解析中 ${Math.round(attachment.parse_progress ?? 0)}%`
+      : '上传中';
+  }
+  if (attachment.uploadStatus === 'error') return attachment.error || '上传失败';
+  return attachmentTypeLabel(attachment);
+}
 
 export default function Composer({
   chat,
@@ -124,6 +139,19 @@ export default function Composer({
     !slashMenuDismissed && slashCommandQuery(input) && slashMatches.length,
   );
   const composerText = slashCommandComposerText(input, activeSlashCommand);
+
+  // 附件托盘只占「浮层」：最多露 3 颗 26px 瓷砖，多出来的收成 +N。
+  // 文字区按托盘实际宽度让出右侧内边距，正文永远不会钻到瓷砖底下。
+  const MAX_TRAY_TILES = 3;
+  const TRAY_TILE = 26;
+  const TRAY_GAP = 8;
+  const visibleComposerAttachments = composerAttachments.slice(0, MAX_TRAY_TILES);
+  const extraComposerAttachmentCount = composerAttachments.length - visibleComposerAttachments.length;
+  const composerAttachmentTrayWidth = composerAttachments.length === 0
+    ? 0
+    : visibleComposerAttachments.length * TRAY_TILE
+      + Math.max(0, visibleComposerAttachments.length - 1) * TRAY_GAP
+      + (extraComposerAttachmentCount > 0 ? TRAY_TILE + TRAY_GAP : 0);
 
   useEffect(() => {
     const element = textareaRef.current;
@@ -219,42 +247,6 @@ export default function Composer({
             <span className="min-w-0 text-[12px] leading-[18px]">{freeModelNoticeText}</span>
           </div>
         )}
-        {/* 「互联网检索」开关（原员工头像位）：每轮对话的选择，关闭时
-            请求体不带 web_search，后端能力根本不进冻结清单。 */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={webSearchEnabled}
-          aria-label={t('互联网检索')}
-          title={webSearchEnabled
-            ? t('已开启：员工会先查企业知识库，证据不足或涉及时效性问题时自动联网检索')
-            : t('已关闭：仅使用企业知识库回答。开启后知识库证据不足时会联网检索')}
-          onClick={() => setWebSearchEnabled((current) => !current)}
-          className={cn(
-            CHAT_COMPOSER_WEB_SEARCH_CLASS,
-            webSearchEnabled
-              ? 'border-[#0f766e] bg-[#0f766e] text-white shadow-[0_2px_10px_rgba(15,118,110,0.28)]'
-              : 'border-[#e3e7f1] bg-white text-[#5f687b] shadow-[0_2px_10px_rgba(24,24,26,0.06)] hover:border-[#cdd3de]',
-          )}
-        >
-          <Globe className="size-[14px] shrink-0" strokeWidth={1.8} />
-          <span className="shrink-0">{t('互联网检索')}</span>
-          <span
-            className={cn(
-              'relative inline-block h-[14px] w-[24px] shrink-0 rounded-full transition-colors',
-              webSearchEnabled ? 'bg-white/30' : 'bg-[#e3e7f1]',
-            )}
-          >
-            <span
-              className={cn(
-                'absolute top-[2px] size-[10px] rounded-full transition-all',
-                webSearchEnabled
-                  ? 'left-[12px] bg-white'
-                  : 'left-[2px] bg-white shadow-[0_0_0_0.5px_rgba(24,24,26,0.12)]',
-              )}
-            />
-          </span>
-        </button>
         <form
           className={cn(CHAT_COMPOSER_FORM_CLASS, composerDragActive && CHAT_COMPOSER_FORM_DRAG_CLASS)}
           onDragEnter={handleComposerDragEnter}
@@ -272,49 +264,10 @@ export default function Composer({
           />
           {composerDragActive && <div className={CHAT_COMPOSER_DROP_HINT_CLASS}>松开上传文件</div>}
 
-          {composerAttachments.length > 0 && (
-            <div className={CHAT_COMPOSER_ATTACHMENTS_CLASS}>
-              {composerAttachments.map((attachment) => (
-                <div
-                  className={cn(
-                    CHAT_COMPOSER_ATTACHMENT_CHIP_CLASS,
-                    attachment.uploadStatus === 'error' && CHAT_COMPOSER_ATTACHMENT_ERROR_CLASS,
-                  )}
-                  key={attachment.uploadKey}
-                >
-                  {attachment.kind === 'image' && attachment.data_url ? (
-                    <img className={CHAT_COMPOSER_ATTACHMENT_IMG_CLASS} src={attachment.data_url} alt={attachment.filename} />
-                  ) : (
-                    <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={16} />
-                  )}
-                  <span className={CHAT_COMPOSER_ATTACHMENT_COPY_CLASS}>
-                    <span className={CHAT_COMPOSER_ATTACHMENT_NAME_CLASS}>{attachment.filename}</span>
-                    <span className={CHAT_COMPOSER_ATTACHMENT_STATUS_CLASS}>
-                      {attachment.uploadStatus === 'uploading' &&
-                        (attachment.parse_job_id
-                          ? `云端解析中 ${Math.round(attachment.parse_progress ?? 0)}%`
-                          : '上传中')}
-                      {attachment.uploadStatus === 'ready' && attachmentTypeLabel(attachment)}
-                      {attachment.uploadStatus === 'error' && (attachment.error || '上传失败')}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    className={CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS}
-                    onClick={() => removeComposerAttachment(attachment.uploadKey)}
-                    aria-label="移除附件"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
           {slashMenuOpen && (
             <div
               ref={slashMenuRef}
-              className="absolute bottom-[calc(100%+8px)] left-0 z-30 grid max-h-[320px] w-full overflow-y-auto rounded-[14px] border border-[#e3e7f1] bg-white p-[6px] shadow-[0_18px_42px_rgba(24,24,26,0.16)]"
+              className="absolute bottom-[calc(100%+8px)] left-0 z-30 grid max-h-[320px] w-full overflow-y-auto rounded-[14px] border border-[rgba(24,24,26,0.08)] bg-white p-[6px] shadow-[0_18px_42px_rgba(24,24,26,0.16)]"
               role="listbox"
               aria-label={t('可用斜杠指令')}
             >
@@ -327,13 +280,13 @@ export default function Composer({
                   aria-selected={index === slashSelectionIndex}
                   className={cn(
                     'flex min-w-0 items-center gap-[10px] rounded-[10px] px-[10px] py-[9px] text-left transition-colors',
-                    index === slashSelectionIndex ? 'bg-[#f3f5f8]' : 'hover:bg-[#f7f8fa]',
+                    index === slashSelectionIndex ? 'bg-[#f0efec]' : 'hover:bg-[#f2f1ee]',
                   )}
                   onMouseDown={(event) => event.preventDefault()}
                   onMouseEnter={() => setSlashSelectionIndex(index)}
                   onClick={() => selectSlashCommand(index)}
                 >
-                  <span className="inline-grid size-[30px] shrink-0 place-items-center rounded-[9px] bg-[#eef1f5] text-[#5f687b]">
+                  <span className="inline-grid size-[30px] shrink-0 place-items-center rounded-[9px] bg-[#eef1f5] text-[#4b4b50]">
                     <StaffdeckIcon
                       name={command.kind === 'sop' ? 'branch' : command.kind === 'skill' ? 'spark' : 'tool'}
                       size={15}
@@ -342,21 +295,94 @@ export default function Composer({
                   <span className="grid min-w-0 flex-1 gap-[2px]">
                     <span className="flex min-w-0 items-center gap-[7px]">
                       <strong className="truncate text-[13px] font-medium text-[#18181a]">{command.label}</strong>
-                      <span className="shrink-0 rounded-full bg-[#edf0f4] px-[7px] py-[2px] text-[10px] text-[#687184]">
+                      <span
+                        className={cn(
+                          CHAT_COMPOSER_COMMAND_KIND_CLASS,
+                          // 菜单里比已选命令条窄一档，字号也略大（9px 在列表里偏小）
+                          'px-[7px] py-[2px] text-[10px]',
+                          CHAT_COMMAND_KIND_TONE_CLASS[command.kind],
+                        )}
+                      >
                         {slashCommandKindLabel(command.kind)}
                       </span>
                     </span>
-                    <span className="truncate text-[11px] text-[#858b9c]">
+                    <span className="truncate text-[11px] text-[#6d6d72]">
                       {command.description || command.command}
                     </span>
                   </span>
-                  <code className="shrink-0 text-[11px] text-[#858b9c]">{command.command}</code>
+                  <code className="shrink-0 text-[11px] text-[#6d6d72]">{command.command}</code>
                 </button>
               ))}
             </div>
           )}
 
           <div className={CHAT_COMPOSER_INPUT_ROW_CLASS}>
+            {composerAttachments.length > 0 && (
+              <div
+                className={CHAT_COMPOSER_ATTACHMENTS_CLASS}
+                aria-label={t('待发送的附件')}
+                role="group"
+              >
+                {visibleComposerAttachments.map((attachment) => {
+                  const statusText = composerAttachmentStatus(attachment);
+                  return (
+                    <span className={CHAT_COMPOSER_ATTACHMENT_WRAP_CLASS} key={attachment.uploadKey}>
+                      <span
+                        className={cn(
+                          CHAT_COMPOSER_ATTACHMENT_TILE_CLASS,
+                          attachment.uploadStatus === 'error' && CHAT_COMPOSER_ATTACHMENT_TILE_ERROR_CLASS,
+                        )}
+                        role="img"
+                        aria-label={`${attachment.filename} · ${statusText}`}
+                      >
+                        {attachment.kind === 'image' && attachment.data_url ? (
+                          <img
+                            className={CHAT_COMPOSER_ATTACHMENT_TILE_IMG_CLASS}
+                            src={attachment.data_url}
+                            alt=""
+                          />
+                        ) : (
+                          <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={14} />
+                        )}
+                        {attachment.uploadStatus === 'uploading' && (
+                          <span
+                            className={CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS}
+                            style={{
+                              width: attachment.parse_job_id
+                                ? `${Math.max(4, Math.min(100, Math.round(attachment.parse_progress ?? 0)))}%`
+                                : '100%',
+                            }}
+                          />
+                        )}
+                      </span>
+                      {/* 26px 里放不下文件名：hover 才展开一条黑标签，顺带带上体积/进度。 */}
+                      <span className={CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS}>
+                        {attachment.filename} · {statusText}
+                      </span>
+                      <button
+                        type="button"
+                        className={CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS}
+                        onClick={() => removeComposerAttachment(attachment.uploadKey)}
+                        aria-label={`移除附件 ${attachment.filename}`}
+                      >
+                        <StaffdeckIcon name="close" size={9} />
+                      </button>
+                    </span>
+                  );
+                })}
+                {extraComposerAttachmentCount > 0 && (
+                  <span
+                    className={CHAT_COMPOSER_ATTACHMENT_MORE_CLASS}
+                    title={composerAttachments
+                      .slice(MAX_TRAY_TILES)
+                      .map((attachment) => attachment.filename)
+                      .join('、')}
+                  >
+                    +{extraComposerAttachmentCount}
+                  </span>
+                )}
+              </div>
+            )}
             {activeSlashCommand && (
               <SlashCommandChip
                 command={activeSlashCommand}
@@ -370,6 +396,11 @@ export default function Composer({
                 CHAT_COMPOSER_TEXTAREA_CLASS,
                 activeSlashCommand && CHAT_COMPOSER_TEXTAREA_WITH_COMMAND_CLASS,
               )}
+              // 附件托盘是浮层，文字按它的实际宽度让出右侧（只改 padding，
+              // 不动布局高度）；没有附件时不写 style，交给 class 里的 px。
+              style={composerAttachmentTrayWidth
+                ? { paddingRight: composerAttachmentTrayWidth + 16 }
+                : undefined}
               value={composerText}
               rows={activeSlashCommand ? 1 : 2}
               placeholder={t('输入消息，按 Enter 发送...')}
@@ -455,6 +486,43 @@ export default function Composer({
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+              {/* 「互联网检索」开关：每轮对话的选择，关闭时请求体不带 web_search，
+                  后端能力根本不进冻结清单。原来浮在输入卡上方（原员工头像位），
+                  会话窗口上线后那个位置正好压在窗口的分隔线上，改到工具行内。 */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={webSearchEnabled}
+                aria-label={t('互联网检索')}
+                title={webSearchEnabled
+                  ? t('已开启：员工会先查企业知识库，证据不足或涉及时效性问题时自动联网检索')
+                  : t('已关闭：仅使用企业知识库回答。开启后知识库证据不足时会联网检索')}
+                onClick={() => setWebSearchEnabled((current) => !current)}
+                className={cn(
+                  CHAT_COMPOSER_WEB_SEARCH_CLASS,
+                  webSearchEnabled
+                    ? 'border-transparent bg-[rgba(15,118,110,0.12)] text-[#0b5a55] shadow-[inset_0_0_0_1px_rgba(15,118,110,0.14)]'
+                    : 'border-transparent bg-[rgba(24,24,26,0.05)] text-[#6d6d72] hover:bg-[rgba(24,24,26,0.08)] hover:text-[#18181a]',
+                )}
+              >
+                <Globe className="size-[14px] shrink-0" strokeWidth={1.8} />
+                <span className="shrink-0">{t('互联网检索')}</span>
+                <span
+                  className={cn(
+                    'relative inline-block h-[12px] w-[20px] shrink-0 rounded-full transition-colors',
+                    webSearchEnabled ? 'bg-[#0f766e]' : 'bg-[rgba(24,24,26,0.14)]',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-[2px] size-[8px] rounded-full bg-white transition-all',
+                      webSearchEnabled
+                        ? 'left-[10px]'
+                        : 'left-[2px] shadow-[0_0_0_0.5px_rgba(24,24,26,0.12)]',
+                    )}
+                  />
+                </span>
+              </button>
               {composerIntent === 'scheduled_task' && (
                 <button
                   type="button"
@@ -469,7 +537,7 @@ export default function Composer({
                 >
                   <span className={cn(
                     'relative inline-grid size-[16px] shrink-0 place-items-center rounded-full transition-colors',
-                    scheduleIntentHovered ? 'text-[#18181a]' : 'text-[#858b9c]',
+                    scheduleIntentHovered ? 'text-[#18181a]' : 'text-[#6d6d72]',
                   )}
                   >
                     <StaffdeckIcon

@@ -98,7 +98,7 @@ export const BADGE_TONE_CLASS: Record<BadgeTone, string> = {
   orange: 'bg-[#fff2e5] text-[#ff7f00]',
   green: 'bg-[#e9f7ef] text-[#2cb360]',
   red: 'bg-[#fce7e7] text-[#d20b0b]',
-  gray: 'bg-[#f2f3f7] text-[#858b9c]',
+  gray: 'bg-[#f2f1ee] text-[#6d6d72]',
 };
 export const TASK_STATUS_BADGE: Record<string, { tone: BadgeTone; text: string }> = {
   active: { tone: 'blue', text: '启用' },

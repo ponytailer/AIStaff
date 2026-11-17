@@ -56,15 +56,15 @@ const CONFIDENCE_TONE: Record<string, string> = {
   高: 'bg-[#e9f7ef] text-[#1a7f4b]',
   中: 'bg-[#e8f0ff] text-[#1a71ff]',
   低: 'bg-[#fff7e8] text-[#8a4b00]',
-  未知: 'bg-[#f3f4f6] text-[#757f9c]',
+  未知: 'bg-[#f2f1ee] text-[#6d6d72]',
 };
 
 function GroupTitle({ icon, title, hint }: { icon: React.ReactNode; title: string; hint?: string }) {
   return (
-    <div className="flex items-center gap-[6px] text-[#757f9c]">
+    <div className="flex items-center gap-[6px] text-[#6d6d72]">
       {icon}
-      <span className="text-[14px] font-normal leading-none text-[#464c5e]">{title}</span>
-      {hint && <span className="text-[12px] text-[#a3aaba]">{hint}</span>}
+      <span className="text-[14px] font-normal leading-none text-[#3d3d3f]">{title}</span>
+      {hint && <span className="text-[12px] text-[#9a9a9f]">{hint}</span>}
     </div>
   );
 }
@@ -79,7 +79,7 @@ function TypePicker({
   onChange: (next: LayaQuestionType) => void;
 }) {
   return (
-    <div className="inline-flex shrink-0 gap-[2px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white p-[2px]">
+    <div className="inline-flex shrink-0 gap-[2px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white p-[2px]">
       {QUESTION_TYPE_ORDER.map((type) => (
         <button
           key={type}
@@ -90,7 +90,7 @@ function TypePicker({
             'rounded-[8px] px-[10px] py-[3px] text-[12px] transition-colors disabled:opacity-60',
             value === type
               ? 'bg-[#18181a] text-white'
-              : 'text-[#5b6273] hover:bg-[#f6f6f6] hover:text-[#18181a]',
+              : 'text-[#55555a] hover:bg-[#f2f1ee] hover:text-[#18181a]',
           )}
         >
           {QUESTION_TYPE_META[type].label}
@@ -129,7 +129,7 @@ function OptionRows({
     <div className="flex flex-col gap-[6px]">
       {options.map((option, index) => (
         <div key={option.id} className="flex items-center gap-[8px]">
-          <span className="grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[#f3f4f6] text-[11px] tabular-nums text-[#757f9c]">
+          <span className="grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[#f2f1ee] text-[11px] tabular-nums text-[#6d6d72]">
             {index + 1}
           </span>
           <Input
@@ -145,7 +145,7 @@ function OptionRows({
             disabled={disabled || options.length <= 2}
             onClick={() => remove(index)}
             title={options.length <= 2 ? '至少保留 2 个选项' : '删除该选项'}
-            className="grid size-[26px] shrink-0 place-items-center rounded-[8px] text-[#858b9c] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#858b9c]"
+            className="grid size-[26px] shrink-0 place-items-center rounded-[8px] text-[#6d6d72] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#6d6d72]"
           >
             <Minus className="size-[14px]" />
           </button>
@@ -179,7 +179,7 @@ function QuestionCard({
 }) {
   const meta = QUESTION_TYPE_META[question.type];
   return (
-    <div className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-[#fafbfd] px-[14px] py-[12px]">
+    <div className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e6e4df] bg-[#f2f1ee] px-[14px] py-[12px]">
       <div className="flex flex-wrap items-center gap-[8px]">
         <span className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-[#eef2ff] text-[11px] font-medium tabular-nums text-[#4f46e5]">
           {index + 1}
@@ -194,14 +194,14 @@ function QuestionCard({
           aria-label="删除该决策内容"
           disabled={disabled}
           onClick={onRemove}
-          className="ml-auto grid size-[26px] shrink-0 place-items-center rounded-[8px] text-[#858b9c] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b] disabled:opacity-40"
+          className="ml-auto grid size-[26px] shrink-0 place-items-center rounded-[8px] text-[#6d6d72] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b] disabled:opacity-40"
         >
           <Trash2 className="size-[14px]" />
         </button>
       </div>
 
       <div className="flex flex-col gap-[6px]">
-        <span className="text-[12px] text-[#757f9c]">问题描述</span>
+        <span className="text-[12px] text-[#6d6d72]">问题描述</span>
         <Input
           value={question.instructions}
           disabled={disabled}
@@ -209,7 +209,7 @@ function QuestionCard({
           onChange={(event) => onChange({ ...question, instructions: event.target.value })}
           className="h-[34px] text-[13px]"
         />
-        <span className="text-[11px] leading-[16px] text-[#a3aaba]">{meta.hint}</span>
+        <span className="text-[11px] leading-[16px] text-[#9a9a9f]">{meta.hint}</span>
       </div>
 
       {meta.needsOptions && (
@@ -233,12 +233,12 @@ function DistributionBars({ conclusion }: { conclusion: DecisionConclusion }) {
             title={item.label}
             className={cn(
               'w-[46%] shrink-0 truncate text-[11px]',
-              item.winner ? 'font-medium text-[#18181a]' : 'text-[#858b9c]',
+              item.winner ? 'font-medium text-[#18181a]' : 'text-[#6d6d72]',
             )}
           >
             {item.label}
           </span>
-          <span className="h-[6px] min-w-[40px] flex-1 overflow-hidden rounded-full bg-[#eef0f4]">
+          <span className="h-[6px] min-w-[40px] flex-1 overflow-hidden rounded-full bg-[#ecebe7]">
             <span
               className={cn('block h-full rounded-full', item.winner ? 'bg-[#18181a]' : 'bg-[#c8d3e6]')}
               style={{ width: `${Math.max(1, Math.round(item.probability * 100))}%` }}
@@ -247,7 +247,7 @@ function DistributionBars({ conclusion }: { conclusion: DecisionConclusion }) {
           <span
             className={cn(
               'w-[48px] shrink-0 text-right text-[11px] tabular-nums',
-              item.winner ? 'text-[#18181a]' : 'text-[#858b9c]',
+              item.winner ? 'text-[#18181a]' : 'text-[#6d6d72]',
             )}
           >
             {(item.probability * 100).toFixed(2)}%
@@ -269,29 +269,29 @@ function PendingCard({
   question: string;
 }) {
   return (
-    <div className="flex items-center gap-[8px] rounded-[14px] border-[0.5px] border-dashed border-[#e3e7f1] bg-[#fafbfd] px-[14px] py-[11px]">
-      <span className="grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[#f3f4f6] text-[11px] tabular-nums text-[#a3aaba]">
+    <div className="flex items-center gap-[8px] rounded-[14px] border-[0.5px] border-dashed border-[#e6e4df] bg-[#f2f1ee] px-[14px] py-[11px]">
+      <span className="grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[#f2f1ee] text-[11px] tabular-nums text-[#9a9a9f]">
         {index}
       </span>
       <span
         className={cn(
           'inline-flex h-[18px] shrink-0 items-center rounded-full px-[7px] text-[10px] font-medium leading-none',
-          KIND_TONE[kindLabel] ?? 'bg-[#f3f4f6] text-[#757f9c]',
+          KIND_TONE[kindLabel] ?? 'bg-[#f2f1ee] text-[#6d6d72]',
         )}
       >
         {kindLabel}
       </span>
-      <span className="min-w-0 flex-1 truncate text-[12px] text-[#757f9c]" title={question}>
+      <span className="min-w-0 flex-1 truncate text-[12px] text-[#6d6d72]" title={question}>
         {question || '（未填写问题描述）'}
       </span>
-      <span className="shrink-0 text-[11px] text-[#c0c6d4]">待决策</span>
+      <span className="shrink-0 text-[11px] text-[#d6d1c9]">待决策</span>
     </div>
   );
 }
 
 function ConclusionCard({ conclusion, index }: { conclusion: DecisionConclusion; index?: number }) {
   return (
-    <article className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] py-[12px]">
+    <article className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] py-[12px]">
       <div className="flex items-start justify-between gap-[10px]">
         <div className="flex min-w-0 flex-col gap-[6px]">
           <span className="flex min-w-0 items-center gap-[6px]">
@@ -303,12 +303,12 @@ function ConclusionCard({ conclusion, index }: { conclusion: DecisionConclusion;
             <span
               className={cn(
                 'inline-flex h-[18px] shrink-0 items-center rounded-full px-[7px] text-[10px] font-medium leading-none',
-                KIND_TONE[conclusion.kindLabel] ?? 'bg-[#f3f4f6] text-[#757f9c]',
+                KIND_TONE[conclusion.kindLabel] ?? 'bg-[#f2f1ee] text-[#6d6d72]',
               )}
             >
               {conclusion.kindLabel}
             </span>
-            <span className="truncate text-[12px] text-[#858b9c]" title={conclusion.question}>
+            <span className="truncate text-[12px] text-[#6d6d72]" title={conclusion.question}>
               {conclusion.question || '（未命名问题）'}
             </span>
           </span>
@@ -316,7 +316,7 @@ function ConclusionCard({ conclusion, index }: { conclusion: DecisionConclusion;
             {conclusion.statement}
           </p>
           {conclusion.detail && (
-            <span className="text-[11px] leading-[16px] text-[#a3aaba]">{conclusion.detail}</span>
+            <span className="text-[11px] leading-[16px] text-[#9a9a9f]">{conclusion.detail}</span>
           )}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-[4px]">
@@ -330,7 +330,7 @@ function ConclusionCard({ conclusion, index }: { conclusion: DecisionConclusion;
             {conclusion.confidence !== null && ` ${(conclusion.confidence * 100).toFixed(1)}%`}
           </span>
           {conclusion.actProbability !== null && (
-            <span className="text-[10px] text-[#a3aaba]">
+            <span className="text-[10px] text-[#9a9a9f]">
               行动概率 {(conclusion.actProbability * 100).toFixed(0)}%
             </span>
           )}
@@ -554,7 +554,7 @@ export default function DecisionAssistantPage({
                     >
                       <UIButton
                         type="button"
-                        className="h-[30px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+                        className="h-[30px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
                       >
                         <Blocks className="size-[13px]" />
                         Skill 接入
@@ -591,7 +591,7 @@ export default function DecisionAssistantPage({
                     type="button"
                     disabled={running}
                     onClick={() => setQuestions((prev) => [...prev, createQuestion('noul')])}
-                    className="h-[30px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-60"
+                    className="h-[30px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-60"
                   >
                     <Plus className="size-[13px]" />
                     添加决策内容
@@ -616,11 +616,11 @@ export default function DecisionAssistantPage({
                       }
                     />
                   ))}
-                  <span className="text-[11px] leading-[16px] text-[#a3aaba]">
+                  <span className="text-[11px] leading-[16px] text-[#9a9a9f]">
                     切换题型不会清空已填内容：分类与评分各自保存自己的选项，来回切换互不覆盖。
                   </span>
                   {questions.length <= 1 && (
-                    <span className="text-[11px] text-[#a3aaba]">至少保留一条决策内容</span>
+                    <span className="text-[11px] text-[#9a9a9f]">至少保留一条决策内容</span>
                   )}
                 </div>
               </div>
@@ -633,13 +633,13 @@ export default function DecisionAssistantPage({
               )}
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-[10px] border-t-[0.5px] border-[#eef0f4] pt-[12px]">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-[10px] border-t-[0.5px] border-[#ecebe7] pt-[12px]">
               <div className="flex flex-wrap items-center gap-[8px]">
                 <UIButton
                   type="button"
                   disabled={running}
                   onClick={() => importInputRef.current?.click()}
-                  className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-60"
+                  className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-60"
                 >
                   <Upload className="size-[13px]" />
                   导入 JSON
@@ -657,7 +657,7 @@ export default function DecisionAssistantPage({
                     <button
                       type="button"
                       aria-label="查看可导入的 JSON 格式"
-                      className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+                      className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
                     >
                       <HelpCircle className="size-[14px]" />
                     </button>
@@ -668,7 +668,7 @@ export default function DecisionAssistantPage({
                     className="w-[540px] max-w-[calc(100vw-48px)] p-[14px]"
                   >
                     <div className="text-[12px] font-medium text-[#18181a]">可导入的 JSON 格式</div>
-                    <p className="mt-[6px] text-[11px] leading-[17px] text-[#757f9c]">
+                    <p className="mt-[6px] text-[11px] leading-[17px] text-[#6d6d72]">
                       与发给 Laya 的请求体一致：state.background 是决策背景；questions 里每个 key 是一道题。
                       是非题只填 type 与 instructions；分类题的 criteria 是「选项名 → 说明」；评分题的
                       criteria 是档位数组（由轻到重）。
@@ -676,7 +676,7 @@ export default function DecisionAssistantPage({
                     <pre className="mt-[8px] max-h-[260px] overflow-auto rounded-[10px] bg-[#1d2027] p-[10px] font-mono text-[11px] leading-[16px] text-[#e7ebf3]">
                       {JSON.stringify(importSample, null, 2)}
                     </pre>
-                    <p className="mt-[8px] text-[11px] leading-[17px] text-[#a3aaba]">
+                    <p className="mt-[8px] text-[11px] leading-[17px] text-[#9a9a9f]">
                       导入后可继续在左侧表单里修改；问题 key 沿用文件里的写法，回包按同一 key 返回。
                     </p>
                   </PopoverContent>
@@ -692,7 +692,7 @@ export default function DecisionAssistantPage({
                     setResult(null);
                     setError(null);
                   }}
-                  className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-60"
+                  className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-60"
                 >
                   <Wand2 className="size-[13px]" />
                   填入示例
@@ -707,13 +707,13 @@ export default function DecisionAssistantPage({
                     setResult(null);
                     setError(null);
                   }}
-                  className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#757f9c] hover:bg-black/5 hover:text-[#18181a] disabled:opacity-60"
+                  className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#6d6d72] hover:bg-black/5 hover:text-[#18181a] disabled:opacity-60"
                 >
                   清空
                 </UIButton>
               </div>
               <div className="flex items-center gap-[10px]">
-                <span className="hidden text-[11px] text-[#a3aaba] sm:inline">⌘/Ctrl + Enter 直接提交</span>
+                <span className="hidden text-[11px] text-[#9a9a9f] sm:inline">⌘/Ctrl + Enter 直接提交</span>
                 <UIButton
                   type="button"
                   disabled={running}
@@ -741,7 +741,7 @@ export default function DecisionAssistantPage({
                     type="button"
                     disabled={running}
                     onClick={() => void run()}
-                    className="h-[28px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-60"
+                    className="h-[28px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-60"
                   >
                     <RefreshCw className={cn('size-[12px]', running && 'animate-spin')} />
                     重跑
@@ -750,33 +750,33 @@ export default function DecisionAssistantPage({
               </div>
 
               {!result && !running && (
-                <div className="flex flex-col items-center gap-[8px] rounded-[14px] border-[0.5px] border-dashed border-[#e3e7f1] px-[16px] py-[20px] text-center">
-                  <HelpCircle className="size-[22px] text-[#c0c6d4]" />
-                  <span className="text-[13px] text-[#858b9c]">还没有结论</span>
-                  <span className="max-w-[300px] text-[12px] leading-[18px] text-[#a3aaba]">
+                <div className="flex flex-col items-center gap-[8px] rounded-[14px] border-[0.5px] border-dashed border-[#e6e4df] px-[16px] py-[20px] text-center">
+                  <HelpCircle className="size-[22px] text-[#d6d1c9]" />
+                  <span className="text-[13px] text-[#6d6d72]">还没有结论</span>
+                  <span className="max-w-[300px] text-[12px] leading-[18px] text-[#9a9a9f]">
                     下方按左侧表单顺序列出待决策的问题；点击「开始决策」后，每个问题右侧会渲染出 Laya 的结论、置信度与概率分布。
                   </span>
                 </div>
               )}
 
               {running && !result && (
-                <div className="flex items-center justify-center gap-[8px] rounded-[14px] border-[0.5px] border-[#e3e7f1] px-[16px] py-[20px] text-[13px] text-[#858b9c]">
+                <div className="flex items-center justify-center gap-[8px] rounded-[14px] border-[0.5px] border-[#e6e4df] px-[16px] py-[20px] text-[13px] text-[#6d6d72]">
                   <LoaderCircle className="size-[14px] animate-spin" />
                   Laya 正在推理…
                 </div>
               )}
 
               {result && (
-                <div className="flex flex-wrap items-center gap-[8px] text-[11px] text-[#a3aaba]">
+                <div className="flex flex-wrap items-center gap-[8px] text-[11px] text-[#9a9a9f]">
                   {typeof result.elapsed_ms === 'number' && (
-                    <span className="rounded-full bg-[#f3f4f6] px-[8px] py-[2px]">
+                    <span className="rounded-full bg-[#f2f1ee] px-[8px] py-[2px]">
                       耗时 {Math.round(result.elapsed_ms)} ms
                     </span>
                   )}
                   {result.routing?.model && (
-                    <span className="rounded-full bg-[#f3f4f6] px-[8px] py-[2px]">模型 {result.routing.model}</span>
+                    <span className="rounded-full bg-[#f2f1ee] px-[8px] py-[2px]">模型 {result.routing.model}</span>
                   )}
-                  <span className="rounded-full bg-[#f3f4f6] px-[8px] py-[2px]">共 {conclusions.length} 项结论</span>
+                  <span className="rounded-full bg-[#f2f1ee] px-[8px] py-[2px]">共 {conclusions.length} 项结论</span>
                 </div>
               )}
 
@@ -796,9 +796,9 @@ export default function DecisionAssistantPage({
               </div>
 
               {rawResult && (
-                <details className="rounded-[10px] border-[0.5px] border-[#eef0f4] bg-[#fafbfd] px-[12px] py-[8px]">
-                  <summary className="cursor-pointer text-[12px] text-[#757f9c]">查看原始返回</summary>
-                  <pre className="mt-[8px] max-h-[280px] overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-[16px] text-[#464c5e]">
+                <details className="rounded-[10px] border-[0.5px] border-[#ecebe7] bg-[#f2f1ee] px-[12px] py-[8px]">
+                  <summary className="cursor-pointer text-[12px] text-[#6d6d72]">查看原始返回</summary>
+                  <pre className="mt-[8px] max-h-[280px] overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-[16px] text-[#3d3d3f]">
                     {JSON.stringify(rawResult, null, 2)}
                   </pre>
                 </details>

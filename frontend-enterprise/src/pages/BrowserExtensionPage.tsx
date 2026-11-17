@@ -104,27 +104,27 @@ const FEATURES: Array<{ title: string; body: string }> = [
 /** 右上角悬浮球 + 面板的纯 CSS 示意（不用外部图片，跟随品牌色）。 */
 function ExtensionMock() {
   return (
-    <div className="relative hidden h-[220px] w-[260px] shrink-0 select-none overflow-hidden rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-[#fbfbfa] max-[1100px]:hidden">
+    <div className="relative hidden h-[220px] w-[260px] shrink-0 select-none overflow-hidden rounded-[16px] border-[0.5px] border-[#e6e4df] bg-[#fbfbfa] max-[1100px]:hidden">
       {/* 模拟网页骨架 */}
       <div className="px-[18px] pt-[16px]">
-        <div className="h-[8px] w-[70px] rounded-full bg-[#e9ecf2]" />
+        <div className="h-[8px] w-[70px] rounded-full bg-[#ecebe7]" />
         <div className="mt-[12px] flex gap-[10px]">
           <div className="h-[52px] flex-1 rounded-[10px] bg-white shadow-[0_1px_4px_0_rgba(0,0,0,0.04)]" />
           <div className="h-[52px] flex-1 rounded-[10px] bg-white shadow-[0_1px_4px_0_rgba(0,0,0,0.04)]" />
         </div>
-        <div className="mt-[10px] h-[8px] w-[150px] rounded-full bg-[#eef0f4]" />
-        <div className="mt-[8px] h-[8px] w-[110px] rounded-full bg-[#eef0f4]" />
+        <div className="mt-[10px] h-[8px] w-[150px] rounded-full bg-[#ecebe7]" />
+        <div className="mt-[8px] h-[8px] w-[110px] rounded-full bg-[#ecebe7]" />
       </div>
       {/* 展开的迷你聊天面板 */}
-      <div className="absolute bottom-[-14px] right-[14px] w-[150px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white p-[10px] shadow-[0_8px_24px_0_rgba(24,24,26,0.12)]">
+      <div className="absolute bottom-[-14px] right-[14px] w-[150px] rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white p-[10px] shadow-[0_8px_24px_0_rgba(24,24,26,0.12)]">
         <div className="flex items-center gap-[6px]">
           <div className="flex size-[16px] items-center justify-center rounded-[6px] bg-[#0f766e] text-[8px] font-semibold text-white">
             AI
           </div>
-          <div className="h-[6px] w-[54px] rounded-full bg-[#e9ecf2]" />
+          <div className="h-[6px] w-[54px] rounded-full bg-[#ecebe7]" />
         </div>
-        <div className="mt-[8px] h-[6px] w-[110px] rounded-full bg-[#eef0f4]" />
-        <div className="mt-[5px] h-[6px] w-[92px] rounded-full bg-[#eef0f4]" />
+        <div className="mt-[8px] h-[6px] w-[110px] rounded-full bg-[#ecebe7]" />
+        <div className="mt-[5px] h-[6px] w-[92px] rounded-full bg-[#ecebe7]" />
         <div className="mt-[8px] h-[6px] w-[74px] rounded-full bg-[#dcf0ec]" />
       </div>
       {/* 悬浮球 */}
@@ -147,7 +147,7 @@ function DownloadButton({
 }) {
   if (!url) {
     return (
-      <span className="inline-flex h-[36px] cursor-not-allowed items-center gap-[6px] rounded-[10px] bg-[#eef0f4] px-[18px] text-[12px] font-normal text-[#a0a8bd]">
+      <span className="inline-flex h-[36px] cursor-not-allowed items-center gap-[6px] rounded-[10px] bg-[#ecebe7] px-[18px] text-[12px] font-normal text-[#a0a8bd]">
         <Download className="size-[14px]" />
         {label} · 上传后开放
       </span>
@@ -160,7 +160,7 @@ function DownloadButton({
         'inline-flex h-[36px] items-center gap-[6px] rounded-[10px] px-[18px] text-[12px] font-normal transition-colors',
         variant === 'solid'
           ? 'bg-[#18181a] text-white hover:bg-[#303030]'
-          : 'border-[0.5px] border-[#e3e7f1] bg-white text-[#18181a] hover:border-[#cbd3e6] hover:bg-[#fbfbfa]',
+          : 'border-[0.5px] border-[#e6e4df] bg-white text-[#18181a] hover:border-[#ddd9d2] hover:bg-[#fbfbfa]',
       )}
     >
       <Download className="size-[14px]" />
@@ -202,7 +202,7 @@ export default function BrowserExtensionPage({
 
       <div className="mt-[16px] flex flex-col gap-[24px] rounded-[20px_20px_0_0] bg-white p-[18px_18px_24px_18px] shadow-[0_-4px_16px_0_rgba(0,0,0,0.05)]">
         {/* 头部：介绍 + 下载 */}
-        <section className="flex items-start gap-[24px] rounded-[16px] border-[0.5px] border-[#e9ecf2] bg-[#fbfbfa] p-[24px]">
+        <section className="flex items-start gap-[24px] rounded-[16px] border-[0.5px] border-[#ecebe7] bg-[#fbfbfa] p-[24px]">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-[8px]">
               <div className="flex size-[30px] items-center justify-center rounded-[9px] bg-[#18181a]">
@@ -215,7 +215,7 @@ export default function BrowserExtensionPage({
                 {EXTENSION_VERSIONS[browser]}
               </span>
             </div>
-            <p className="mt-[10px] max-w-[520px] text-[13px] leading-[22px] text-[#757f9c]">
+            <p className="mt-[10px] max-w-[520px] text-[13px] leading-[22px] text-[#6d6d72]">
               把 AIStaff 数字员工装进每一个网页。安装后在任意网站右下角都会出现悬浮球，
               点开即可与免费员工、模型员工和小队对话，聊天记录与平台互通。
               提供 Chrome / Edge 与 Firefox 两个版本，功能一致、账号数据同源。
@@ -235,7 +235,7 @@ export default function BrowserExtensionPage({
         {/* 安装步骤：按浏览器切换 */}
         <section>
           <div className="flex items-center justify-between px-[12px]">
-            <span className="text-[14px] font-normal leading-none text-[#757f9c]">安装步骤</span>
+            <span className="text-[14px] font-normal leading-none text-[#6d6d72]">安装步骤</span>
             <div className="flex items-center gap-[2px] rounded-[10px] bg-[#f4f6f9] p-[3px]">
               {BROWSERS.map((item) => {
                 const active = item.id === browser;
@@ -249,7 +249,7 @@ export default function BrowserExtensionPage({
                       'h-[26px] cursor-pointer rounded-[8px] px-[12px] text-[12px] transition-colors',
                       active
                         ? 'bg-white text-[#18181a] shadow-[0_1px_2px_0_rgba(24,24,26,0.08)]'
-                        : 'text-[#757f9c] hover:text-[#464C5E]',
+                        : 'text-[#6d6d72] hover:text-[#3d3d3f]',
                     )}
                   >
                     {item.label}
@@ -262,7 +262,7 @@ export default function BrowserExtensionPage({
             {steps.map((step, index) => (
               <div
                 key={step.title}
-                className="rounded-[14px] border-[0.5px] border-[#e9ecf2] bg-white p-[18px]"
+                className="rounded-[14px] border-[0.5px] border-[#ecebe7] bg-white p-[18px]"
               >
                 <div className="flex items-center gap-[10px]">
                   <span
@@ -270,19 +270,19 @@ export default function BrowserExtensionPage({
                       'flex size-[24px] items-center justify-center rounded-[8px] text-[12px] font-semibold',
                       index === steps.length - 1
                         ? 'bg-[#0f766e] text-white'
-                        : 'bg-[#f2f4f8] text-[#464C5E]',
+                        : 'bg-[#f2f4f8] text-[#3d3d3f]',
                     )}
                   >
                     {String(index + 1).padStart(2, '0')}
                   </span>
                   <span className="text-[14px] font-medium text-[#18181a]">{step.title}</span>
                 </div>
-                <p className="mt-[10px] text-[12.5px] leading-[21px] text-[#757f9c]">{step.body}</p>
+                <p className="mt-[10px] text-[12.5px] leading-[21px] text-[#6d6d72]">{step.body}</p>
                 {step.copyValue && (
                   <button
                     type="button"
                     onClick={() => void copyValue(step.copyValue!)}
-                    className="mt-[10px] inline-flex h-[26px] max-w-full cursor-pointer items-center gap-[5px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] text-[11px] text-[#464C5E] transition-colors hover:border-[#cbd3e6]"
+                    className="mt-[10px] inline-flex h-[26px] max-w-full cursor-pointer items-center gap-[5px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] text-[11px] text-[#3d3d3f] transition-colors hover:border-[#ddd9d2]"
                   >
                     {copied === step.copyValue ? (
                       <CircleCheck className="size-[12px] shrink-0 text-[#0f766e]" />
@@ -304,29 +304,29 @@ export default function BrowserExtensionPage({
 
         {/* 能力亮点 */}
         <section>
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <span className="text-[14px] font-normal leading-none">安装后能做什么</span>
           </div>
           <div className="mt-[14px] grid grid-cols-3 gap-[14px] max-[900px]:grid-cols-1">
             {FEATURES.map((feature) => (
               <div
                 key={feature.title}
-                className="rounded-[14px] border-[0.5px] border-[#e9ecf2] bg-white p-[16px]"
+                className="rounded-[14px] border-[0.5px] border-[#ecebe7] bg-white p-[16px]"
               >
                 <div className="flex items-center gap-[6px]">
                   <CircleCheck className="size-[14px] text-[#0f766e]" />
                   <span className="text-[13px] font-medium text-[#18181a]">{feature.title}</span>
                 </div>
-                <p className="mt-[8px] text-[12px] leading-[20px] text-[#757f9c]">{feature.body}</p>
+                <p className="mt-[8px] text-[12px] leading-[20px] text-[#6d6d72]">{feature.body}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* 注意事项 */}
-        <section className="rounded-[14px] border-[0.5px] border-[#e9ecf2] bg-[#fbfbfa] p-[16px]">
+        <section className="rounded-[14px] border-[0.5px] border-[#ecebe7] bg-[#fbfbfa] p-[16px]">
           <div className="px-[2px] text-[13px] font-medium text-[#18181a]">常见问题</div>
-          <ul className="mt-[8px] flex flex-col gap-[6px] px-[2px] text-[12px] leading-[20px] text-[#757f9c]">
+          <ul className="mt-[8px] flex flex-col gap-[6px] px-[2px] text-[12px] leading-[20px] text-[#6d6d72]">
             <li>· 插件使用平台同款账号登录，无需单独注册；两个浏览器版本账号与数据完全同源。</li>
             <li>
               · 免密登录依赖浏览器里 AIStaff 平台的登录态：同一浏览器已登录平台即自动接管；平台 token

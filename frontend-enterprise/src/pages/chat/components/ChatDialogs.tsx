@@ -213,7 +213,7 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
                           href={activeCitation.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[#0f7268] underline decoration-[#0f7268]/35 underline-offset-2 hover:decoration-[#0f7268]"
+                          className="text-[#0f766e] underline decoration-[#0f766e]/35 underline-offset-2 hover:decoration-[#0f766e]"
                         >
                           {activeCitation.site || citationSourceLabel(activeCitation)}
                         </a>
@@ -277,7 +277,7 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
           <div className="flex items-center justify-end gap-[8px] pt-[12px] pr-[16px] pb-[16px] pl-[12px]">
             <Button
               variant="outline"
-              className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] py-[8px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+              className="h-[32px] w-[80px] rounded-[10px] border-[rgba(24,24,26,0.08)] bg-white px-[12px] py-[8px] text-[14px] font-normal text-[rgba(24,24,26,0.8)] hover:border-[rgba(24,24,26,0.08)] hover:bg-[#e5e4e0] hover:text-[#18181a]"
               onClick={() => {
                 setRenameSession(null);
                 setRenameTitle('');

@@ -37,7 +37,7 @@ export function SearchEmptyState({
         <p className="mt-[12px] text-[14px] font-medium leading-[20px] text-[#7f879a]">
           {title}
         </p>
-        <p className="mt-[4px] text-[11px] leading-[17px] text-[#a7adbb]">{description}</p>
+        <p className="mt-[4px] text-[11px] leading-[17px] text-[#9a9a9f]">{description}</p>
         {action && <div className="mt-[14px]">{action}</div>}
       </div>
     </div>

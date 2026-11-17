@@ -76,16 +76,16 @@ export default function AiReviewWorkspaceDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         aria-describedby="ai-review-workspace-description"
-        className="w-[calc(100%-2rem)] max-w-[460px] gap-0 rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)]"
+        className="w-[calc(100%-2rem)] max-w-[460px] gap-0 rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[22px] py-[18px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[22px] py-[18px]">
           <div className="flex items-center gap-[10px]">
             <span className="grid size-[34px] place-items-center rounded-[11px] bg-[#18181a] text-white">
               <GitBranch className="size-[16px]" />
             </span>
             <div>
               <DialogTitle className="text-[15px] font-semibold text-[#18181a]">新建 Workspace</DialogTitle>
-              <DialogDescription id="ai-review-workspace-description" className="mt-[4px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="ai-review-workspace-description" className="mt-[4px] text-[12px] text-[#6d6d72]">
                 一个 workspace 对应一个待评审仓库
               </DialogDescription>
             </div>
@@ -94,7 +94,7 @@ export default function AiReviewWorkspaceDialog({
 
         <div className="flex flex-col gap-[12px] px-[22px] py-[18px]">
           <div className="flex flex-col gap-[6px]">
-            <label className="text-[12px] font-medium text-[#464c5e]" htmlFor="ai-review-ws-name">名称</label>
+            <label className="text-[12px] font-medium text-[#3d3d3f]" htmlFor="ai-review-ws-name">名称</label>
             <Input
               id="ai-review-ws-name"
               value={name}
@@ -105,8 +105,8 @@ export default function AiReviewWorkspaceDialog({
           </div>
 
           <div className="flex flex-col gap-[6px]">
-            <label className="text-[12px] font-medium text-[#464c5e]">代码平台</label>
-            <div className="inline-flex w-fit gap-[2px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white p-[2px]">
+            <label className="text-[12px] font-medium text-[#3d3d3f]">代码平台</label>
+            <div className="inline-flex w-fit gap-[2px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white p-[2px]">
               {PLATFORMS.map((item) => (
                 <button
                   key={item.id}
@@ -116,18 +116,18 @@ export default function AiReviewWorkspaceDialog({
                     'rounded-[8px] px-[12px] py-[4px] text-[12px] transition-colors',
                     platform === item.id
                       ? 'bg-[#18181a] text-white'
-                      : 'text-[#5b6273] hover:bg-[#f6f6f6] hover:text-[#18181a]',
+                      : 'text-[#55555a] hover:bg-[#f2f1ee] hover:text-[#18181a]',
                   )}
                 >
                   {item.label}
                 </button>
               ))}
             </div>
-            <span className="text-[11px] text-[#a3aaba]">{PLATFORMS.find((item) => item.id === platform)?.hint}</span>
+            <span className="text-[11px] text-[#9a9a9f]">{PLATFORMS.find((item) => item.id === platform)?.hint}</span>
           </div>
 
           <div className="flex flex-col gap-[6px]">
-            <label className="text-[12px] font-medium text-[#464c5e]">仓库克隆地址</label>
+            <label className="text-[12px] font-medium text-[#3d3d3f]">仓库克隆地址</label>
             <Input
               value={repoUrl}
               placeholder={platform === 'github' ? 'https://github.com/alibaba/open-code-review.git' : 'https://gitlab.example.com/group/repo.git'}
@@ -137,7 +137,7 @@ export default function AiReviewWorkspaceDialog({
           </div>
 
           <div className="flex flex-col gap-[6px]">
-            <label className="text-[12px] font-medium text-[#464c5e]">默认分支</label>
+            <label className="text-[12px] font-medium text-[#3d3d3f]">默认分支</label>
             <Input
               value={defaultBranch}
               placeholder="main"
@@ -146,12 +146,12 @@ export default function AiReviewWorkspaceDialog({
             />
           </div>
 
-          <div className="mt-[4px] flex items-center justify-end gap-[8px] border-t-[0.5px] border-[#eef0f4] pt-[14px]">
+          <div className="mt-[4px] flex items-center justify-end gap-[8px] border-t-[0.5px] border-[#ecebe7] pt-[14px]">
             <Button
               type="button"
               variant="ghost"
               onClick={onClose}
-              className="h-[32px] rounded-[9px] px-[14px] text-[12px] text-[#5b6273] hover:bg-[#f6f6f6]"
+              className="h-[32px] rounded-[9px] px-[14px] text-[12px] text-[#55555a] hover:bg-[#f2f1ee]"
             >
               取消
             </Button>

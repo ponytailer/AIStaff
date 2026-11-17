@@ -77,10 +77,10 @@ function CredentialForm({ platform }: { platform: AiReviewPlatform }) {
   }
 
   return (
-    <div className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] py-[12px]">
+    <div className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] py-[12px]">
       <div className="flex items-center justify-between gap-[10px]">
         <span className="inline-flex items-center gap-[6px] text-[13px] font-semibold text-[#18181a]">
-          <KeyRound className="size-[13px] text-[#5b6273]" />
+          <KeyRound className="size-[13px] text-[#55555a]" />
           {platform === 'github' ? 'GitHub' : 'GitLab'} Access Token
         </span>
         {credential?.token_set && (
@@ -89,7 +89,7 @@ function CredentialForm({ platform }: { platform: AiReviewPlatform }) {
           </span>
         )}
       </div>
-      <div className="flex flex-col gap-[4px] text-[11.5px] leading-[17px] text-[#757f9c]">
+      <div className="flex flex-col gap-[4px] text-[11.5px] leading-[17px] text-[#6d6d72]">
         <p>
           {platform === 'github'
             ? 'GitHub PAT：拉取 PR 列表与克隆仓库用读权限即可；要把评审结果回写到评论区，还需要写权限。'
@@ -121,14 +121,14 @@ function CredentialForm({ platform }: { platform: AiReviewPlatform }) {
           type="button"
           aria-label={showToken ? '隐藏 token' : '显示 token'}
           onClick={() => setShowToken((value) => !value)}
-          className="grid size-[34px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+          className="grid size-[34px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
         >
           {showToken ? <EyeOff className="size-[14px]" /> : <Eye className="size-[14px]" />}
         </button>
       </div>
       {platform === 'gitlab' && (
         <div className="flex flex-col gap-[6px]">
-          <label className="text-[12px] font-medium text-[#464c5e]">GitLab 实例根地址（gitlab.com 可留空）</label>
+          <label className="text-[12px] font-medium text-[#3d3d3f]">GitLab 实例根地址（gitlab.com 可留空）</label>
           <Input
             value={baseUrl}
             placeholder="https://gitlab.example.com"
@@ -213,7 +213,7 @@ function PresetSection() {
   }
 
   return (
-    <div className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] py-[12px]">
+    <div className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] py-[12px]">
       <div className="flex items-center justify-between gap-[10px]">
         <span className="inline-flex items-center gap-[6px] text-[13px] font-semibold text-[#18181a]">
           <Star className="size-[13px] text-[#8a4b00]" />
@@ -223,24 +223,24 @@ function PresetSection() {
           type="button"
           aria-label="刷新预设列表"
           onClick={() => void reload()}
-          className="grid size-[26px] place-items-center rounded-[7px] text-[#a3aaba] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+          className="grid size-[26px] place-items-center rounded-[7px] text-[#9a9a9f] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
         >
           <RotateCcw className="size-[12px]" />
         </button>
       </div>
-      <p className="text-[11.5px] leading-[17px] text-[#757f9c]">
+      <p className="text-[11.5px] leading-[17px] text-[#6d6d72]">
         全租户公共的评审口径。提交评审任务时可勾选叠加；标星的那条会在发起评审时默认勾上。
       </p>
 
       {loading ? (
-        <div className="flex items-center gap-[8px] py-[10px] text-[12px] text-[#a3aaba]">
+        <div className="flex items-center gap-[8px] py-[10px] text-[12px] text-[#9a9a9f]">
           <LoaderCircle className="size-[13px] animate-spin" />
           正在加载…
         </div>
       ) : presets.length > 0 ? (
         <div className="flex flex-col gap-[6px]">
           {presets.map((preset) => (
-            <div key={preset.id} className="flex items-start gap-[8px] rounded-[10px] bg-[#fafbfd] px-[10px] py-[8px]">
+            <div key={preset.id} className="flex items-start gap-[8px] rounded-[10px] bg-[#f2f1ee] px-[10px] py-[8px]">
               <button
                 type="button"
                 aria-label={preset.is_default ? '取消默认' : '设为默认'}
@@ -255,13 +255,13 @@ function PresetSection() {
               </button>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12.5px] font-medium text-[#18181a]">{preset.name}</div>
-                <p className="mt-[2px] line-clamp-2 text-[11px] leading-[16px] text-[#757f9c]">{preset.content}</p>
+                <p className="mt-[2px] line-clamp-2 text-[11px] leading-[16px] text-[#6d6d72]">{preset.content}</p>
               </div>
               <button
                 type="button"
                 aria-label="删除该预设"
                 onClick={() => void remove(preset)}
-                className="mt-[1px] grid size-[24px] shrink-0 place-items-center rounded-[7px] text-[#a3aaba] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b]"
+                className="mt-[1px] grid size-[24px] shrink-0 place-items-center rounded-[7px] text-[#9a9a9f] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b]"
               >
                 <Trash2 className="size-[12px]" />
               </button>
@@ -269,12 +269,12 @@ function PresetSection() {
           ))}
         </div>
       ) : (
-        <div className="rounded-[10px] border-[0.5px] border-dashed border-[#e3e7f1] bg-[#fafbfd] px-[10px] py-[12px] text-[11.5px] leading-[17px] text-[#757f9c]">
+        <div className="rounded-[10px] border-[0.5px] border-dashed border-[#e6e4df] bg-[#f2f1ee] px-[10px] py-[12px] text-[11.5px] leading-[17px] text-[#6d6d72]">
           还没有预设。评审要求只对单次任务有效，公共口径建议沉淀成预设。
         </div>
       )}
 
-      <div className="mt-[2px] flex flex-col gap-[8px] border-t-[0.5px] border-[#eef0f4] pt-[10px]">
+      <div className="mt-[2px] flex flex-col gap-[8px] border-t-[0.5px] border-[#ecebe7] pt-[10px]">
         <Input
           value={name}
           placeholder="预设名称，例如：安全口径"
@@ -293,7 +293,7 @@ function PresetSection() {
             type="button"
             disabled={submitting}
             onClick={() => void add()}
-            className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] text-[#464c5e] hover:bg-[#f6f6f6] disabled:opacity-50"
+            className="h-[30px] gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] text-[#3d3d3f] hover:bg-[#f2f1ee] disabled:opacity-50"
           >
             {submitting ? <LoaderCircle className="size-[12px] animate-spin" /> : <Plus className="size-[12px]" />}
             添加预设
@@ -367,7 +367,7 @@ function RuleFileSection() {
   const configured = Boolean(state?.exists);
 
   return (
-    <div className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white px-[14px] py-[12px]">
+    <div className="flex flex-col gap-[10px] rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white px-[14px] py-[12px]">
       <div className="flex items-center justify-between gap-[10px]">
         <span className="inline-flex items-center gap-[6px] text-[13px] font-semibold text-[#18181a]">
           <Braces className="size-[13px] text-[#1a71ff]" />
@@ -378,17 +378,17 @@ function RuleFileSection() {
             已配置 · {state?.content ? ruleFileSummary(state.content) : ''}
           </span>
         ) : (
-          <span className="rounded-[6px] bg-[#f3f4f6] px-[7px] py-[2px] text-[11px] text-[#757f9c]">未配置</span>
+          <span className="rounded-[6px] bg-[#f2f1ee] px-[7px] py-[2px] text-[11px] text-[#6d6d72]">未配置</span>
         )}
       </div>
-      <p className="text-[11.5px] leading-[17px] text-[#757f9c]">
-        以 ocr 的 <code className="rounded-[4px] bg-[#f3f4f6] px-[4px] font-mono text-[10.5px]">rule.json</code> 结构生效：
+      <p className="text-[11.5px] leading-[17px] text-[#6d6d72]">
+        以 ocr 的 <code className="rounded-[4px] bg-[#f2f1ee] px-[4px] font-mono text-[10.5px]">rule.json</code> 结构生效：
         include / exclude 是 glob 过滤，rules 按 path 匹配文件并注入专属规则（匹配到即止，merge_system_rule 决定是否叠加内置规则）。
         保存后以最高优先级注入每次评审，覆盖项目内配置与系统默认。
       </p>
 
       {loading ? (
-        <div className="flex items-center gap-[8px] py-[10px] text-[12px] text-[#a3aaba]">
+        <div className="flex items-center gap-[8px] py-[10px] text-[12px] text-[#9a9a9f]">
           <LoaderCircle className="size-[13px] animate-spin" />
           正在加载…
         </div>
@@ -418,14 +418,14 @@ function RuleFileSection() {
             ) : validation && validation.ok ? (
               <p className="text-[11px] leading-[16px] text-[#1a7f4b]">格式校验通过 · {ruleFileSummary(validation.config)}</p>
             ) : (
-              <p className="text-[11px] leading-[16px] text-[#a3aaba]">填写 JSON 后保存；清空并删除可完全回落到内置规则。</p>
+              <p className="text-[11px] leading-[16px] text-[#9a9a9f]">填写 JSON 后保存；清空并删除可完全回落到内置规则。</p>
             )}
           </div>
           <div className="flex items-center justify-between gap-[10px]">
             <button
               type="button"
               onClick={() => setText(sampleRuleFileText())}
-              className="rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[10px] py-[5px] text-[11.5px] text-[#464c5e] transition-colors hover:bg-[#f6f6f6]"
+              className="rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[10px] py-[5px] text-[11.5px] text-[#3d3d3f] transition-colors hover:bg-[#f2f1ee]"
             >
               填入示例
             </button>
@@ -467,16 +467,16 @@ export default function AiReviewSettingsDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         aria-describedby="ai-review-settings-description"
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[620px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[620px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[24px] py-[20px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[24px] py-[20px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <Settings2 className="size-[17px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">平台设置 · AI Reviewer</DialogTitle>
-              <DialogDescription id="ai-review-settings-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="ai-review-settings-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 平台 token 与全局评审要求都是租户级全局配置，对所有成员生效
               </DialogDescription>
             </div>

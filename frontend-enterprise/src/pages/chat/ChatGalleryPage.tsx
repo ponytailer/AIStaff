@@ -39,7 +39,7 @@ export default function ChatGalleryPage() {
       }}
       style={
         {
-          '--sidebar-width': '220px',
+          '--sidebar-width': '272px',
           '--sidebar-width-icon': '72px',
         } as CSSProperties
       }
@@ -50,6 +50,15 @@ export default function ChatGalleryPage() {
         sessions={chat.visibleSidebarSessions}
         sessionsLoading={chat.sessionsLoading}
         agents={chat.agents}
+        currentAgent={chat.displayedAgent}
+        currentRoleName={chat.displayedProfile?.roleName ?? ''}
+        running={chat.currentSessionRunning}
+        switchAgents={chat.agents}
+        switchDispatchers={chat.dispatcherAgents}
+        onSwitchAgent={(agentId) => {
+          chat.setSessionAgentFilter(agentId);
+          chat.openDraftForAgent(agentId);
+        }}
         activeSessionId={chat.sessionId}
         sessionFilter={chat.sessionAgentFilter}
         onSessionFilterChange={chat.setSessionAgentFilter}

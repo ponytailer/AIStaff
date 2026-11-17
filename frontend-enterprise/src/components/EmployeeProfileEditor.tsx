@@ -153,7 +153,7 @@ export default function EmployeeProfileEditor({
         aria-describedby={undefined}
         className="employee-profile-modal flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[860px]"
       >
-        <DialogTitle className="px-[12px] text-[14px] font-normal leading-none text-[#757f9c]">
+        <DialogTitle className="px-[12px] text-[14px] font-normal leading-none text-[#6d6d72]">
           {agent ? `编辑数字员工档案：${employeeDisplayName(agent)}` : '编辑数字员工档案'}
         </DialogTitle>
 
@@ -203,13 +203,13 @@ export default function EmployeeProfileEditor({
                 <Textarea rows={4} value={form.personaPrompt} placeholder="员工在对话中的角色、人设、回复风格和执行边界" onChange={(event) => update({ personaPrompt: event.target.value })} />
               </LabeledField>
               <LabeledField label="默认模型">
-                <div className="flex min-h-10 items-center rounded-[10px] border border-[#e3e7f1] bg-[#f7f8fa] px-3 text-[13px] text-[#59627a]">
+                <div className="flex min-h-10 items-center rounded-[10px] border border-[#e6e4df] bg-[#f2f1ee] px-3 text-[13px] text-[#59627a]">
                   统一继承模型配置中的全局默认模型
                 </div>
                 <span className="text-[11px] text-muted-foreground">员工不再单独绑定模型；切换全局默认模型后，所有员工立即生效。</span>
               </LabeledField>
 
-              <div className="rounded-[14px] border border-[#e3e7f1] bg-[#fafbfc] p-[14px]">
+              <div className="rounded-[14px] border border-[#e6e4df] bg-[#f2f1ee] p-[14px]">
                 <LabeledField label="单次 HarnessLoop 最大调用轮次">
                   <Input
                     type="number"
@@ -258,7 +258,7 @@ export default function EmployeeProfileEditor({
             variant="outline"
             disabled={saving || !agent || agent.status !== 'active'}
             onClick={() => setShareOpen(true)}
-            className="mr-auto h-[32px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+            className="mr-auto h-[32px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
           >
             <Share2 className="size-[14px]" />
             分享
@@ -267,7 +267,7 @@ export default function EmployeeProfileEditor({
             variant="outline"
             disabled={saving}
             onClick={onClose}
-            className="h-[32px] w-[80px] rounded-[10px] border-[#e3e7f1] bg-white px-[12px] text-[14px] font-normal text-[#464c5e] hover:border-[#e3e7f1] hover:bg-[#f6f6f6] hover:text-[#18181a]"
+            className="h-[32px] w-[80px] rounded-[10px] border-[#e6e4df] bg-white px-[12px] text-[14px] font-normal text-[#3d3d3f] hover:border-[#e6e4df] hover:bg-[#f2f1ee] hover:text-[#18181a]"
           >
             取消
           </UIButton>
@@ -293,7 +293,7 @@ export default function EmployeeProfileEditor({
 function LabeledField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-[6px]">
-      <span className="text-[12px] font-medium text-[#464c5e]">{label}</span>
+      <span className="text-[12px] font-medium text-[#3d3d3f]">{label}</span>
       {children}
     </label>
   );
@@ -321,18 +321,18 @@ function TagsField({
 
   return (
     <div className="flex flex-col gap-[8px]">
-      <div className="flex min-h-[34px] flex-wrap items-center gap-[6px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[8px] py-[5px] transition-colors focus-within:border-[#18181a]">
+      <div className="flex min-h-[34px] flex-wrap items-center gap-[6px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[8px] py-[5px] transition-colors focus-within:border-[#18181a]">
         {value.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#f2f3f7] px-[8px] py-[2px] text-[12px] text-[#18181a]"
+            className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#f2f1ee] px-[8px] py-[2px] text-[12px] text-[#18181a]"
           >
             {tag}
             <button
               type="button"
               aria-label={`移除 ${tag}`}
               onClick={() => removeTag(tag)}
-              className="grid place-items-center text-[#858b9c] hover:text-[#18181a]"
+              className="grid place-items-center text-[#6d6d72] hover:text-[#18181a]"
             >
               <XIcon className="size-[12px]" />
             </button>
@@ -355,7 +355,7 @@ function TagsField({
             }
           }}
           onBlur={() => draft.trim() && addTags(draft)}
-          className="h-[22px] min-w-[80px] flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#c0c6d4]"
+          className="h-[22px] min-w-[80px] flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#d6d1c9]"
         />
       </div>
       {suggestions.length > 0 && (
@@ -365,7 +365,7 @@ function TagsField({
               key={item}
               type="button"
               onClick={() => addTags(item)}
-              className="rounded-[6px] border-[0.5px] border-[#e3e7f1] px-[8px] py-[2px] text-[12px] text-[#858b9c] hover:border-[#18181a] hover:text-[#18181a]"
+              className="rounded-[6px] border-[0.5px] border-[#e6e4df] px-[8px] py-[2px] text-[12px] text-[#6d6d72] hover:border-[#18181a] hover:text-[#18181a]"
             >
               + {item}
             </button>

@@ -261,7 +261,7 @@ export default function SkillsPage({
       title: '创建者',
       width: 120,
       render: (row) => (
-        <span className="block truncate text-[#858b9c]" title={resourceCreatorName(row)}>
+        <span className="block truncate text-[#6d6d72]" title={resourceCreatorName(row)}>
           {resourceCreatorName(row) || '-'}
         </span>
       ),
@@ -353,7 +353,7 @@ export default function SkillsPage({
               </DropdownMenuItem>
             </>
           )}
-          <DropdownMenuSeparator className="my-[2px] bg-[#eef0f4]" />
+          <DropdownMenuSeparator className="my-[2px] bg-[#ecebe7]" />
           <DropdownMenuItem
             variant="destructive"
             className={MENU_ITEM_DANGER_CLASS}
@@ -374,8 +374,8 @@ export default function SkillsPage({
         <div className="flex min-w-0 items-start justify-between gap-[10px]">
           <div className="min-w-0">
             <strong className="block truncate text-[14px] font-semibold text-[#18181a]">{row.name}</strong>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">{row.skill_id}</span>
-            <span className="mt-[2px] block truncate text-[12px] text-[#858b9c]">创建者：{resourceCreatorName(row) || '-'}</span>
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{row.skill_id}</span>
+            <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">创建者：{resourceCreatorName(row) || '-'}</span>
           </div>
           {renderActions(row)}
         </div>
@@ -384,7 +384,7 @@ export default function SkillsPage({
           {renderBranchBadge(row, isOverallAgent)}
           {row.business_domain && <StatusBadge tone="gray">{row.business_domain}</StatusBadge>}
         </div>
-        <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#858b9c]">
+        <div className="mt-[10px] flex items-center justify-between gap-[10px] text-[12px] text-[#6d6d72]">
           <span>调用 {row.call_count || 0} 次</span>
           <span>
             好评 {percent(row.positive_rate)} · 差评 {percent(row.negative_rate)}
@@ -626,7 +626,7 @@ export default function SkillsPage({
           variant="outline"
           onClick={() => void load()}
           disabled={loading}
-          className="h-[34px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[20px] text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]"
+          className="h-[34px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[20px] text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]"
         >
           <IconRefresh className={cn('size-[14px]', loading && 'animate-spin')} />
           刷新
@@ -662,14 +662,14 @@ export default function SkillsPage({
 
       <div className="flex flex-col gap-[24px] rounded-[20px_20px_0_0] bg-white p-[18px_18px_24px_18px] shadow-[0_-4px_16px_0_rgba(0,0,0,0.05)]">
         <div className="flex flex-col gap-[18px]">
-          <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+          <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
             <IconClipboard className="size-[14px] shrink-0" />
             <span className="text-[14px] font-normal leading-none">{isOverallAgent ? 'SOP 广场列表' : '本地 SOP'}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-[16px]">
-            <label className="flex h-[34px] w-[260px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
-              <IconSearch className="size-[14px] shrink-0 text-[#858b9c]" />
+            <label className="flex h-[34px] w-[260px] items-center gap-[8px] overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] transition-colors focus-within:border-[#18181a] max-[900px]:w-full">
+              <IconSearch className="size-[14px] shrink-0 text-[#6d6d72]" />
               <input
                 autoComplete="off"
                 data-1p-ignore="true"
@@ -678,14 +678,14 @@ export default function SkillsPage({
                 value={searchText}
                 placeholder="搜索 SOP 名称、ID、业务域"
                 onChange={(event) => setSearchText(event.target.value)}
-                className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#c0c6d4]"
+                className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#d6d1c9]"
               />
               {searchText && (
                 <button
                   type="button"
                   aria-label="清除搜索"
                   onClick={() => setSearchText('')}
-                  className="grid size-[16px] shrink-0 place-items-center text-[#c0c6d4] hover:text-[#858b9c]"
+                  className="grid size-[16px] shrink-0 place-items-center text-[#d6d1c9] hover:text-[#6d6d72]"
                 >
                   <IconClear className="size-[14px]" />
                 </button>
@@ -721,7 +721,7 @@ export default function SkillsPage({
             {filteredRows.length ? (
               pagination.pagedItems.map(renderMobileCard)
             ) : (
-              <div className="py-[40px] text-center text-[13px] text-[#858b9c]">{listEmptyText}</div>
+              <div className="py-[40px] text-center text-[13px] text-[#6d6d72]">{listEmptyText}</div>
             )}
           </div>
 
@@ -792,7 +792,7 @@ export default function SkillsPage({
           label: (
             <>
               {item.name}
-              <span className="text-[#858b9c]"> · {item.skill_id}</span>
+              <span className="text-[#6d6d72]"> · {item.skill_id}</span>
             </>
           ),
         }))}
@@ -904,7 +904,7 @@ function renderBranchBadge(row: SkillRead, isOverallAgent: boolean) {
 
 function ScopeToggle({ value, onChange }: { value: RankingScope; onChange: (scope: RankingScope) => void }) {
   return (
-    <div className="inline-flex items-center rounded-[8px] bg-[#f2f3f7] p-[2px]">
+    <div className="inline-flex items-center rounded-[8px] bg-[#f2f1ee] p-[2px]">
       {(['current', 'total'] as RankingScope[]).map((scope) => (
         <button
           key={scope}
@@ -914,7 +914,7 @@ function ScopeToggle({ value, onChange }: { value: RankingScope; onChange: (scop
             'rounded-[6px] px-[10px] py-[3px] text-[11px] leading-none transition-colors',
             value === scope
               ? 'bg-white text-[#18181a] shadow-sm'
-              : 'text-[#858b9c] hover:text-[#18181a]',
+              : 'text-[#6d6d72] hover:text-[#18181a]',
           )}
         >
           {scope === 'current' ? '当前' : '总榜'}
@@ -942,7 +942,7 @@ function RankingCard({
   onMore: () => void;
 }) {
   return (
-    <section className="flex flex-col rounded-[14px] border border-[#eef0f4] bg-white p-[16px]">
+    <section className="flex flex-col rounded-[14px] border border-[#ecebe7] bg-white p-[16px]">
       <header className="mb-[8px] flex items-center justify-between gap-[8px]">
         <span className="text-[13px] font-medium text-[#18181a]">{title}</span>
         <div className="flex items-center gap-[8px]">
@@ -957,22 +957,22 @@ function RankingCard({
         </div>
       </header>
       {rows.length === 0 ? (
-        <div className="py-[28px] text-center text-[12px] text-[#858b9c]">暂无数据</div>
+        <div className="py-[28px] text-center text-[12px] text-[#6d6d72]">暂无数据</div>
       ) : (
         <div className="flex flex-col">
           {rows.map((row) => (
             <div
               key={`${title}_${row.skill_id}`}
-              className="flex items-center gap-[10px] border-b border-[#f2f3f7] py-[9px] last:border-0"
+              className="flex items-center gap-[10px] border-b border-[#f2f1ee] py-[9px] last:border-0"
             >
-              <span className="grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[#f6f6f6] text-[11px] leading-none text-[#464c5e]">
+              <span className="grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[#f2f1ee] text-[11px] leading-none text-[#3d3d3f]">
                 {row.rank}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12px] text-[#18181a]" title={row.name}>
                   {row.name}
                 </div>
-                {version && <div className="text-[11px] text-[#858b9c]">{version(row)}</div>}
+                {version && <div className="text-[11px] text-[#6d6d72]">{version(row)}</div>}
               </div>
               <strong className="shrink-0 text-[12px] font-medium text-[#18181a]">{value(row)}</strong>
             </div>
@@ -1044,9 +1044,9 @@ function RankingDialog({
         aria-describedby={undefined}
         className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[1000px]"
       >
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           <IconSkill className="size-[14px] shrink-0" />
-          <DialogTitle className="text-[14px] font-normal leading-none text-[#757f9c]">
+          <DialogTitle className="text-[14px] font-normal leading-none text-[#6d6d72]">
             {rankingTitle(mode, scope)}
           </DialogTitle>
         </div>
@@ -1149,9 +1149,9 @@ function VersionsDialog({
         aria-describedby={undefined}
         className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[960px]"
       >
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           <IconHistory className="size-[14px] shrink-0" />
-          <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#757f9c]">
+          <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#6d6d72]">
             版本管理{skill ? `：${skill.name}` : ''}
           </DialogTitle>
         </div>
@@ -1187,9 +1187,9 @@ function VersionDetailDialog({
         aria-describedby={undefined}
         className="flex max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] flex-col gap-[16px] overflow-hidden rounded-[14px] px-[20px] py-[16px] sm:max-w-[900px]"
       >
-        <div className="flex items-center gap-[6px] px-[12px] text-[#757f9c]">
+        <div className="flex items-center gap-[6px] px-[12px] text-[#6d6d72]">
           <IconSkill className="size-[14px] shrink-0" />
-          <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#757f9c]">
+          <DialogTitle className="min-w-0 truncate text-[14px] font-normal leading-none text-[#6d6d72]">
             {detail ? `版本详情：${detail.name} / ${detail.version}` : '版本详情'}
           </DialogTitle>
         </div>
@@ -1206,7 +1206,7 @@ function VersionDetailDialog({
               <DetailField label="差评率">{percent(detail.negative_rate)}</DetailField>
               <DetailField label="更新时间">{formatDate(detail.updated_at)}</DetailField>
             </div>
-            <pre className="overflow-x-auto rounded-[12px] bg-[#f6f6f6] p-[14px] text-[12px] leading-[1.7] text-[#464c5e] wrap-anywhere whitespace-pre-wrap">
+            <pre className="overflow-x-auto rounded-[12px] bg-[#f2f1ee] p-[14px] text-[12px] leading-[1.7] text-[#3d3d3f] wrap-anywhere whitespace-pre-wrap">
               {skillSourceText(detail)}
             </pre>
           </div>

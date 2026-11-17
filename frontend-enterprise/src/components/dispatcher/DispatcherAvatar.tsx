@@ -21,11 +21,11 @@ type AvatarTone = {
 };
 
 const TONES: Record<string, AvatarTone> = {
-  teal: { bg: '#e1f1ed', fg: '#0f7268', ring: '#cfe7e2' },
+  teal: { bg: '#e1f1ed', fg: '#0f766e', ring: '#cfe7e2' },
   blue: { bg: '#e8f0ff', fg: '#1a71ff', ring: '#d3e2ff' },
   olive: { bg: '#eef4e6', fg: '#5c7a2e', ring: '#dfead2' },
   copper: { bg: '#fbeee4', fg: '#b5652a', ring: '#f3ddcd' },
-  ink: { bg: '#eceef2', fg: '#464c5e', ring: '#dfe3ea' },
+  ink: { bg: '#eceef2', fg: '#3d3d3f', ring: '#dfe3ea' },
   gold: { bg: '#fdf6e8', fg: '#a9762a', ring: '#f6e8cd' },
 };
 

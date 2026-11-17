@@ -137,16 +137,16 @@ export default function KnowledgeApiDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent
         aria-describedby="knowledge-api-description"
-        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f7f8fa] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[820px]"
+        className="flex max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[18px] border-0 bg-[#f2f1ee] p-0 shadow-[0_28px_80px_rgba(24,31,46,0.20)] sm:max-w-[820px]"
       >
-        <DialogHeader className="border-b border-[#e9ecf2] bg-white px-[26px] py-[22px]">
+        <DialogHeader className="border-b border-[#ecebe7] bg-white px-[26px] py-[22px]">
           <div className="flex items-center gap-[12px]">
             <span className="grid size-[38px] place-items-center rounded-[12px] bg-[#18181a] text-white">
               <Code2 className="size-[18px]" />
             </span>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-[#18181a]">API 接入 · 我的知识库</DialogTitle>
-              <DialogDescription id="knowledge-api-description" className="mt-[5px] text-[12px] text-[#757f9c]">
+              <DialogDescription id="knowledge-api-description" className="mt-[5px] text-[12px] text-[#6d6d72]">
                 用账号 API 密钥直接检索知识库，把回包里的引用片段当作问答 / 改文档的依据。
               </DialogDescription>
             </div>
@@ -159,7 +159,7 @@ export default function KnowledgeApiDialog({
               <KeyRound className="size-[15px] text-[#207451]" />
               第一步 · 拿到账号 API 全量密钥
             </div>
-            <ol className="mt-[10px] grid gap-[6px] text-[12px] leading-[19px] text-[#464c5e]">
+            <ol className="mt-[10px] grid gap-[6px] text-[12px] leading-[19px] text-[#3d3d3f]">
               <li>1. 点击右上角头像，选择「API 全量密钥」。</li>
               <li>2. 创建密钥并复制明文（仅显示一次，页面关掉就看不到）。</li>
               <li>
@@ -174,7 +174,7 @@ export default function KnowledgeApiDialog({
             </p>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="flex flex-wrap items-center justify-between gap-[10px]">
               <span className="text-[13px] font-semibold text-[#18181a]">第二步 · 调用端点</span>
               <div
@@ -195,7 +195,7 @@ export default function KnowledgeApiDialog({
                       'h-[24px] rounded-[6px] px-[10px] text-[11px] transition-colors',
                       scope === item.id
                         ? 'bg-white text-[#18181a] shadow-[0_1px_2px_rgba(24,31,46,0.10)]'
-                        : 'text-[#757f9c] hover:text-[#18181a]',
+                        : 'text-[#6d6d72] hover:text-[#18181a]',
                     )}
                   >
                     {item.label}
@@ -215,13 +215,13 @@ export default function KnowledgeApiDialog({
               </code>
             </div>
             <dl className="mt-[12px] grid gap-[8px] text-[12px] sm:grid-cols-[84px_minmax(0,1fr)]">
-              <dt className="text-[#757f9c]">检索范围</dt>
-              <dd className="text-[#464c5e]">
+              <dt className="text-[#6d6d72]">检索范围</dt>
+              <dd className="text-[#3d3d3f]">
                 {isCollection ? (
                   <>
                     当前账号名下<b>全部未下线</b>的个人知识库（不传{' '}
                     <code className="font-mono text-[11.5px]">knowledge_base_ids</code>）
-                    <p className="mt-[6px] text-[11px] leading-[17px] text-[#858b9c]">
+                    <p className="mt-[6px] text-[11px] leading-[17px] text-[#6d6d72]">
                       想只查其中几个库时，在请求体里加 <code className="font-mono text-[11px]">knowledge_base_ids: [...]</code>。
                       这是推荐的接入方式：一次调用覆盖库内所有文档，跨库相对排序也由服务端完成。
                     </p>
@@ -232,20 +232,20 @@ export default function KnowledgeApiDialog({
                       <span>{knowledgeBaseName || '未命名'}</span>
                       <code
                         data-testid="knowledge-api-kb-id"
-                        className="rounded-[4px] bg-[#f4f5f8] px-[6px] py-[2px] font-mono text-[11px] text-[#464c5e]"
+                        className="rounded-[4px] bg-[#f4f5f8] px-[6px] py-[2px] font-mono text-[11px] text-[#3d3d3f]"
                       >
                         {knowledgeBaseId}
                       </code>
                       <Button
                         type="button"
                         onClick={() => void copyKnowledgeBaseId()}
-                        className="h-[22px] gap-[4px] rounded-[6px] bg-[#f4f5f8] px-[8px] text-[11px] text-[#464c5e] hover:bg-[#eceef3]"
+                        className="h-[22px] gap-[4px] rounded-[6px] bg-[#f4f5f8] px-[8px] text-[11px] text-[#3d3d3f] hover:bg-[#eceef3]"
                       >
                         {copiedId ? <Check className="size-[11px]" /> : <Copy className="size-[11px]" />}
                         {copiedId ? '已复制' : '复制 ID'}
                       </Button>
                     </div>
-                    <p className="mt-[6px] text-[11px] leading-[17px] text-[#858b9c]">
+                    <p className="mt-[6px] text-[11px] leading-[17px] text-[#6d6d72]">
                       单库地址里就是这个 ID（等价于集合接口 + <code className="font-mono text-[11px]">knowledge_base_ids=[{'{'}id{'}'}]</code>）。
                       它在「我的知识库」列表行上也能直接复制；知识库只能下线、不能删除，所以 ID 不会失效。
                     </p>
@@ -254,27 +254,27 @@ export default function KnowledgeApiDialog({
                   <span className="text-[#b4690e]">还没有个人知识库，先新建一个再复制示例</span>
                 )}
               </dd>
-              <dt className="text-[#757f9c]">请求头</dt>
+              <dt className="text-[#6d6d72]">请求头</dt>
               <dd>
-                <code className="font-mono text-[11.5px] text-[#464c5e]">Authorization: Bearer sd_live_…</code>
+                <code className="font-mono text-[11.5px] text-[#3d3d3f]">Authorization: Bearer sd_live_…</code>
               </dd>
-              <dt className="text-[#757f9c]">内容类型</dt>
+              <dt className="text-[#6d6d72]">内容类型</dt>
               <dd>
-                <code className="font-mono text-[11.5px] text-[#464c5e]">application/json</code>
+                <code className="font-mono text-[11.5px] text-[#3d3d3f]">application/json</code>
               </dd>
-              <dt className="text-[#757f9c]">所需权限</dt>
+              <dt className="text-[#6d6d72]">所需权限</dt>
               <dd>
-                <code className="font-mono text-[11.5px] text-[#464c5e]">{requiredScope}</code>
+                <code className="font-mono text-[11.5px] text-[#3d3d3f]">{requiredScope}</code>
               </dd>
-              <dt className="text-[#757f9c]">请求体</dt>
-              <dd className="text-[#464c5e]">
+              <dt className="text-[#6d6d72]">请求体</dt>
+              <dd className="text-[#3d3d3f]">
                 <code className="font-mono text-[11.5px]">query</code> 必填
                 {isCollection ? '；knowledge_base_ids 可选（不传 = 全部库）' : ''}，其余字段见下方「接口说明」。
               </dd>
             </dl>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="flex flex-wrap items-center justify-between gap-[10px]">
               <span className="text-[13px] font-semibold text-[#18181a]">第三步 · 复制示例代码</span>
               <div className="flex items-center gap-[6px]">
@@ -315,9 +315,9 @@ export default function KnowledgeApiDialog({
             </Tabs>
           </section>
 
-          <section className="rounded-[16px] border-[0.5px] border-[#e3e7f1] bg-white p-[18px]">
+          <section className="rounded-[16px] border-[0.5px] border-[#e6e4df] bg-white p-[18px]">
             <div className="text-[13px] font-semibold text-[#18181a]">接口说明</div>
-            <div className="mt-[10px] grid gap-[8px] text-[12px] leading-[18px] text-[#464c5e]">
+            <div className="mt-[10px] grid gap-[8px] text-[12px] leading-[18px] text-[#3d3d3f]">
               <p>
                 <b>检索范围</b>：不传
                 <code className="font-mono text-[11.5px]">knowledge_base_ids</code>
@@ -351,12 +351,12 @@ export default function KnowledgeApiDialog({
                 <code className="font-mono text-[11.5px]">knowledge_bases[]</code>
                 （每个被检索库的 id / name / version）。版本一变就说明内容有更新，可按它做缓存失效。
               </p>
-              <p className="text-[11.5px] text-[#757f9c]">
+              <p className="text-[11.5px] text-[#6d6d72]">
                 个人知识库只属于你：非属主访问返回 404。知识库只能下线不能删除，下线后检索返回
                 409 KNOWLEDGE_BASE_ARCHIVED（<code className="font-mono text-[11px]">knowledge_base_id</code>
                 仍然有效，可据此提示用户）。
               </p>
-              <p className="text-[11.5px] text-[#757f9c]">
+              <p className="text-[11.5px] text-[#6d6d72]">
                 这个接口只做检索（只读）。要补充内容，直接在「我的数字员工 → 知识库」上传文档，或把整库导入到某个数字员工。
               </p>
             </div>

@@ -1,4 +1,8 @@
+import { Fragment } from 'react';
+
 import {
+  CHAT_DAY_DIVIDER_CLASS,
+  CHAT_DAY_DIVIDER_PILL_CLASS,
   CHAT_DEBUG_PANEL_CLASS,
   CHAT_MESSAGES_CLASS,
   CHAT_MESSAGE_STACK_CLASS,
@@ -23,10 +27,47 @@ import {
   traceSummary,
 } from '../chatHelpers';
 import { staffdeckDisplayText } from '@/employee';
+import type { ChatMessage } from '@/types';
 import type { UseChatSession } from '../useChatSession';
 import ChatEmptyState from './ChatEmptyState';
 import MessageBubble, { dispatchAnswerInfo, type MessageRender } from './MessageBubble';
 import ScheduledDraftCard from './ScheduledDraftCard';
+
+/** 同一侧连续发言在这个窗口内算「一组」，共享一个组头（tuffui chat-thread 同款）。 */
+const TURN_GROUP_MS = 5 * 60_000;
+
+/** 两条消息是否属于同一组发言（同侧、同日、间隔 < 5 分钟）。 */
+function sameTurn(a: ChatMessage | undefined, b: ChatMessage | undefined): boolean {
+  if (!a || !b) return false;
+  if (a.role !== b.role) return false;
+  const day = dayKey(a.created_at);
+  if (!day || day !== dayKey(b.created_at)) return false;
+  const delta = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  return delta >= 0 && delta < TURN_GROUP_MS;
+}
+
+function dayKey(iso: string | undefined): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+/** 日期分隔文案：今天 / 昨天 / 11月8日 / 2025年11月8日（跨年才带年份）。 */
+function dayLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const today = new Date();
+  const startOfDay = (value: Date) =>
+    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(today) - startOfDay(date)) / 86_400_000);
+  if (diffDays === 0) return '今天';
+  if (diffDays === 1) return '昨天';
+  const stamp = `${date.getMonth() + 1}月${date.getDate()}日`;
+  return date.getFullYear() === today.getFullYear()
+    ? stamp
+    : `${date.getFullYear()}年${stamp}`;
+}
 
 export default function MessageList({
   chat,
@@ -82,10 +123,28 @@ export default function MessageList({
 
   return (
     <div className={CHAT_MESSAGES_CLASS} ref={chatMessagesRef} onScroll={handleChatMessagesScroll}>
-      {renderMessages.length === 0 && (emptyState ?? <ChatEmptyState chat={chat} />)}
+      {renderMessages.length === 0 && (
+        // 空态在窗口内垂直居中（下方多留 4vh 让视觉重心略偏上），而不是贴顶。
+        <div className="flex min-h-full flex-col justify-center pb-[4vh]">
+          {emptyState ?? <ChatEmptyState chat={chat} />}
+        </div>
+      )}
 
       <div className={CHAT_MESSAGE_STACK_CLASS}>
         {renderMessages.map((item, itemIndex) => {
+          const previous = itemIndex > 0 ? renderMessages[itemIndex - 1] : undefined;
+          const currentDay = dayKey(item.created_at);
+          const newDay = !previous || dayKey(previous.created_at) !== currentDay;
+          // 同一侧、同一天、5 分钟内的连续消息并成一组：只出一份头像与姓名。
+          const withinGroup = !newDay && sameTurn(previous, item);
+          const turn = {
+            first: !withinGroup,
+            // 换日时由日期分隔自己撑开间距，不再叠 18px。
+            spaced: Boolean(previous) && !withinGroup && !newDay,
+            // 组尾：下一条不是同一侧的连续消息。点评/耗时只挂在组尾。
+            last: !sameTurn(item, renderMessages[itemIndex + 1]),
+          };
+          const dividerLabel = newDay ? dayLabel(item.created_at) : '';
           const turnId = item.turnId || item.id;
           const fallbackTraceId = item.role === 'assistant' && item.isStreaming
             ? (currentStream.turnId || runningTurn?.turnId || '')
@@ -232,7 +291,20 @@ export default function MessageList({
             traceTiming,
           };
 
-          return <MessageBubble key={`${item.id}:message`} chat={chat} item={item} render={render} />;
+          return (
+            <Fragment key={`${item.id}:turn`}>
+              {dividerLabel && (
+                <div
+                  className={CHAT_DAY_DIVIDER_CLASS}
+                  role="separator"
+                  aria-label={dividerLabel}
+                >
+                  <span className={CHAT_DAY_DIVIDER_PILL_CLASS}>{dividerLabel}</span>
+                </div>
+              )}
+              <MessageBubble chat={chat} item={item} render={render} turn={turn} />
+            </Fragment>
+          );
         })}
       </div>
 

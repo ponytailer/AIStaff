@@ -16,7 +16,7 @@ export default function EmptyEmployeeState({
     <div className="min-h-full w-full min-w-0 max-w-full box-border px-[48px] pt-[32px] pb-[43px] max-[900px]:px-[16px]">
       <div className="mx-auto flex min-h-[calc(100vh-220px)] max-w-[560px] flex-col items-center justify-center text-center">
         <div className="relative flex size-[96px] items-center justify-center rounded-[28px] border border-[#e7dfd3] bg-white shadow-[0_12px_30px_rgba(37,32,24,0.08)]">
-          <IconAccount className="size-[40px] text-[#858b9c]" />
+          <IconAccount className="size-[40px] text-[#6d6d72]" />
           <span className="absolute bottom-[-8px] right-[-8px] flex size-[34px] items-center justify-center rounded-full bg-[#29282d] text-white shadow-[0_6px_16px_rgba(0,0,0,0.22)]">
             <IconAdd className="size-[18px]" />
           </span>
@@ -25,7 +25,7 @@ export default function EmptyEmployeeState({
         <h2 className="mt-[24px] text-[22px] font-semibold leading-tight text-[#18181a]">
           还没有数字员工
         </h2>
-        <p className="mt-[10px] text-[14px] leading-[22px] text-[#757f9c]">
+        <p className="mt-[10px] text-[14px] leading-[22px] text-[#6d6d72]">
           {isAdmin
             ? '创建你的第一位数字员工，为它配置知识库、技能与工具，即可开始接管对话与任务。'
             : '当前还没有可管理的数字员工，创建一位或从开放广场复制已发布的配置作为起点。'}
@@ -42,7 +42,7 @@ export default function EmptyEmployeeState({
           <UiButton
             variant="outline"
             onClick={onBrowsePlatform}
-            className="inline-flex h-[42px] items-center gap-[8px] rounded-[14px] border-[0.5px] border-[#e3e7f1] bg-white px-[22px] text-[14px] font-normal text-[#464c5e] hover:bg-[#f6f6f6] hover:text-[#464c5e]"
+            className="inline-flex h-[42px] items-center gap-[8px] rounded-[14px] border-[0.5px] border-[#e6e4df] bg-white px-[22px] text-[14px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee] hover:text-[#3d3d3f]"
           >
             <IconGlobe className="size-[16px]" />
             浏览开放广场

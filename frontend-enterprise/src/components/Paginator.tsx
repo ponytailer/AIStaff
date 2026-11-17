@@ -21,7 +21,7 @@ export type PaginatorProps = {
 const PILL_CLASS =
   'flex h-[20px] min-w-[20px] items-center justify-center rounded-[6px] px-[12px] text-[10px] leading-none transition-colors';
 const ARROW_CLASS =
-  'flex size-[14px] shrink-0 items-center justify-center text-[#464c5e] transition-opacity disabled:cursor-not-allowed disabled:opacity-30';
+  'flex size-[14px] shrink-0 items-center justify-center text-[#3d3d3f] transition-opacity disabled:cursor-not-allowed disabled:opacity-30';
 
 function getPaginationRange(
   current: number,
@@ -45,7 +45,7 @@ function getPaginationRange(
 /**
  * Global paginator (SD1 design: node 281:2020).
  * Built on the shadcn `Pagination` primitives (nav / ul / li) for structure & a11y,
- * with the SD1 look: 20px pills, 10px zero-padded numbers, `#f6f6f6` active fill,
+ * with the SD1 look: 20px pills, 10px zero-padded numbers, `#f2f1ee` active fill,
  * `#999` inactive text, and 14px chevron arrows.
  */
 export function Paginator({
@@ -97,8 +97,8 @@ export function Paginator({
                 className={cn(
                   PILL_CLASS,
                   item === page
-                    ? 'bg-[#f6f6f6] text-[#464c5e]'
-                    : 'text-[#999] hover:bg-[#f2f3f7] hover:text-[#464c5e]',
+                    ? 'bg-[#f2f1ee] text-[#3d3d3f]'
+                    : 'text-[#999] hover:bg-[#f2f1ee] hover:text-[#3d3d3f]',
                 )}
               >
                 {label(item)}

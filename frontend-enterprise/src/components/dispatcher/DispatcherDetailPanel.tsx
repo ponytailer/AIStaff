@@ -54,7 +54,7 @@ function MemberLine({ member, index }: { member: DispatcherMemberRead; index: nu
   const missing = !member.routing_rule.trim();
   return (
     <div className="flex items-start gap-[9px] py-[7px]">
-      <span className="mt-[1px] grid size-[18px] shrink-0 place-items-center rounded-[6px] bg-[#f2f4f7] text-[10.5px] text-[#5b6274]">
+      <span className="mt-[1px] grid size-[18px] shrink-0 place-items-center rounded-[6px] bg-[#f2f4f7] text-[10.5px] text-[#55555a]">
         {index + 1}
       </span>
       <div className="min-w-0 flex-1">
@@ -63,7 +63,7 @@ function MemberLine({ member, index }: { member: DispatcherMemberRead; index: nu
             {member.agent_name || '已删除的同事'}
           </span>
           {member.has_own_model && (
-            <span className="flex-none rounded-[4px] bg-[#f2f4f7] px-[4px] py-[1px] text-[9.5px] text-[#757f9c]">
+            <span className="flex-none rounded-[4px] bg-[#f2f4f7] px-[4px] py-[1px] text-[9.5px] text-[#6d6d72]">
               自有模型
             </span>
           )}
@@ -76,7 +76,7 @@ function MemberLine({ member, index }: { member: DispatcherMemberRead; index: nu
         <p
           className={cn(
             'm-0 mt-[2px] line-clamp-1 text-[11.5px]',
-            missing ? 'text-[#b08246]' : 'text-[#757f9c]',
+            missing ? 'text-[#b08246]' : 'text-[#6d6d72]',
           )}
           title={member.routing_rule || undefined}
         >
@@ -88,7 +88,7 @@ function MemberLine({ member, index }: { member: DispatcherMemberRead; index: nu
 }
 
 const ghostButtonClass =
-  'inline-flex h-[34px] shrink-0 items-center gap-[5px] rounded-[9px] border border-[#e3e7f1] bg-white px-[12px] text-[12px] text-[#5b6274] transition-colors hover:border-[#cbd3e6] hover:text-[#18181a]';
+  'inline-flex h-[34px] shrink-0 items-center gap-[5px] rounded-[9px] border border-[#e6e4df] bg-white px-[12px] text-[12px] text-[#55555a] transition-colors hover:border-[#ddd9d2] hover:text-[#18181a]';
 
 export default function DispatcherDetailPanel({
   dispatcher,
@@ -115,10 +115,10 @@ export default function DispatcherDetailPanel({
 }) {
   if (!dispatcher) {
     return (
-      <div className="flex min-h-[420px] flex-col items-center justify-center gap-[10px] rounded-[20px] border border-dashed border-[#e3e7f1] bg-white/60 px-[24px] text-center">
+      <div className="flex min-h-[420px] flex-col items-center justify-center gap-[10px] rounded-[20px] border border-dashed border-[#e6e4df] bg-white/60 px-[24px] text-center">
         <DispatcherAvatar preset="network" size={46} radius={14} />
         <p className="m-0 text-[14px] font-medium text-[#18181a]">选一个入口，或先建一个</p>
-        <p className="m-0 max-w-[360px] text-[12px] leading-[18px] text-[#757f9c]">
+        <p className="m-0 max-w-[360px] text-[12px] leading-[18px] text-[#6d6d72]">
           入口不回答业务问题，只负责判断「这句话该由哪位同事接」，然后把问题转过去。
         </p>
         <button
@@ -146,19 +146,19 @@ export default function DispatcherDetailPanel({
               <h2 className="m-0 min-w-0 truncate text-[18px] font-semibold leading-[26px] text-[#18181a]">
                 {dispatcher.name}
               </h2>
-              <span className="flex-none rounded-[5px] bg-[#f0f1f4] px-[5px] py-[1px] text-[10px] text-[#757f9c]">
+              <span className="flex-none rounded-[5px] bg-[#f0f1f4] px-[5px] py-[1px] text-[10px] text-[#6d6d72]">
                 纯路由
               </span>
               {dispatcher.published_to_gallery && (
-                <span className="flex-none rounded-[5px] bg-[#e1f1ed] px-[5px] py-[1px] text-[10px] text-[#0f7268]">
+                <span className="flex-none rounded-[5px] bg-[#e1f1ed] px-[5px] py-[1px] text-[10px] text-[#0f766e]">
                   已发布到广场
                 </span>
               )}
               {!modelBroken && dispatcher.model_name && (
-                <span className="text-[11.5px] text-[#858b9c]">路由模型 {dispatcher.model_name}</span>
+                <span className="text-[11.5px] text-[#6d6d72]">路由模型 {dispatcher.model_name}</span>
               )}
             </div>
-            <p className="m-0 line-clamp-2 text-[12px] leading-[18px] text-[#5b6274]">
+            <p className="m-0 line-clamp-2 text-[12px] leading-[18px] text-[#55555a]">
               {dispatcher.description || '还没有写介绍。写一句「它负责接哪些问题」，同事更容易判断什么时候找它。'}
             </p>
           </div>
@@ -182,7 +182,7 @@ export default function DispatcherDetailPanel({
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label={`更多操作 ${dispatcher.name}`}
-              className="-ml-[2px] grid size-[34px] place-items-center rounded-[9px] border border-[#e3e7f1] bg-white text-[#b4bac8] transition-colors hover:text-[#5b6274]"
+              className="-ml-[2px] grid size-[34px] place-items-center rounded-[9px] border border-[#e6e4df] bg-white text-[#b4bac8] transition-colors hover:text-[#55555a]"
             >
               <StaffdeckIcon name="more" size={15} />
             </DropdownMenuTrigger>
@@ -226,7 +226,7 @@ export default function DispatcherDetailPanel({
         <Section
           title="成员与路由规则"
           action={
-            <button type="button" onClick={onEdit} className="text-[11.5px] text-[#0f7268] hover:underline">
+            <button type="button" onClick={onEdit} className="text-[11.5px] text-[#0f766e] hover:underline">
               去配置
             </button>
           }
@@ -246,23 +246,23 @@ export default function DispatcherDetailPanel({
         <Section
           title="无法匹配时"
           action={
-            <button type="button" onClick={onEdit} className="text-[11.5px] text-[#0f7268] hover:underline">
+            <button type="button" onClick={onEdit} className="text-[11.5px] text-[#0f766e] hover:underline">
               调整
             </button>
           }
         >
           <p className="m-0 text-[12.5px] text-[#18181a]">
             {dispatchFallbackLabel(dispatcher.config.fallback_mode)}
-            <span className="ml-[8px] text-[11px] text-[#858b9c]">
+            <span className="ml-[8px] text-[11px] text-[#6d6d72]">
               · 置信度门槛 {Math.round((dispatcher.config.min_confidence || 0) * 100)}%
             </span>
           </p>
           {dispatcher.config.fallback_mode === 'reply' && dispatcher.config.fallback_reply && (
-            <p className="m-0 mt-[6px] line-clamp-3 rounded-[10px] bg-[#f7f8fa] px-[10px] py-[7px] text-[11.5px] leading-[17px] text-[#5b6274]">
+            <p className="m-0 mt-[6px] line-clamp-3 rounded-[10px] bg-[#f2f1ee] px-[10px] py-[7px] text-[11.5px] leading-[17px] text-[#55555a]">
               「{dispatcher.config.fallback_reply}」
             </p>
           )}
-          <p className="m-0 mt-[8px] text-[11px] leading-[16px] text-[#858b9c]">
+          <p className="m-0 mt-[8px] text-[11px] leading-[16px] text-[#6d6d72]">
             {dispatcher.config.offer_candidates
               ? '判断不准时会先反问，并列出可能的同事。'
               : '判断不准时不会列候选，只按上面的方式回复。'}
@@ -273,7 +273,7 @@ export default function DispatcherDetailPanel({
       <Section
         title="转接情况"
         action={
-          <span className="text-[11px] text-[#858b9c]" title="按会话活动时间近似：转接记录本身没有时间戳">
+          <span className="text-[11px] text-[#6d6d72]" title="按会话活动时间近似：转接记录本身没有时间戳">
             近 7 天 {activity?.sessions_7d ?? 0} 个会话
           </span>
         }
@@ -286,29 +286,29 @@ export default function DispatcherDetailPanel({
             >
               {activity?.transfers ?? dispatcher.usage_count}
             </span>
-            <span className="text-[11.5px] text-[#5b6274]">次转接</span>
+            <span className="text-[11.5px] text-[#55555a]">次转接</span>
           </span>
           <span className="flex items-baseline gap-[5px]">
-            <span className="text-[15px] font-medium leading-none text-[#464c5e]">
+            <span className="text-[15px] font-medium leading-none text-[#3d3d3f]">
               {activity?.sessions ?? dispatcher.usage_count}
             </span>
-            <span className="text-[11.5px] text-[#858b9c]">个会话</span>
+            <span className="text-[11.5px] text-[#6d6d72]">个会话</span>
           </span>
         </div>
         {activity && activity.top_members.length > 0 ? (
           <div className="mt-[10px] flex flex-wrap items-center gap-[6px]">
-            <span className="text-[11px] text-[#858b9c]">最常转给</span>
+            <span className="text-[11px] text-[#6d6d72]">最常转给</span>
             {activity.top_members.map((item) => (
               <span
                 key={item.name}
-                className="rounded-[6px] bg-[#f2f4f7] px-[7px] py-[2px] text-[11px] text-[#464c5e]"
+                className="rounded-[6px] bg-[#f2f4f7] px-[7px] py-[2px] text-[11px] text-[#3d3d3f]"
               >
                 {item.name} × {item.count}
               </span>
             ))}
           </div>
         ) : (
-          <p className="m-0 mt-[10px] text-[11.5px] text-[#858b9c]">
+          <p className="m-0 mt-[10px] text-[11.5px] text-[#6d6d72]">
             还没有转接记录。点「去对话」问一句业务问题，这里就会出现第一个数字。
           </p>
         )}

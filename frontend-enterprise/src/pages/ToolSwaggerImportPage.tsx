@@ -40,13 +40,13 @@ type EditableDraft = SwaggerToolDraft & {
   selected: boolean;
 };
 
-const CARD_CLASS = 'rounded-[16px] border border-[#eceef1] bg-white';
+const CARD_CLASS = 'rounded-[16px] border border-[#ecebe7] bg-white';
 const CARD_TITLE_CLASS = 'text-[14px] font-medium text-[#18181a]';
 const LABEL_CLASS = 'text-[12px] font-medium text-[#18181a]';
-const HINT_CLASS = 'text-[12px] leading-[1.55] text-[#858b9c]';
+const HINT_CLASS = 'text-[12px] leading-[1.55] text-[#6d6d72]';
 const MONO_CLASS = 'font-mono text-[12px] leading-[1.65]';
 const RETURN_BUTTON_CLASS =
-  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e3e7f1] bg-white px-5 text-[12px] font-normal text-[#757f9c] hover:border-[#cbd3e6] hover:bg-white hover:text-[#18181a]';
+  'h-8 gap-1 rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-5 text-[12px] font-normal text-[#6d6d72] hover:border-[#ddd9d2] hover:bg-white hover:text-[#18181a]';
 const PRIMARY_BUTTON_CLASS =
   'h-8 gap-1 rounded-[10px] bg-[#18181a] px-5 text-[12px] font-normal text-white hover:bg-[#303030]';
 
@@ -357,7 +357,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
 
       <div className="grid grid-cols-1 gap-[16px] xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         <section className={`${CARD_CLASS} overflow-hidden`}>
-          <div className="flex min-h-[54px] items-center justify-between border-b border-[#eceef1] px-[20px]">
+          <div className="flex min-h-[54px] items-center justify-between border-b border-[#ecebe7] px-[20px]">
             <span className={CARD_TITLE_CLASS}>1. 选择 Swagger 文件</span>
             {sourceName && <StatusBadge tone="gray">{sourceName}</StatusBadge>}
           </div>
@@ -376,7 +376,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex min-h-[132px] flex-col items-center justify-center gap-[10px] rounded-[14px] border border-dashed border-[#d9dee9] bg-[#fafbfc] px-[18px] text-center transition-colors hover:border-[#18181a] hover:bg-white"
+              className="flex min-h-[132px] flex-col items-center justify-center gap-[10px] rounded-[14px] border border-dashed border-[#d9dee9] bg-[#f2f1ee] px-[18px] text-center transition-colors hover:border-[#18181a] hover:bg-white"
             >
               <span className="grid size-[38px] place-items-center rounded-full bg-white text-[#18181a] shadow-[0_2px_8px_rgba(24,24,26,0.08)]">
                 <FileUp className="size-[18px]" />
@@ -434,7 +434,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
           {!parsed ? (
             <section className={`${CARD_CLASS} grid min-h-[320px] place-items-center p-[24px]`}>
               <div className="flex max-w-[420px] flex-col items-center gap-[10px] text-center">
-                <Layers className="size-[30px] text-[#c0c6d4]" />
+                <Layers className="size-[30px] text-[#d6d1c9]" />
                 <strong className="text-[14px] text-[#18181a]">解析后在这里批量处理接口</strong>
                 <p className={HINT_CLASS}>
                   一次导入多个接口：统一设置分组、Headers 与 Auth，逐条确认工具名和展示名，再批量启用或停用。
@@ -444,7 +444,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
           ) : (
             <>
               <section className={`${CARD_CLASS} overflow-hidden`}>
-                <div className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#eceef1] px-[20px] py-[14px]">
+                <div className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#ecebe7] px-[20px] py-[14px]">
                   <span className={CARD_TITLE_CLASS}>2. 解析结果</span>
                   <div className="flex flex-wrap items-center gap-[6px]">
                     <StatusBadge tone="blue">{parsed.title}{parsed.version ? ` v${parsed.version}` : ''}</StatusBadge>
@@ -467,15 +467,15 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                     />
                     <span className={HINT_CLASS}>所有导入工具会归入同一分组，后续可在工具管理中筛选。</span>
                   </div>
-                  <div className="flex flex-col justify-center gap-[6px] rounded-[12px] border border-[#eceef1] bg-[#fafbfc] px-[14px] py-[10px]">
+                  <div className="flex flex-col justify-center gap-[6px] rounded-[12px] border border-[#ecebe7] bg-[#f2f1ee] px-[14px] py-[10px]">
                     <div className="flex items-center justify-between gap-[12px]">
                       <span>
-                        <span className="block text-[12px] font-medium text-[#464c5e]">导入后立即启用</span>
-                        <span className="mt-[2px] block text-[11px] text-[#858b9c]">关闭后工具会先以停用状态创建。</span>
+                        <span className="block text-[12px] font-medium text-[#3d3d3f]">导入后立即启用</span>
+                        <span className="mt-[2px] block text-[11px] text-[#6d6d72]">关闭后工具会先以停用状态创建。</span>
                       </span>
                       <Switch checked={importEnabled} onCheckedChange={setImportEnabled} />
                     </div>
-                    <div className="flex items-center gap-[6px] text-[11px] text-[#858b9c]">
+                    <div className="flex items-center gap-[6px] text-[11px] text-[#6d6d72]">
                       <ShieldCheck className="size-[13px]" />
                       Auth 占位符使用 {`\${secret.API_TOKEN}`} 形式，运行时从环境变量读取。
                     </div>
@@ -503,7 +503,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
               </section>
 
               <section className={`${CARD_CLASS} overflow-hidden`}>
-                <div className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#eceef1] px-[20px] py-[12px]">
+                <div className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#ecebe7] px-[20px] py-[12px]">
                   <label className="flex items-center gap-[8px] text-[13px] font-medium text-[#18181a]">
                     <Checkbox
                       checked={allSelected ? true : selectedCount > 0 ? 'indeterminate' : false}
@@ -516,7 +516,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                 </div>
                 <div className="max-h-[560px] overflow-auto">
                   <table className="w-full min-w-[760px] border-collapse text-left">
-                    <thead className="sticky top-0 z-10 bg-[#fafbfc] text-[11px] text-[#858b9c]">
+                    <thead className="sticky top-0 z-10 bg-[#f2f1ee] text-[11px] text-[#6d6d72]">
                       <tr>
                         <th className="w-[46px] px-[14px] py-[10px] font-medium">选择</th>
                         <th className="w-[82px] px-[10px] py-[10px] font-medium">方法</th>
@@ -547,10 +547,10 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                           <td className="px-[10px] py-[12px]">
                             <div className="flex flex-col gap-[3px]">
                               <code className="font-mono text-[12px] break-all text-[#18181a]">{draft.path}</code>
-                              <span className="line-clamp-2 text-[11px] leading-[1.5] text-[#858b9c]">
+                              <span className="line-clamp-2 text-[11px] leading-[1.5] text-[#6d6d72]">
                                 {draft.description || draft.display_name || '—'}
                               </span>
-                              <span className="text-[10px] break-all text-[#c0c6d4]">{draft.url}</span>
+                              <span className="text-[10px] break-all text-[#d6d1c9]">{draft.url}</span>
                               {draft.deprecated && <StatusBadge tone="red">deprecated</StatusBadge>}
                             </div>
                           </td>
@@ -570,7 +570,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                               onChange={(event) => patchDraft(index, { display_name: event.target.value })}
                             />
                           </td>
-                          <td className="px-[10px] py-[12px] text-[11px] leading-[1.7] text-[#858b9c]">
+                          <td className="px-[10px] py-[12px] text-[11px] leading-[1.7] text-[#6d6d72]">
                             <div>入参 {schemaFieldCount(draft.input_schema)}</div>
                             <div>出参 {schemaFieldCount(draft.output_schema)}</div>
                           </td>
@@ -585,7 +585,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
 
           {result && (
             <section className={`${CARD_CLASS} overflow-hidden`}>
-              <div className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#eceef1] px-[20px] py-[14px]">
+              <div className="flex flex-wrap items-center justify-between gap-[10px] border-b border-[#ecebe7] px-[20px] py-[14px]">
                 <span className={CARD_TITLE_CLASS}>4. 导入结果与批量操作</span>
                 <div className="flex flex-wrap items-center gap-[6px]">
                   <StatusBadge tone="green">成功 {result.imported}</StatusBadge>
@@ -593,8 +593,8 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                   {result.failed > 0 && <StatusBadge tone="red">失败 {result.failed}</StatusBadge>}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-[8px] border-b border-[#eceef1] bg-[#fafbfc] px-[20px] py-[10px]">
-                <label className="mr-[4px] flex items-center gap-[8px] text-[12px] text-[#464c5e]">
+              <div className="flex flex-wrap items-center gap-[8px] border-b border-[#ecebe7] bg-[#f2f1ee] px-[20px] py-[10px]">
+                <label className="mr-[4px] flex items-center gap-[8px] text-[12px] text-[#3d3d3f]">
                   <Checkbox
                     checked={
                       importedItems.length > 0 && selectedImportedItems.length === importedItems.length
@@ -639,13 +639,13 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                   <Trash2 className="size-3.5" />
                   批量删除
                 </UIButton>
-                <span className="ml-auto text-[11px] text-[#858b9c]">
+                <span className="ml-auto text-[11px] text-[#6d6d72]">
                   已选 {selectedImportedItems.length} 个
                 </span>
               </div>
               <div className="max-h-[420px] overflow-auto">
                 <table className="w-full min-w-[640px] border-collapse text-left">
-                  <thead className="sticky top-0 z-10 bg-[#fafbfc] text-[11px] text-[#858b9c]">
+                  <thead className="sticky top-0 z-10 bg-[#f2f1ee] text-[11px] text-[#6d6d72]">
                     <tr>
                       <th className="w-[46px] px-[14px] py-[10px] font-medium">选择</th>
                       <th className="px-[10px] py-[10px] font-medium">工具</th>
@@ -679,7 +679,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                             <div className="text-[12px] font-medium text-[#18181a]">
                               {item.display_name || item.name}
                             </div>
-                            <code className="text-[11px] text-[#858b9c]">{item.name}</code>
+                            <code className="text-[11px] text-[#6d6d72]">{item.name}</code>
                           </td>
                           <td className="px-[10px] py-[11px]">
                             {deleted ? (
@@ -694,7 +694,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                               </StatusBadge>
                             )}
                           </td>
-                          <td className="px-[10px] py-[11px] text-[11px] leading-[1.55] text-[#858b9c]">
+                          <td className="px-[10px] py-[11px] text-[11px] leading-[1.55] text-[#6d6d72]">
                             {item.error || (item.status === 'imported' ? '已写入当前分组' : '—')}
                           </td>
                         </tr>
@@ -703,7 +703,7 @@ export default function ToolSwaggerImportPage({ currentUser, onLogout }: Swagger
                   </tbody>
                 </table>
               </div>
-              <div className="flex flex-wrap justify-end gap-[8px] border-t border-[#eceef1] px-[20px] py-[12px]">
+              <div className="flex flex-wrap justify-end gap-[8px] border-t border-[#ecebe7] px-[20px] py-[12px]">
                 <UIButton
                   variant="outline"
                   onClick={() => navigate(landingRoute)}

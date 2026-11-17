@@ -340,7 +340,7 @@ export default function EmployeeGalleryPage({
         />
       ))}
       {squadsLoading && !filteredSquads.length && (
-        <p className="col-span-full m-0 py-[44px] text-center text-[12px] text-[#858b9c]">
+        <p className="col-span-full m-0 py-[44px] text-center text-[12px] text-[#6d6d72]">
           正在加载员工小队…
         </p>
       )}
@@ -375,7 +375,7 @@ export default function EmployeeGalleryPage({
         onLogout={onLogout}
         userName={currentUser?.username}
         left={(
-          <div className="flex h-[50px] w-full items-center gap-[6px] rounded-[20px] bg-white px-[20px] text-[#757F9C] shadow-[0_0_6px_rgba(0,0,0,0.05)]">
+          <div className="flex h-[50px] w-full items-center gap-[6px] rounded-[20px] bg-white px-[20px] text-[#6d6d72] shadow-[0_0_6px_rgba(0,0,0,0.05)]">
             <IconSearch className="size-[20px] shrink-0" />
             <input
               autoComplete="off"
@@ -386,7 +386,7 @@ export default function EmployeeGalleryPage({
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="搜索"
               aria-label="搜索数字员工"
-              className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181A] outline-none placeholder:text-[#757F9C]"
+              className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181A] outline-none placeholder:text-[#6d6d72]"
             />
           </div>
         )}

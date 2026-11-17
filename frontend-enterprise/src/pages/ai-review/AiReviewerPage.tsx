@@ -72,14 +72,14 @@ function ListPager({
   const next = () => onGo(page + 1);
   return (
     <div className="flex items-center justify-between gap-[10px] pt-[2px]">
-      <span className="text-[11px] tabular-nums text-[#a3aaba]">{totalLabel}</span>
+      <span className="text-[11px] tabular-nums text-[#9a9a9f]">{totalLabel}</span>
       <div className="flex items-center gap-[4px]">
         <button
           type="button"
           aria-label="上一页"
           disabled={page <= 1}
           onClick={prev}
-          className="grid size-[24px] place-items-center rounded-[7px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a] disabled:opacity-40"
+          className="grid size-[24px] place-items-center rounded-[7px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a] disabled:opacity-40"
         >
           <ChevronLeft className="size-[13px]" />
         </button>
@@ -92,7 +92,7 @@ function ListPager({
               'grid size-[26px] place-items-center rounded-[7px] text-[11.5px] tabular-nums transition-colors',
               item === page
                 ? 'bg-[#18181a] text-white'
-                : 'border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] hover:bg-[#f6f6f6] hover:text-[#18181a]',
+                : 'border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] hover:bg-[#f2f1ee] hover:text-[#18181a]',
             )}
           >
             {item}
@@ -103,7 +103,7 @@ function ListPager({
           aria-label="下一页"
           disabled={totalPages > 0 ? page >= totalPages : !hasMore}
           onClick={next}
-          className="grid size-[26px] place-items-center rounded-[7px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a] disabled:opacity-40"
+          className="grid size-[26px] place-items-center rounded-[7px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a] disabled:opacity-40"
         >
           <ChevronRight className="size-[13px]" />
         </button>
@@ -136,16 +136,16 @@ export function GroupTitle({
   hint?: string;
 }) {
   return (
-    <div className="flex items-center gap-[6px] text-[#757f9c]">
+    <div className="flex items-center gap-[6px] text-[#6d6d72]">
       {icon}
-      <span className="text-[14px] font-normal leading-none text-[#464c5e]">{title}</span>
-      {hint && <span className="text-[12px] text-[#a3aaba]">{hint}</span>}
+      <span className="text-[14px] font-normal leading-none text-[#3d3d3f]">{title}</span>
+      {hint && <span className="text-[12px] text-[#9a9a9f]">{hint}</span>}
     </div>
   );
 }
 
 export function PlatformChip({ platform }: { platform: string }) {
-  const meta = PLATFORM_META[platform] ?? { label: platform, tone: 'bg-[#f3f4f6] text-[#464c5e]' };
+  const meta = PLATFORM_META[platform] ?? { label: platform, tone: 'bg-[#f2f1ee] text-[#3d3d3f]' };
   return (
     <span className={cn('rounded-[6px] px-[7px] py-[2px] text-[11px] leading-[16px] font-medium', meta.tone)}>
       {meta.label}
@@ -189,7 +189,7 @@ function WorkspaceRow({
     <div
       className={cn(
         'group cursor-pointer rounded-[12px] border-[0.5px] px-[12px] py-[10px] transition-colors',
-        active ? 'border-[#cfe0ff] bg-[#f4f8ff]' : 'border-transparent bg-[#fafbfd] hover:bg-[#f6f6f6]',
+        active ? 'border-[#cfe0ff] bg-[#f4f8ff]' : 'border-transparent bg-[#f2f1ee] hover:bg-[#f2f1ee]',
       )}
       onClick={onOpen}
       role="button"
@@ -220,7 +220,7 @@ function WorkspaceRow({
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
-                className="rounded-[6px] px-[8px] py-[2px] text-[11px] text-[#757f9c] transition-colors hover:bg-[#f3f4f6]"
+                className="rounded-[6px] px-[8px] py-[2px] text-[11px] text-[#6d6d72] transition-colors hover:bg-[#f2f1ee]"
               >
                 取消
               </button>
@@ -231,14 +231,14 @@ function WorkspaceRow({
               aria-label="删除该 workspace"
               title="删除 workspace 及其全部评审任务"
               onClick={() => setConfirming(true)}
-              className="grid size-[22px] place-items-center rounded-[6px] text-[#a3aaba] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b]"
+              className="grid size-[22px] place-items-center rounded-[6px] text-[#9a9a9f] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b]"
             >
               <Trash2 className="size-[13px]" />
             </button>
           )}
         </span>
       </div>
-      <div className="mt-[3px] truncate font-mono text-[11px] text-[#a3aaba]">{workspace.repo_path}</div>
+      <div className="mt-[3px] truncate font-mono text-[11px] text-[#9a9a9f]">{workspace.repo_path}</div>
     </div>
   );
 }
@@ -260,21 +260,21 @@ function MergeRequestRow({
     <div
       className={cn(
         'flex items-start gap-[10px] rounded-[12px] border-[0.5px] px-[14px] py-[10px]',
-        blocked ? 'border-[#dbe6ff] bg-[#f7faff]' : 'border-[#eef0f4] bg-[#fafbfd]',
+        blocked ? 'border-[#dbe6ff] bg-[#f7faff]' : 'border-[#ecebe7] bg-[#f2f1ee]',
       )}
     >
       <GitPullRequest className="mt-[3px] size-[14px] shrink-0 text-[#1a71ff]" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-[6px]">
-          <span className="shrink-0 text-[12px] font-medium tabular-nums text-[#757f9c]">#{mr.number}</span>
+          <span className="shrink-0 text-[12px] font-medium tabular-nums text-[#6d6d72]">#{mr.number}</span>
           <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#18181a]" title={mr.title}>
             {mr.title || '（无标题）'}
           </span>
         </div>
         {mr.description?.trim() && (
-          <p className="mt-[3px] line-clamp-2 text-[11.5px] leading-[17px] text-[#858b9c]">{mr.description}</p>
+          <p className="mt-[3px] line-clamp-2 text-[11.5px] leading-[17px] text-[#6d6d72]">{mr.description}</p>
         )}
-        <div className="mt-[3px] flex flex-wrap items-center gap-x-[10px] gap-y-[2px] text-[11px] text-[#757f9c]">
+        <div className="mt-[3px] flex flex-wrap items-center gap-x-[10px] gap-y-[2px] text-[11px] text-[#6d6d72]">
           <span className="truncate font-mono">
             {mr.source_branch} → {mr.target_branch}
           </span>
@@ -301,7 +301,7 @@ function MergeRequestRow({
         className={cn(
           'h-[28px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] px-[10px] text-[12px] font-normal',
           blocked
-            ? 'cursor-not-allowed border-[#e3e7f1] bg-[#f6f6f6] text-[#a3aaba]'
+            ? 'cursor-not-allowed border-[#e6e4df] bg-[#f2f1ee] text-[#9a9a9f]'
             : 'border-[#cfe0ff] bg-[#f4f8ff] text-[#1a71ff] hover:bg-[#e9f1ff]',
         )}
       >
@@ -388,7 +388,7 @@ function MrList({
     <>
       <div className="flex items-center gap-[8px]">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-[10px] top-1/2 size-[13px] -translate-y-1/2 text-[#a3aaba]" />
+          <Search className="pointer-events-none absolute left-[10px] top-1/2 size-[13px] -translate-y-1/2 text-[#9a9a9f]" />
           <input
             value={searchDraft}
             placeholder="搜索标题 / 作者 / 编号（如 #42）"
@@ -399,14 +399,14 @@ function MrList({
                 setSearch(searchDraft);
               }
             }}
-            className="h-[32px] w-full rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white pl-[28px] pr-[10px] text-[12px] text-[#18181a] outline-none transition-colors placeholder:text-[#a3aaba] focus:border-[#cfe0ff] focus:ring-2 focus:ring-[#e9f1ff]"
+            className="h-[32px] w-full rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white pl-[28px] pr-[10px] text-[12px] text-[#18181a] outline-none transition-colors placeholder:text-[#9a9a9f] focus:border-[#cfe0ff] focus:ring-2 focus:ring-[#e9f1ff]"
           />
         </div>
         {search !== searchDraft && (
           <UIButton
             type="button"
             onClick={() => setSearch(searchDraft)}
-            className="h-[32px] shrink-0 rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+            className="h-[32px] shrink-0 rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
           >
             搜索
           </UIButton>
@@ -419,7 +419,7 @@ function MrList({
               setSearchDraft('');
               setSearch('');
             }}
-            className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+            className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
           >
             <X className="size-[13px]" />
           </button>
@@ -427,7 +427,7 @@ function MrList({
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-[8px] py-[18px] text-[12px] text-[#a3aaba]">
+        <div className="flex items-center gap-[8px] py-[18px] text-[12px] text-[#9a9a9f]">
           <LoaderCircle className="size-[13px] animate-spin" />
           正在拉取 open 状态的 PR / MR…
         </div>
@@ -445,7 +445,7 @@ function MrList({
           </button>
         </div>
       ) : (items ?? []).length === 0 ? (
-        <div className="rounded-[12px] border-[0.5px] border-dashed border-[#e3e7f1] bg-[#fafbfd] px-[14px] py-[18px] text-[12px] leading-[18px] text-[#757f9c]">
+        <div className="rounded-[12px] border-[0.5px] border-dashed border-[#e6e4df] bg-[#f2f1ee] px-[14px] py-[18px] text-[12px] leading-[18px] text-[#6d6d72]">
           {search
             ? `没有匹配「${search}」的 open PR / MR。换个关键词，或清空搜索看全量列表。`
             : '该仓库当前没有 open 状态的 PR / MR。可以在「评审任务」下方手动指定一个已存在的编号。'}
@@ -493,11 +493,11 @@ function TaskRow({
   busy: boolean;
 }) {
   return (
-    <div className="flex items-start gap-[10px] rounded-[12px] border-[0.5px] border-[#eef0f4] bg-[#fafbfd] px-[14px] py-[10px]">
+    <div className="flex items-start gap-[10px] rounded-[12px] border-[0.5px] border-[#ecebe7] bg-[#f2f1ee] px-[14px] py-[10px]">
       <StatusChip status={task.status} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-[6px]">
-          <span className="shrink-0 text-[12px] font-medium tabular-nums text-[#757f9c]">#{task.mr_number}</span>
+          <span className="shrink-0 text-[12px] font-medium tabular-nums text-[#6d6d72]">#{task.mr_number}</span>
           <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[#18181a]" title={task.mr_title}>
             {task.mr_title || '（无标题）'}
           </span>
@@ -505,7 +505,7 @@ function TaskRow({
         {task.error ? (
           <p className="mt-[3px] line-clamp-2 text-[11.5px] leading-[17px] text-[#c0392b]">{task.error}</p>
         ) : (
-          <div className="mt-[3px] flex flex-wrap items-center gap-x-[10px] gap-y-[2px] text-[11px] text-[#757f9c]">
+          <div className="mt-[3px] flex flex-wrap items-center gap-x-[10px] gap-y-[2px] text-[11px] text-[#6d6d72]">
             <span className="truncate font-mono">
               {task.source_branch} → {task.target_branch}
             </span>
@@ -552,7 +552,7 @@ function TaskRow({
             title="重新入队"
             disabled={busy}
             onClick={onRetry}
-            className="grid size-[28px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a] disabled:opacity-50"
+            className="grid size-[28px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a] disabled:opacity-50"
           >
             {busy ? <LoaderCircle className="size-[13px] animate-spin" /> : <RotateCcw className="size-[13px]" />}
           </button>
@@ -562,7 +562,7 @@ function TaskRow({
           aria-label="删除该任务"
           disabled={busy}
           onClick={onDelete}
-          className="grid size-[28px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b] disabled:opacity-50"
+          className="grid size-[28px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#fce7e7] hover:text-[#c0392b] disabled:opacity-50"
         >
           <Trash2 className="size-[13px]" />
         </button>
@@ -774,14 +774,14 @@ export default function AiReviewerPage({
                 aria-label="平台设置"
                 title="平台 token 与全局评审要求"
                 onClick={() => setSettingsOpen(true)}
-                className="grid size-[30px] place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+                className="grid size-[30px] place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
               >
                 <Settings2 className="size-[14px]" />
               </button>
               <UIButton
                 type="button"
                 onClick={() => setWorkspaceDialogOpen(true)}
-                className="h-[30px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+                className="h-[30px] shrink-0 gap-[4px] rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
               >
                 <Plus className="size-[13px]" />
                 新建
@@ -790,13 +790,13 @@ export default function AiReviewerPage({
           </div>
 
           {workspacesLoading ? (
-            <div className="flex items-center gap-[8px] py-[24px] text-[12px] text-[#a3aaba]">
+            <div className="flex items-center gap-[8px] py-[24px] text-[12px] text-[#9a9a9f]">
               <LoaderCircle className="size-[13px] animate-spin" />
               正在加载 workspace…
             </div>
           ) : workspaces.length === 0 ? (
-            <div className="flex flex-col items-start gap-[8px] rounded-[12px] border-[0.5px] border-dashed border-[#e3e7f1] bg-[#fafbfd] px-[14px] py-[18px] text-[12px] leading-[18px] text-[#757f9c]">
-              <span className="inline-flex items-center gap-[6px] font-medium text-[#464c5e]">
+            <div className="flex flex-col items-start gap-[8px] rounded-[12px] border-[0.5px] border-dashed border-[#e6e4df] bg-[#f2f1ee] px-[14px] py-[18px] text-[12px] leading-[18px] text-[#6d6d72]">
+              <span className="inline-flex items-center gap-[6px] font-medium text-[#3d3d3f]">
                 <GitBranch className="size-[13px]" />
                 还没有 workspace
               </span>
@@ -818,10 +818,10 @@ export default function AiReviewerPage({
           )}
 
           {selected && (
-            <div className="shrink-0 rounded-[12px] bg-[#fafbfd] px-[12px] py-[10px] text-[11px] leading-[16px] text-[#a3aaba]">
+            <div className="shrink-0 rounded-[12px] bg-[#f2f1ee] px-[12px] py-[10px] text-[11px] leading-[16px] text-[#9a9a9f]">
               <span className="font-mono">{selected.repo_url}</span>
               <div className="mt-[2px]">
-                默认分支 <span className="font-mono text-[#757f9c]">{selected.default_branch}</span> ·{' '}
+                默认分支 <span className="font-mono text-[#6d6d72]">{selected.default_branch}</span> ·{' '}
                 {taskMeta.total > 0 ? `${taskMeta.total} 个评审任务` : '暂无评审任务'}
               </div>
             </div>
@@ -833,11 +833,11 @@ export default function AiReviewerPage({
           {!selected ? (
             <SectionCard className="min-h-0 flex-1 items-center justify-center py-[60px]">
               <div className="flex flex-col items-center gap-[10px] text-center">
-                <span className="grid size-[44px] place-items-center rounded-[14px] bg-[#f3f4f6] text-[#a3aaba]">
+                <span className="grid size-[44px] place-items-center rounded-[14px] bg-[#f2f1ee] text-[#9a9a9f]">
                   <GitBranch className="size-[20px]" />
                 </span>
-                <p className="text-[13px] font-medium text-[#464c5e]">选择左侧 workspace 后开始评审</p>
-                <p className="text-[12px] text-[#757f9c]">
+                <p className="text-[13px] font-medium text-[#3d3d3f]">选择左侧 workspace 后开始评审</p>
+                <p className="text-[12px] text-[#6d6d72]">
                   右侧会展示该仓库 open 状态的 PR / MR，逐个发起异步评审。
                 </p>
               </div>
@@ -870,7 +870,7 @@ export default function AiReviewerPage({
               </div>
               <div className="flex items-center gap-[8px]">
                 <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-[10px] top-1/2 size-[13px] -translate-y-1/2 text-[#a3aaba]" />
+                  <Search className="pointer-events-none absolute left-[10px] top-1/2 size-[13px] -translate-y-1/2 text-[#9a9a9f]" />
                   <input
                     value={taskSearchDraft}
                     placeholder="搜索标题 / 作者 / 编号（如 #42）"
@@ -881,14 +881,14 @@ export default function AiReviewerPage({
                         setTaskSearch(taskSearchDraft);
                       }
                     }}
-                    className="h-[32px] w-full rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white pl-[28px] pr-[10px] text-[12px] text-[#18181a] outline-none transition-colors placeholder:text-[#a3aaba] focus:border-[#cfe0ff] focus:ring-2 focus:ring-[#e9f1ff]"
+                    className="h-[32px] w-full rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white pl-[28px] pr-[10px] text-[12px] text-[#18181a] outline-none transition-colors placeholder:text-[#9a9a9f] focus:border-[#cfe0ff] focus:ring-2 focus:ring-[#e9f1ff]"
                   />
                 </div>
                 {taskSearch !== taskSearchDraft && (
                   <UIButton
                     type="button"
                     onClick={() => setTaskSearch(taskSearchDraft)}
-                    className="h-[32px] shrink-0 rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white px-[12px] text-[12px] font-normal text-[#464c5e] hover:bg-[#f6f6f6]"
+                    className="h-[32px] shrink-0 rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:bg-[#f2f1ee]"
                   >
                     搜索
                   </UIButton>
@@ -901,14 +901,14 @@ export default function AiReviewerPage({
                       setTaskSearchDraft('');
                       setTaskSearch('');
                     }}
-                    className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e3e7f1] bg-white text-[#757f9c] transition-colors hover:bg-[#f6f6f6] hover:text-[#18181a]"
+                    className="grid size-[30px] shrink-0 place-items-center rounded-[8px] border-[0.5px] border-[#e6e4df] bg-white text-[#6d6d72] transition-colors hover:bg-[#f2f1ee] hover:text-[#18181a]"
                   >
                     <X className="size-[13px]" />
                   </button>
                 )}
               </div>
               {tasks.length === 0 ? (
-                <div className="rounded-[12px] border-[0.5px] border-dashed border-[#e3e7f1] bg-[#fafbfd] px-[14px] py-[18px] text-[12px] leading-[18px] text-[#757f9c]">
+                <div className="rounded-[12px] border-[0.5px] border-dashed border-[#e6e4df] bg-[#f2f1ee] px-[14px] py-[18px] text-[12px] leading-[18px] text-[#6d6d72]">
                   {taskSearch
                     ? `没有匹配「${taskSearch}」的评审任务。换个关键词，或清空搜索看全量列表。`
                     : '还没有评审任务。在上方挑一条 PR / MR 点「发起评审」，或手动指定编号；任务交给后台队列跑（通常几分钟）， 完成后状态会自动刷新为「已完成」。'}
