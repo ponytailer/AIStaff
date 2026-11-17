@@ -296,7 +296,7 @@ describe('MessageBubble reply card', () => {
 });
 
 describe('MessageBubble human handoff reply', () => {
-  function renderHumanReply(content: string) {
+  function renderHumanReply(content: string, attachments: MessageRender['attachments'] = []) {
     const item: ChatMessage = {
       id: 'message-human',
       role: 'user',
@@ -314,7 +314,7 @@ describe('MessageBubble human handoff reply', () => {
       citations: [],
       scheduledDraft: null,
       scheduledTaskPrompt: false,
-      attachments: [],
+      attachments,
       harnessArtifacts: [],
       statusOnly: false,
     };
@@ -348,6 +348,33 @@ describe('MessageBubble human handoff reply', () => {
     const { container } = renderSlashMessage('转人工', []);
     expect(container.querySelector('[class*="text-[#b45309]"]')).toBeNull();
     expect(container.querySelector('[class*="bg-[#e5e4e0]"]')).toBeTruthy();
+  });
+
+  it('renders attachments on a human reply that only sent files', () => {
+    // 人工回复允许只发图片/附件不写字：content 为空，附件就是这条消息的全部内容。
+    // 之前 isHumanReply 是 early-return 分支，附件渲染块在它之后，纯附件回复会渲成空气泡。
+    const { container } = renderHumanReply('', [
+      {
+        id: 'att-human-image',
+        filename: '账单截图.png',
+        content_type: 'image/png',
+        size: 2048,
+        kind: 'image',
+        data_url: 'data:image/png;base64,AAA',
+      },
+      {
+        id: 'att-human-file',
+        filename: '对账单.pdf',
+        content_type: 'application/pdf',
+        size: 512_000,
+        kind: 'pdf',
+      },
+    ]);
+
+    expect(screen.getByRole('button', { name: '查看附件图片 账单截图.png' })).toBeTruthy();
+    expect(screen.getByText('对账单.pdf')).toBeTruthy();
+    // 「人工回复」标签仍在，说明走的还是人工那一支，不是被降级成普通用户气泡。
+    expect(container.querySelector('[class*="text-[#b45309]"]')?.textContent).toContain('人工回复');
   });
 });
 

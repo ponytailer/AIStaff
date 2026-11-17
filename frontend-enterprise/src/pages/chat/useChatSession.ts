@@ -145,6 +145,11 @@ import {
   type TurnTrace,
 } from './chatTypes';
 import {
+  pendingComposerAttachment,
+  readyAttachmentsOf,
+  uploadAttachment,
+} from './attachmentUpload';
+import {
   chatQueueStorageKey,
   readQueuedChatTurns,
   writeQueuedChatTurns,
@@ -420,6 +425,12 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   const [handoffsLoading, setHandoffsLoading] = useState(false);
   const [showHandoffInbox, setShowHandoffInbox] = useState(false);
   const [handoffReplies, setHandoffReplies] = useState<Record<string, string>>({});
+  // 待回答里按 handoff 分组的附件草稿（键是 handoff.id）：每个卡片各传各的，
+  // 关掉弹窗再打开仍保留草稿，避免误关一次就把选好的图丢了。
+  const [handoffAttachments, setHandoffAttachments] = useState<
+    Record<string, ComposerAttachment[]>
+  >({});
+  const handoffUploadControllersRef = useRef(new Map<string, AbortController>());
   const [isComposing, setIsComposing] = useState(false);
   const [runningTurn, setRunningTurn] = useState<{ sessionId: string; turnId: string } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => (
@@ -1648,9 +1659,30 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       .finally(() => setHandoffsLoading(false));
   }, [auth, notifyRequestError, tenantId]);
 
-  const replyToHandoff = useCallback(async (handoff: HumanHandoffRead, reply: string): Promise<boolean> => {
+  const clearHandoffDraft = useCallback((handoffId: string) => {
+    setHandoffReplies((prev) => {
+      const next = { ...prev };
+      delete next[handoffId];
+      return next;
+    });
+    setHandoffAttachments((prev) => {
+      const next = { ...prev };
+      delete next[handoffId];
+      return next;
+    });
+  }, []);
+
+  const replyToHandoff = useCallback(async (
+    handoff: HumanHandoffRead,
+    reply: string,
+    attachments: ChatAttachmentRead[] = [],
+  ): Promise<boolean> => {
     try {
-      await api.post<HumanHandoffRead>(`/api/chat/handoffs/${handoff.id}/reply`, { tenant_id: tenantId, reply });
+      await api.post<HumanHandoffRead>(`/api/chat/handoffs/${handoff.id}/reply`, {
+        tenant_id: tenantId,
+        reply,
+        ...(attachments.length ? { attachments } : {}),
+      });
       // 只有 SOP 节点触发的转人工会恢复流程；普通转人工的人工回复就是最终答复，
       // 后端不会再跑一轮，提示文案要跟着区分，免得等一个永远不来的追问。
       notify.success(
@@ -1659,11 +1691,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
           : '已回复，用户已在会话中收到',
       );
       setHandoffs((rows) => rows.filter((item) => item.id !== handoff.id));
-      setHandoffReplies((prev) => {
-        const next = { ...prev };
-        delete next[handoff.id];
-        return next;
-      });
+      clearHandoffDraft(handoff.id);
       // 回复完这条待回答就没了收件箱的活儿：弹窗直接关掉，别让 owner 对着
       // 一个「暂无待回答消息」的空壳再点一次关闭（线上反馈的原话）。
       setShowHandoffInbox(false);
@@ -1680,17 +1708,74 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       notify.error(error instanceof Error ? error.message : '回复失败');
       return false;
     }
-  }, [getSlot, loadMessages, loadSessions, loadTraces, redirectToLogin, tenantId]);
+  }, [clearHandoffDraft, getSlot, loadMessages, loadSessions, loadTraces, redirectToLogin, tenantId]);
+
+  /** 待回答卡片里选文件：与对话输入框共用同一套上传 + PDF 解析轮询。 */
+  const uploadHandoffFiles = useCallback((handoffId: string, files: File[]) => {
+    const validFiles = files.filter((file) => file.size > 0);
+    if (!validFiles.length) return;
+    validFiles.forEach((file) => {
+      const uploadKey = `handoff_${handoffId}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      const controller = new AbortController();
+      handoffUploadControllersRef.current.set(uploadKey, controller);
+      setHandoffAttachments((prev) => ({
+        ...prev,
+        [handoffId]: [...(prev[handoffId] || []), pendingComposerAttachment(uploadKey, file)],
+      }));
+      const replace = (next: ComposerAttachment) => {
+        setHandoffAttachments((prev) => ({
+          ...prev,
+          [handoffId]: (prev[handoffId] || []).map((item) =>
+            item.uploadKey === uploadKey ? next : item,
+          ),
+        }));
+      };
+      void uploadAttachment({
+        tenantId,
+        file,
+        uploadKey,
+        signal: controller.signal,
+        onAttachment: replace,
+        onError: (message) => {
+          setHandoffAttachments((prev) => ({
+            ...prev,
+            [handoffId]: (prev[handoffId] || []).map((item) => (
+              item.uploadKey === uploadKey
+                ? { ...item, uploadStatus: 'error', error: message }
+                : item
+            )),
+          }));
+        },
+      }).finally(() => {
+        handoffUploadControllersRef.current.delete(uploadKey);
+      });
+    });
+  }, [tenantId]);
+
+  const removeHandoffAttachment = useCallback((handoffId: string, uploadKey: string) => {
+    handoffUploadControllersRef.current.get(uploadKey)?.abort();
+    handoffUploadControllersRef.current.delete(uploadKey);
+    setHandoffAttachments((prev) => ({
+      ...prev,
+      [handoffId]: (prev[handoffId] || []).filter((item) => item.uploadKey !== uploadKey),
+    }));
+  }, []);
 
   const submitHandoffReply = useCallback((handoff: HumanHandoffRead) => {
     const reply = (handoffReplies[handoff.id] || '').trim();
-    if (!reply) {
-      notify.warning('请输入回复内容');
+    const drafts = handoffAttachments[handoff.id] || [];
+    const attachments = readyAttachmentsOf(drafts);
+    if (!reply && !attachments.length) {
+      notify.warning('请输入回复内容或添加附件');
       return;
     }
-    if (!ensureModelAvailable()) return;
-    void replyToHandoff(handoff, reply);
-  }, [ensureModelAvailable, handoffReplies, replyToHandoff]);
+    if (drafts.some((item) => item.uploadStatus === 'uploading')) {
+      notify.warning('附件还在上传，请稍候');
+      return;
+    }
+    if (reply && !ensureModelAvailable()) return;
+    void replyToHandoff(handoff, reply, attachments);
+  }, [ensureModelAvailable, handoffAttachments, handoffReplies, replyToHandoff]);
 
   // 「无需回答」：这条转人工不需要人接了（用户自己解决了 / 已在别处答过），
   // 关掉 handoff 并把它从待回答收件箱移除，不给会话追加任何消息。
@@ -1702,11 +1787,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       });
       notify.success('已标记无需回答，该条已移出待回答');
       setHandoffs((rows) => rows.filter((item) => item.id !== handoff.id));
-      setHandoffReplies((prev) => {
-        const next = { ...prev };
-        delete next[handoff.id];
-        return next;
-      });
+      clearHandoffDraft(handoff.id);
       loadSessions();
       getSlot(handoff.session_id);
       void loadMessages(handoff.session_id);
@@ -1719,7 +1800,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       notify.error(error instanceof Error ? error.message : '标记失败');
       return false;
     }
-  }, [getSlot, loadMessages, loadSessions, redirectToLogin, tenantId]);
+  }, [clearHandoffDraft, getSlot, loadMessages, loadSessions, redirectToLogin, tenantId]);
 
   const openHandoffInbox = useCallback(() => {
     setShowHandoffInbox(true);
@@ -3230,117 +3311,37 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   const uploadComposerFiles = useCallback((files: File[]) => {
     const validFiles = files.filter((file) => file.size > 0);
     if (!validFiles.length) return;
-    /** PDF 云端解析（MinerU）轮询：保持 uploading 状态直到解析完成/失败，期间禁止发送。 */
-    const pollAttachmentParse = async (
-      uploadKey: string,
-      parsed: ChatAttachmentRead,
-      signal: AbortSignal,
-    ) => {
-      const jobId = parsed.parse_job_id;
-      if (!jobId) return;
-      const applyJob = (job: ChatAttachmentParseJob) => {
-        setComposerAttachments((current) =>
-          current.map((item) =>
-            item.uploadKey === uploadKey
-              ? {
-                  ...item,
-                  ...parsed,
-                  uploadKey,
-                  parse_status: job.status,
-                  parse_progress: job.progress,
-                  uploadStatus:
-                    job.status === 'succeeded' ? 'ready' : job.status === 'failed' ? 'error' : 'uploading',
-                  error: job.status === 'failed' ? job.error || '云端解析失败，请重试' : null,
-                }
-              : item,
-          ),
-        );
-      };
-      const startedAt = Date.now();
-      const parseTimeoutMs = 12 * 60 * 1000;
-      while (Date.now() - startedAt < parseTimeoutMs) {
-        if (signal.aborted) return;
-        try {
-          const job = await fetchChatAttachmentParseJob(tenantId, jobId, signal);
-          applyJob(job);
-          if (job.status === 'succeeded' || job.status === 'failed') return;
-        } catch (error) {
-          if (signal.aborted) return;
-          if (error instanceof ApiError && error.status === 404) {
-            // 任务已不存在（网关重启清库等）：放行为普通附件，不再阻塞发送
-            setComposerAttachments((current) =>
-              current.map((item) =>
-                item.uploadKey === uploadKey ? { ...item, parse_job_id: null, uploadStatus: 'ready' } : item,
-              ),
-            );
-            return;
-          }
-          // 网络抖动不终止轮询，继续下一轮
-        }
-        await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, 2000);
-          if (signal.aborted) {
-            clearTimeout(timer);
-            resolve();
-            return;
-          }
-          signal.addEventListener('abort', () => {
-            clearTimeout(timer);
-            resolve();
-          }, { once: true });
-        });
-      }
-      // 超时兜底：标记失败并提示重试（服务端 rq job 900s 超时上限 + 轮询余量）
-      setComposerAttachments((current) =>
-        current.map((item) =>
-          item.uploadKey === uploadKey
-            ? { ...item, uploadStatus: 'error', error: '云端解析超时，请移除后重新上传' }
-            : item,
-        ),
-      );
-    };
     validFiles.forEach((file) => {
       const uploadKey = `upload_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       const controller = new AbortController();
       uploadControllersRef.current.set(uploadKey, controller);
       setComposerAttachments((current) => [
         ...current,
-        {
-          id: uploadKey,
-          uploadKey,
-          filename: file.name || '剪贴板文件',
-          content_type: file.type || 'application/octet-stream',
-          size: file.size,
-          kind: file.type.startsWith('image/') ? 'image' : 'binary',
-          uploadStatus: 'uploading',
-        },
+        pendingComposerAttachment(uploadKey, file),
       ]);
-      uploadChatAttachments<ChatAttachmentRead[]>(tenantId, [file], controller.signal)
-        .then(async (items) => {
-          const parsed = items[0];
-          if (!parsed) throw new Error('文件解析结果为空');
-          if (parsed.parse_job_id) {
-            // PDF 云端解析（MinerU）：等解析完成再变为 ready，期间保持发送禁用
-            await pollAttachmentParse(uploadKey, parsed, controller.signal);
-            return;
-          }
-          setComposerAttachments((current) =>
-            current.map((item) => (item.uploadKey === uploadKey ? { ...parsed, uploadKey, uploadStatus: 'ready' } : item)),
-          );
-        })
-        .catch((error) => {
-          if (controller.signal.aborted) return;
+      const replace = (next: ComposerAttachment) => {
+        setComposerAttachments((current) =>
+          current.map((item) => (item.uploadKey === uploadKey ? next : item)),
+        );
+      };
+      void uploadAttachment({
+        tenantId,
+        file,
+        uploadKey,
+        signal: controller.signal,
+        onAttachment: replace,
+        onError: (message) => {
           setComposerAttachments((current) =>
             current.map((item) => (
               item.uploadKey === uploadKey
-                ? { ...item, uploadStatus: 'error', error: error instanceof Error ? error.message : '上传失败' }
+                ? { ...item, uploadStatus: 'error', error: message }
                 : item
             )),
           );
-        })
-        .finally(() => {
-          uploadControllersRef.current.delete(uploadKey);
-        });
+        },
+      }).finally(() => {
+        uploadControllersRef.current.delete(uploadKey);
+      });
     });
   }, [tenantId]);
 
@@ -3817,16 +3818,14 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
         notify.warning('待回答会话仅支持发送人工回复');
         return;
       }
-      if (readyComposerAttachments.length > 0) {
-        notify.warning('待回答暂不支持附件，请发送文字回复');
-        return;
-      }
+      // 人工回复支持图片/附件：走同一个 replyToHandoff（附件随回复一起提交），
+      // 不带附件时行为与只在文字框里回复完全一致。
       const reply = outgoingText;
-      if (!reply) {
-        notify.warning('请输入回复内容');
+      if (!reply && readyComposerAttachments.length === 0) {
+        notify.warning('请输入回复内容或添加附件');
         return;
       }
-      if (await replyToHandoff(pendingHandoff, reply)) {
+      if (await replyToHandoff(pendingHandoff, reply, readyComposerAttachments.map(toRequestAttachment))) {
         setInput('');
         setComposerAttachments([]);
         setComposerIntent(null);
@@ -4208,6 +4207,9 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     openHandoffInbox,
     handoffReplies,
     setHandoffReplies,
+    handoffAttachments,
+    uploadHandoffFiles,
+    removeHandoffAttachment,
     submitHandoffReply,
     dismissHandoff,
     // composer actions

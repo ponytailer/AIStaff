@@ -10,11 +10,12 @@ import time
 import traceback
 from collections.abc import Callable, Iterator
 from datetime import timedelta
+from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, or_, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -71,6 +72,10 @@ from app.scheduled_tasks.service import DEFAULT_TASK_TIME, detect_scheduled_task
 from app.security.auth import ShareScope, get_current_user, get_share_scope
 from app.security.permissions import agent_owned_by_user, is_admin_user
 from app.security.tenant import ensure_tenant
+from app.session.attachment_store import (
+    read_staged_chat_attachment,
+    stage_chat_attachment,
+)
 from app.session.attachments import (
     parse_chat_attachment,
     validate_chat_turn_attachments,
@@ -188,7 +193,11 @@ class ChatTurnCancelRequest(BaseModel):
 
 class HumanHandoffReplyRequest(BaseModel):
     tenant_id: str
-    reply: str
+    reply: str = ""
+    # 人工回复也能带图片/附件：走与用户发消息完全相同的上传接口
+    # （POST /api/chat/attachments），回程按同一套校验再落库。
+    # 只发附件不写字时 reply 允许为空，但不能两者都空。
+    attachments: list[ChatAttachmentRead] = Field(default_factory=list)
 
 
 class HumanHandoffDismissRequest(BaseModel):
@@ -420,12 +429,17 @@ def _apply_handoff_reply(
     *,
     answered_by_user_id: str | None,
     source: str = "web",
+    attachments: list[ChatAttachmentRead] | None = None,
 ) -> None:
     """把一条 pending handoff 置为 answered；SOP 节点触发的才恢复流程。
 
     供网页 API(reply_human_handoff)与渠道 intake 回复分支复用。
     调用前需已完成权限校验与状态校验;本函数负责落库 + 事件 + 异步恢复。
     source: "web" 或渠道名,由调用方显式指定(不再靠 user_id 前缀推断)。
+
+    attachments：人工回复带的图片/附件。存在 metadata_json 而不是 human_reply
+    列上——human_reply 是纯文本，既要进 FAQ 沉淀也要进会话投影，掺 JSON 会把
+    两边都弄脏。
     """
     now = utc_now()
     row.status = "answered"
@@ -436,13 +450,18 @@ def _apply_handoff_reply(
         **(row.resume_payload_json or {}),
         "answered_by_user_id": answered_by_user_id,
     }
+    metadata = dict(row.metadata_json or {})
+    if attachments:
+        metadata["reply_attachments"] = [item.model_dump(mode="json") for item in attachments]
+    if metadata:
+        row.metadata_json = metadata
     db.add(row)
 
     chat_session = db.get(ChatSession, row.session_id)
     if chat_session and chat_session.tenant_id == row.tenant_id:
         chat_session.status = "active"
         chat_session.awaiting_input_json = None
-        chat_session.summary = f"最近回复：{reply[:120]}"
+        chat_session.summary = f"最近回复：{_handoff_reply_summary_text(reply, attachments)}"[:180]
         chat_session.updated_at = now
         db.add(chat_session)
     db.add(
@@ -457,6 +476,7 @@ def _apply_handoff_reply(
                 "trigger_step_id": row.trigger_step_id,
                 "answered_by_user_id": answered_by_user_id,
                 "reply_preview": reply[:180],
+                "attachment_count": len(attachments or []),
                 "source": source,
             },
             created_at=now,
@@ -465,6 +485,81 @@ def _apply_handoff_reply(
     db.commit()
     db.refresh(row)
     _resume_human_handoff_async(row.id)
+
+
+def _handoff_reply_summary_text(
+    reply: str, attachments: list[ChatAttachmentRead] | None
+) -> str:
+    """会话列表那行摘要：纯附件回复也得有话说，不能变成「最近回复：」。"""
+
+    text = (reply or "").strip()
+    if text:
+        return text[:120]
+    count = len(attachments or [])
+    return f"[附件 {count} 个]" if count else ""
+
+
+def _handoff_reply_attachments(row: HumanHandoffRequest) -> list[ChatAttachmentRead]:
+    """读回这条 handoff 的人工回复附件；脏数据逐条跳过，不整批失败。"""
+
+    metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+    raw = metadata.get("reply_attachments")
+    if not isinstance(raw, list):
+        return []
+    attachments: list[ChatAttachmentRead] = []
+    for item in raw:
+        if isinstance(item, ChatAttachmentRead):
+            attachments.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        try:
+            attachments.append(ChatAttachmentRead.model_validate(item))
+        except Exception:  # noqa: BLE001 - 历史脏数据不该拖垮整条恢复链路
+            continue
+    return attachments
+
+
+def _restage_handoff_reply_attachments(
+    attachments: list[ChatAttachmentRead],
+    *,
+    tenant_id: str,
+    uploader_user_id: str | None,
+    session_user_id: str | None,
+) -> list[ChatAttachmentRead]:
+    """把 owner 上传的附件在会话归属人名下再暂存一份。
+
+    附件暂存目录的 key 是 (tenant, user, attachment)，owner 上传的字节按 owner
+    名下存储；而恢复轮次里的 `materialize_task_attachments` 只会用会话归属人
+    去读（request.user_id），直接拿 owner 那份会读不到 → 模型看不到文件、
+    沙箱里也没有。这里做一次跨人的搬运，让恢复轮次和用户自己发附件完全同构。
+    """
+
+    if not attachments or not uploader_user_id:
+        return attachments
+    target_user_id = (session_user_id or "").strip()
+    if not target_user_id or target_user_id == uploader_user_id:
+        return attachments
+    restaged: list[ChatAttachmentRead] = []
+    for attachment in attachments:
+        if not attachment.sha256:
+            restaged.append(attachment)
+            continue
+        data = read_staged_chat_attachment(
+            attachment, tenant_id=tenant_id, user_id=uploader_user_id
+        )
+        if data is None:
+            restaged.append(attachment)
+            continue
+        try:
+            restaged.append(
+                stage_chat_attachment(
+                    attachment, data, tenant_id=tenant_id, user_id=target_user_id
+                )
+            )
+        except OSError:
+            restaged.append(attachment)
+    return restaged
 
 
 def _resume_human_handoff_async(handoff_id: str) -> None:
@@ -501,7 +596,10 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
     try:
         with Session(engine) as db:
             handoff = db.get(HumanHandoffRequest, handoff_id)
-            if not handoff or handoff.status != "answered" or not handoff.human_reply:
+            if not handoff or handoff.status != "answered":
+                return
+            # 只发图片/附件的人工回复 human_reply 为空，但它同样必须送达会话。
+            if not handoff.human_reply and not _handoff_reply_attachments(handoff):
                 return
             chat_session = db.get(ChatSession, handoff.session_id)
             if not chat_session or chat_session.tenant_id != handoff.tenant_id:
@@ -518,6 +616,7 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
             # 「人工回复」标签，且不触发任何 LLM 轮次。
             if not (handoff.trigger_skill_id or handoff.trigger_step_id):
                 now_skip = utc_now()
+                reply_attachments = _handoff_reply_attachments(handoff)
                 db.add(
                     AgentEvent(
                         tenant_id=handoff.tenant_id,
@@ -532,6 +631,17 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
                     )
                 )
                 if not _handoff_reply_message_exists(db, handoff):
+                    projected_metadata: dict[str, Any] = {
+                        "human_reply": True,
+                        "handoff_id": handoff.id,
+                        "channel": "human_handoff_resume",
+                    }
+                    if reply_attachments:
+                        # 与用户消息同一套 attachments 结构：前端 MessageBubble
+                        # 复用同一个渲染分支出图片瓷砖 / 文件胶囊。
+                        projected_metadata["attachments"] = [
+                            item.model_dump(mode="json") for item in reply_attachments
+                        ]
                     db.add(
                         Message(
                             tenant_id=handoff.tenant_id,
@@ -539,12 +649,8 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
                             # user 角色是为了让后续对话上下文把它读成「员工说的话」的
                             # 输入；展示侧靠 human_reply 标记翻到员工一侧。
                             role="user",
-                            content=handoff.human_reply,
-                            metadata_json={
-                                "human_reply": True,
-                                "handoff_id": handoff.id,
-                                "channel": "human_handoff_resume",
-                            },
+                            content=handoff.human_reply or "",
+                            metadata_json=projected_metadata,
                             created_at=now_skip,
                         )
                     )
@@ -556,7 +662,8 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
                             payload_json={
                                 "handoff_id": handoff.id,
                                 "agent_id": handoff.agent_id,
-                                "reply_preview": handoff.human_reply[:180],
+                                "reply_preview": (handoff.human_reply or "")[:180],
+                                "attachment_count": len(reply_attachments),
                             },
                             created_at=now_skip,
                         )
@@ -586,12 +693,22 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
             # 会话属主是恢复请求的权威 user:渠道身份重绑(懒建账号→web 账号)会迁移
             # session.user_id,而 handoff.requester_user_id 是创建时的快照,可能已过期;
             # 优先旧快照会触发 harness 的 session-user 围栏校验失败。
+            resume_user_id = chat_session.user_id or handoff.requester_user_id or None
+            # 附件必须在会话归属人名下重新暂存：owner 传的字节存在 owner 目录，
+            # 恢复轮次只会按 request.user_id 去读，不搬运模型就看不到图片/文件。
+            resume_attachments = _restage_handoff_reply_attachments(
+                _handoff_reply_attachments(handoff),
+                tenant_id=handoff.tenant_id,
+                uploader_user_id=handoff.resume_payload_json.get("answered_by_user_id") or None,
+                session_user_id=resume_user_id,
+            )
             request = ChatTurnRequest(
                 tenant_id=handoff.tenant_id,
                 session_id=handoff.session_id,
                 agent_id=handoff.agent_id or chat_session.agent_id,
-                user_id=chat_session.user_id or handoff.requester_user_id or None,
+                user_id=resume_user_id,
                 message=handoff.human_reply,
+                attachments=resume_attachments,
                 channel="human_handoff_resume",
                 debug=False,
             )
@@ -949,6 +1066,26 @@ def _validate_chat_turn_attachments(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return request.model_copy(update={"attachments": attachments})
+
+
+def _validate_handoff_reply_attachments(
+    attachments: list[ChatAttachmentRead],
+) -> list[ChatAttachmentRead]:
+    """人工回复的附件走与用户发消息同一套校验（浏览器回程一律不可信）。
+
+    上限比对话轮次更宽松一档没有意义——统一用同一组常量，少一处能漂移的口径。
+    """
+
+    if not attachments:
+        return []
+    try:
+        return validate_chat_turn_attachments(
+            attachments,
+            max_attachments=MAX_CHAT_ATTACHMENTS,
+            max_attachment_bytes=MAX_CHAT_ATTACHMENT_BYTES,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/slash-commands", response_model=list[SlashCommandRead])
@@ -2486,7 +2623,8 @@ def reply_human_handoff(
     if not is_admin_user(current_user) and row.assignee_user_id not in {None, current_user.id}:
         raise HTTPException(status_code=403, detail="Handoff request not assigned to current user")
     reply = request.reply.strip()
-    if not reply:
+    attachments = _validate_handoff_reply_attachments(request.attachments)
+    if not reply and not attachments:
         raise HTTPException(status_code=400, detail="Reply is required")
     if row.status != "pending":
         raise HTTPException(status_code=409, detail="Handoff request is not pending")
@@ -2495,7 +2633,12 @@ def reply_human_handoff(
         raise HTTPException(status_code=409, detail="Original handoff session is not available")
 
     _apply_handoff_reply(
-        db, row, reply, answered_by_user_id=current_user.id, source="web"
+        db,
+        row,
+        reply,
+        answered_by_user_id=current_user.id,
+        source="web",
+        attachments=attachments,
     )
     requester_user = db.get(User, row.requester_user_id) if row.requester_user_id else None
     if not requester_user:

@@ -525,6 +525,11 @@ export const CHAT_HANDOFF_HEAD_CLASS =
 export const CHAT_HANDOFF_BLOCK_CLASS =
   'grid gap-[4px] [&>span]:text-[12px] [&>span]:font-medium [&>span]:text-[#6d6d72] [&>p]:text-[13px] [&>p]:leading-[1.6] [&>p]:text-[rgba(24,24,26,0.8)]';
 export const CHAT_HANDOFF_ACTIONS_CLASS = 'flex justify-end gap-[8px]';
+/** 待回答卡片里的附件托盘：不像输入框那样是浮层，静态一行、自动换行。 */
+export const CHAT_HANDOFF_ATTACHMENTS_CLASS = 'flex flex-wrap items-center gap-[8px]';
+/** 卡片里的图片缩略图：比输入框的 26px 浮层瓷砖大一号（48px），要能看清是哪张图。 */
+export const CHAT_HANDOFF_ATTACHMENT_TILE_CLASS =
+  'relative grid size-[48px] shrink-0 place-items-center overflow-hidden rounded-[10px] border border-[rgba(24,24,26,0.10)] bg-[#f2f1ee] text-[#6d6d72]';
 export const CHAT_HANDOFF_EMPTY_CLASS = 'py-[36px] text-center text-[13px] text-[#6d6d72]';
 
 /**

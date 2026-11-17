@@ -291,7 +291,7 @@ describe('App default landing route', () => {
 
     // changelog.md 的一级标题与首段正文都渲染出来了
     expect(await screen.findByRole('heading', { name: 'Changelog' })).toBeTruthy();
-    expect(screen.getByText(/按天归纳/)).toBeTruthy();
+    expect(screen.getByText(/按周归纳/)).toBeTruthy();
     // 侧边栏高亮必须落在「平台更新内容」而不是同样以 /enterprise/platform 开头的「开放广场平台」
     const navItem = await screen.findByRole('button', { name: '平台更新内容' });
     expect(navItem.getAttribute('data-active')).toBe('true');

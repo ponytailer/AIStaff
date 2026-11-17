@@ -1,5 +1,6 @@
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import EmployeeAvatar from '@/components/EmployeeAvatar';
+import StaffdeckIcon from '@/components/StaffdeckIcon';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,7 +10,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { employeeDisplayNameWithCreator, employeeProfile } from '@/employee';
+import { useRef } from 'react';
 
 import {
   CHAT_CITATION_DETAIL_CLASS,
@@ -29,6 +32,20 @@ import {
   CHAT_HANDOFF_EMPTY_CLASS,
   CHAT_HANDOFF_HEAD_CLASS,
   CHAT_HANDOFF_LIST_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS,
+  CHAT_HANDOFF_ATTACHMENT_TILE_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_TILE_ERROR_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_TILE_IMG_CLASS,
+  CHAT_COMPOSER_ATTACHMENT_WRAP_CLASS,
+  CHAT_HANDOFF_ATTACHMENTS_CLASS,
+  CHAT_FILE_CHIP_BODY_CLASS,
+  CHAT_FILE_CHIP_CLASS,
+  CHAT_FILE_CHIP_ERROR_CLASS,
+  CHAT_FILE_CHIP_ICON_CLASS,
+  CHAT_FILE_CHIP_META_CLASS,
+  CHAT_FILE_CHIP_NAME_CLASS,
 } from '../chatPageStyles';
 import {
   citationDisplayTitle,
@@ -37,6 +54,7 @@ import {
   citationSourceLabel,
   MarkdownMessage,
 } from '../chatHelpers';
+import type { ComposerAttachment } from '../chatTypes';
 import type { UseChatSession } from '../useChatSession';
 import ModelSetupDialog from './ModelSetupDialog';
 
@@ -48,6 +66,9 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
     handoffsLoading,
     handoffReplies,
     setHandoffReplies,
+    handoffAttachments,
+    uploadHandoffFiles,
+    removeHandoffAttachment,
     submitHandoffReply,
     dismissHandoff,
     agents,
@@ -132,6 +153,20 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
                         ...prev,
                         [handoff.id]: event.target.value,
                       }))}
+                      // 直接粘贴图片/截图也是常见动作（PDF 报错截图、界面截图），
+                      // 和对话输入框的行为保持一致。
+                      onPaste={(event) => {
+                        const files = Array.from(event.clipboardData?.files || []);
+                        if (!files.length) return;
+                        event.preventDefault();
+                        uploadHandoffFiles(handoff.id, files);
+                      }}
+                    />
+                    <HandoffAttachmentTray
+                      handoffId={handoff.id}
+                      attachments={handoffAttachments[handoff.id] || []}
+                      onPick={(files) => uploadHandoffFiles(handoff.id, files)}
+                      onRemove={(uploadKey) => removeHandoffAttachment(handoff.id, uploadKey)}
                     />
                     <div className={CHAT_HANDOFF_ACTIONS_CLASS}>
                       <Button
@@ -326,6 +361,150 @@ function CitationMarkdown({ content }: { content: string }) {
       <MarkdownMessage content={content} preserveLineBreaks={false} />
     </div>
   );
+}
+
+/**
+ * 待回答卡片里的附件托盘：图片给瓷砖（缩略图可辨），其他文件给胶囊。
+ *
+ * 与对话输入框共用 CHAT_COMPOSER_ATTACHMENT_* 那套 token，视觉完全一致；
+ * 区别只在于这里没有 26px 浮层托盘宽度的问题，可以直接展开成一行。
+ */
+function HandoffAttachmentTray({
+  handoffId,
+  attachments,
+  onPick,
+  onRemove,
+}: {
+  handoffId: string;
+  attachments: ComposerAttachment[];
+  onPick: (files: File[]) => void;
+  onRemove: (uploadKey: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const images = attachments.filter(
+    (item) => item.kind === 'image' && item.data_url,
+  );
+  const files = attachments.filter(
+    (item) => !(item.kind === 'image' && item.data_url),
+  );
+  const uploading = attachments.some((item) => item.uploadStatus === 'uploading');
+  return (
+    <div className="grid gap-[8px]">
+      {attachments.length > 0 && (
+        <div className={CHAT_HANDOFF_ATTACHMENTS_CLASS} role="group" aria-label="已添加的附件">
+          {images.map((attachment) => (
+            <span className={CHAT_COMPOSER_ATTACHMENT_WRAP_CLASS} key={attachment.uploadKey}>
+              <span
+                className={cn(
+                  CHAT_HANDOFF_ATTACHMENT_TILE_CLASS,
+                  attachment.uploadStatus === 'error' && CHAT_COMPOSER_ATTACHMENT_TILE_ERROR_CLASS,
+                )}
+                role="img"
+                aria-label={attachment.filename}
+              >
+                <img
+                  className={CHAT_COMPOSER_ATTACHMENT_TILE_IMG_CLASS}
+                  src={attachment.data_url || ''}
+                  alt=""
+                />
+                {attachment.uploadStatus === 'uploading' && (
+                  <span
+                    className={CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS}
+                    style={{
+                      width: attachment.parse_job_id
+                        ? `${Math.max(4, Math.min(100, Math.round(attachment.parse_progress ?? 0)))}%`
+                        : '100%',
+                    }}
+                  />
+                )}
+              </span>
+              <button
+                type="button"
+                className={CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS}
+                onClick={() => onRemove(attachment.uploadKey)}
+                aria-label={`移除附件 ${attachment.filename}`}
+              >
+                <StaffdeckIcon name="close" size={9} />
+              </button>
+              <span className={CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS}>
+                {attachment.filename}
+                {attachment.uploadStatus === 'error' ? ` · ${attachment.error || '上传失败'}` : ''}
+              </span>
+            </span>
+          ))}
+          {files.map((attachment) => (
+            <span
+              className={cn(
+                CHAT_FILE_CHIP_CLASS,
+                attachment.uploadStatus === 'error' && CHAT_FILE_CHIP_ERROR_CLASS,
+              )}
+              key={attachment.uploadKey}
+              title={attachment.filename}
+            >
+              <span className={CHAT_FILE_CHIP_BODY_CLASS}>
+                <span className={CHAT_FILE_CHIP_ICON_CLASS}>
+                  <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={14} />
+                </span>
+                <span className={CHAT_FILE_CHIP_NAME_CLASS} data-i18n-ignore>
+                  {attachment.filename}
+                </span>
+                <span className={CHAT_FILE_CHIP_META_CLASS} data-i18n-ignore>
+                  {attachment.uploadStatus === 'uploading'
+                    ? attachment.parse_job_id
+                      ? `解析中 ${Math.round(attachment.parse_progress ?? 0)}%`
+                      : '上传中'
+                    : attachment.uploadStatus === 'error'
+                      ? attachment.error || '上传失败'
+                      : formatFileSize(attachment.size)}
+                </span>
+              </span>
+              <button
+                type="button"
+                className={cn(CHAT_COMPOSER_ATTACHMENT_REMOVE_CLASS, 'mr-[6px] static')}
+                onClick={() => onRemove(attachment.uploadKey)}
+                aria-label={`移除附件 ${attachment.filename}`}
+              >
+                <StaffdeckIcon name="close" size={9} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-[8px]">
+        <input
+          ref={inputRef}
+          className="hidden"
+          type="file"
+          multiple
+          aria-label={`为待回答 ${handoffId} 添加图片或附件`}
+          onChange={(event) => {
+            const picked = Array.from(event.target.files || []);
+            event.target.value = '';
+            if (picked.length) onPick(picked);
+          }}
+        />
+        <Button
+          variant="outline"
+          className="h-[30px] rounded-[9px] border-[rgba(24,24,26,0.10)] bg-white px-[10px] text-[12px] font-normal text-[#4b4b50] hover:bg-[#e5e4e0] hover:text-[#18181a]"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+        >
+          <StaffdeckIcon name="upload" size={13} />
+          <span className="ml-[6px]">{uploading ? '上传中' : '添加图片 / 附件'}</span>
+        </Button>
+        <span className="text-[11px] text-[#9a9a9f]">
+          支持图片、PDF、文档；只发附件也可以
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function formatFileSize(size: number): string {
+  if (!Number.isFinite(size) || size <= 0) return '';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function citationDetailExcerpt(citation: NonNullable<UseChatSession['activeCitation']>): string {

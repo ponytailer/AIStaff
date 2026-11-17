@@ -1180,3 +1180,170 @@ def test_handoff_pending_question_fallback_prefers_step_question_over_bot_reply(
         StepAgentResult(reply="正在为您转接人工客服，请稍候。", handoff=True),
     )
     assert fallback == "正在为您转接人工客服，请稍候。"
+
+
+def test_reply_human_handoff_accepts_attachment_only(monkeypatch):
+    """只发图片/附件的人工回复必须被接受：reply 允许为空，但不能两者都空。"""
+    handoff = HumanHandoffRequest(
+        id="handoff_attach",
+        tenant_id="tenant_demo",
+        session_id="session_handoff",
+        agent_id="agent_demo",
+        requester_user_id="user_demo",
+        assignee_user_id="admin_user",
+        pending_question="请人工确认",
+        status="pending",
+    )
+    session = ChatSession(
+        id="session_handoff",
+        tenant_id="tenant_demo",
+        user_id="user_demo",
+        agent_id="agent_demo",
+        status="handoff",
+    )
+    db = FakeDb(
+        get_rows={
+            (HumanHandoffRequest, "handoff_attach"): handoff,
+            (ChatSession, "session_handoff"): session,
+        }
+    )
+    resumed: list[str] = []
+    monkeypatch.setattr(chat_api, "_resume_human_handoff_async", resumed.append)
+
+    attachment = chat_api.ChatAttachmentRead(
+        id="file_1", filename="screenshot.png", content_type="image/png", size=1024, kind="image"
+    )
+    result = chat_api.reply_human_handoff(
+        "handoff_attach",
+        chat_api.HumanHandoffReplyRequest(
+            tenant_id="tenant_demo", reply="", attachments=[attachment]
+        ),
+        current_user=User(
+            id="admin_user",
+            tenant_id="tenant_demo",
+            username="admin",
+            role="admin",
+            password_hash="x",
+        ),
+        db=db,
+    )
+
+    assert result.status == "answered"
+    assert handoff.human_reply == ""
+    assert handoff.metadata_json["reply_attachments"][0]["filename"] == "screenshot.png"
+    # 纯附件回复也得让会话列表有话可说
+    assert session.summary == "最近回复：[附件 1 个]"
+    assert resumed == ["handoff_attach"]
+
+
+def test_reply_human_handoff_rejects_empty_reply_and_no_attachments(monkeypatch):
+    handoff = HumanHandoffRequest(
+        id="handoff_empty",
+        tenant_id="tenant_demo",
+        session_id="session_handoff",
+        assignee_user_id="admin_user",
+        status="pending",
+    )
+    db = FakeDb(
+        get_rows={
+            (HumanHandoffRequest, "handoff_empty"): handoff,
+            (ChatSession, "session_handoff"): ChatSession(
+                id="session_handoff", tenant_id="tenant_demo", user_id="user_demo", status="handoff"
+            ),
+        }
+    )
+    monkeypatch.setattr(chat_api, "_resume_human_handoff_async", lambda _id: None)
+
+    with pytest.raises(HTTPException) as exc:
+        chat_api.reply_human_handoff(
+            "handoff_empty",
+            chat_api.HumanHandoffReplyRequest(tenant_id="tenant_demo", reply="   "),
+            current_user=User(
+                id="admin_user",
+                tenant_id="tenant_demo",
+                username="admin",
+                role="admin",
+                password_hash="x",
+            ),
+            db=db,
+        )
+
+    assert exc.value.status_code == 400
+    assert handoff.status == "pending"
+
+
+def test_handoff_reply_attachments_tolerate_dirty_metadata():
+    """历史脏数据逐条跳过：一条坏的不该拖垮整条恢复链路。"""
+    handoff = HumanHandoffRequest(
+        id="handoff_dirty",
+        tenant_id="tenant_demo",
+        session_id="session_handoff",
+        metadata_json={
+            "reply_attachments": [
+                {"id": "ok", "filename": "a.png", "content_type": "image/png", "size": 1},
+                {"filename": "broken"},
+                "not-a-dict",
+            ]
+        },
+    )
+    assert [item.filename for item in chat_api._handoff_reply_attachments(handoff)] == ["a.png"]
+
+    handoff.metadata_json = {}
+    assert chat_api._handoff_reply_attachments(handoff) == []
+
+
+def test_handoff_resume_worker_projects_attachment_only_reply(monkeypatch):
+    """纯附件人工回复（无 SOP 触发）也必须投影进会话，否则用户看不到。"""
+    engine = _test_engine()
+    monkeypatch.setattr(chat_api, "engine", engine)
+    monkeypatch.setattr(chat_api, "AgentLoop", AgentLoop)
+    with Session(engine) as db:
+        _admin, user, _other = _seed_handoff_users(db)
+        db.add(
+            ChatSession(
+                id="session_attach",
+                tenant_id="tenant_demo",
+                user_id=user.id,
+                agent_id="agent_demo",
+                status="handoff",
+            )
+        )
+        db.add(
+            HumanHandoffRequest(
+                id="handoff_attach_worker",
+                tenant_id="tenant_demo",
+                session_id="session_attach",
+                agent_id="agent_demo",
+                requester_user_id=user.id,
+                assignee_user_id="admin_user",
+                pending_question="请人工确认",
+                status="answered",
+                human_reply="",
+                metadata_json={
+                    "reply_attachments": [
+                        {
+                            "id": "file_proj",
+                            "filename": "账单截图.png",
+                            "content_type": "image/png",
+                            "size": 2048,
+                            "kind": "image",
+                        }
+                    ]
+                },
+            )
+        )
+        db.commit()
+
+    chat_api._resume_human_handoff_worker("handoff_attach_worker")
+
+    with Session(engine) as db:
+        rows = db.exec(
+            select(Message).where(Message.session_id == "session_attach")
+        ).all()
+        assert len(rows) == 1
+        row = rows[0]
+        assert row.role == "user"
+        assert row.content == ""
+        assert row.metadata_json["human_reply"] is True
+        assert row.metadata_json["handoff_id"] == "handoff_attach_worker"
+        assert row.metadata_json["attachments"][0]["filename"] == "账单截图.png"

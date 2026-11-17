@@ -3669,7 +3669,6 @@
   "旅文汇报样式": "Fosun Tourism report style",
   "结论先行 · 数据说话": "Conclusion first · data-driven",
   "导出 PPTX": "Export PPTX",
-  "导出中…": "Exporting…",
   "导出为 PPTX": "Export as PPTX",
   "请先生成幻灯片": "Generate slides first",
   "请先生成幻灯片后再导出": "Generate slides before exporting",
@@ -3681,5 +3680,16 @@
   "由 AI 按内容自动决定": "Decided automatically by AI",
   "计入上面的「页数」": "Counted in Pages above",
   "提示：预览里的文字可以直接用鼠标点开修改，改动会同步到「HTML 源码」与导出的 PPTX。": "Tip: click any text in the preview to edit it. Changes sync to HTML source and the exported PPTX.",
-  "已编辑": "Edited"
+  "已编辑": "Edited",
+  "已添加的附件": "Added attachments",
+  "移除附件 {1}": "Remove attachment {1}",
+  "解析中 {1}%": "Parsing {1}%",
+  "添加图片 / 附件": "Add image / attachment",
+  "支持图片、PDF、文档；只发附件也可以": "Images, PDFs and documents supported; attachments alone are fine",
+  "为待回答 {1} 添加图片或附件": "Add images or attachments to awaiting reply {1}",
+  "请输入回复内容或添加附件": "Enter a reply or add an attachment",
+  "附件还在上传，请稍候": "Attachments are still uploading, please wait",
+  "云端解析超时，请移除后重新上传": "Cloud parsing timed out; remove and upload again",
+  "云端解析失败，请重试": "Cloud parsing failed, please try again",
+  "上传中": "Uploading"
 }

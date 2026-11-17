@@ -229,6 +229,10 @@ def list_handoff_candidates(
     for row in rows:
         if row.id in ignored_ids:
             continue
+        # 只发了图片/附件、没有文字的人工回复采不成 FAQ：答案列是空的，
+        # 采过去只会得到一条「命中就回空话」的条目。
+        if not str(row.human_reply or "").strip():
+            continue
         resume_payload = row.resume_payload_json if isinstance(row.resume_payload_json, dict) else {}
         query = _handoff_query(db, row)
         if not query:
