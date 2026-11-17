@@ -350,3 +350,33 @@ def test_shortcircuit_plan_survives_planner_normalize(db_session: Session) -> No
     assert frame.decision == "answer_only"
     assert frame.slot_hints.get("faq_answer") == "标准答案"
     assert (frame.slot_hints or {}).get("faq_item_id")
+
+
+def test_shortcircuit_ignores_pending_handoff_frame(db_session: Session) -> None:
+    """转人工挂起（handoff 帧非终态）不能挡 FAQ 短路。
+
+    真实踩坑：用户先「怎么报销」（无命中）→「转人工」产生 status=handoff
+    的 conversation 帧 → 再问「怎么报销」，守卫 or task_frame_state 命中，
+    短路静默失效（连未命中 trace 都没有），回复退化成 LLM 泛答。
+    """
+    from app.core.plan.planner_fastpath import _faq_shortcircuit_plan
+
+    _add_faq(db_session, "报销流程", ["报销", "流程"])
+    session = type("S", (), {})()
+    session.tenant_id = "t1"
+    session.agent_id = "agent1"
+    session.active_skill_id = None
+    session.active_step_id = None
+    session.pending_tasks_json = None
+    session.awaiting_input_json = None
+
+    handoff_state = [{"task_id": "t1", "kind": "conversation", "status": "handoff"}]
+    plan = _faq_shortcircuit_plan(db_session, session, "怎么报销", [], handoff_state, "normal")
+    assert plan is not None
+    assert plan.task_frames[0].execution_mode == "faq_hit"
+
+    # 其余非终态帧仍然拦截：进行中的 conversation、SOP 帧（含挂起的）
+    in_progress = [{"task_id": "t2", "kind": "conversation", "status": "in_progress"}]
+    assert _faq_shortcircuit_plan(db_session, session, "怎么报销", [], in_progress, "normal") is None
+    sop_pending = [{"task_id": "t3", "kind": "sop", "status": "handoff"}]
+    assert _faq_shortcircuit_plan(db_session, session, "怎么报销", [], sop_pending, "normal") is None

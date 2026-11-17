@@ -62,12 +62,26 @@ def _faq_shortcircuit_plan(
     有没有查 FAQ（线上「我加了 FAQ 但没命中」的排查成本全靠这一行）。
     """
 
+    # 等待人工回复的 conversation 帧不挡 FAQ 短路：转人工挂起期间用户继续
+    # 提问，正是最该用标准答案回答的场景。线上踩坑：handoff 帧是非终态
+    # （终态只有 completed/cancelled/failed），用户转人工后再问一遍
+    # 「怎么报销」，守卫把短路静默拦下（连未命中 trace 都不发），回复
+    # 退化成 LLM 泛答且没有任何执行记录。其余非终态帧（in_progress 的
+    # conversation、任何 SOP 帧）仍照常拦截。
+    blocking_frames = [
+        frame
+        for frame in (task_frame_state or [])
+        if not (
+            str(frame.get("kind") or "") == "conversation"
+            and str(frame.get("status") or "") == "handoff"
+        )
+    ]
     if (
         interaction_mode != "normal"
         or str(session.active_skill_id or "").strip()
         or str(session.active_step_id or "").strip()
         or session.pending_tasks_json
-        or task_frame_state
+        or blocking_frames
         or session.awaiting_input_json
     ):
         return
