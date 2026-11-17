@@ -294,3 +294,59 @@ describe('MessageBubble reply card', () => {
     expect(container.textContent).toContain('调用工具失败');
   });
 });
+
+describe('MessageBubble human handoff reply', () => {
+  function renderHumanReply(content: string) {
+    const item: ChatMessage = {
+      id: 'message-human',
+      role: 'user',
+      content,
+      metadata: { human_reply: true },
+      created_at: '2026-11-17T05:49:00Z',
+    };
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-human',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: content,
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [],
+      harnessArtifacts: [],
+      statusOnly: false,
+    };
+    const chat = {
+      slashCommands: [],
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+      activeConversationId: 'session-human',
+      displayedAgent: { id: 'agent-1', name: 'Jerry Hu', kind: 'standard' },
+    } as unknown as UseChatSession;
+    return render(<MessageBubble chat={chat} item={item} render={messageRender} />);
+  }
+
+  it('renders a handoff reply on the employee side with the human-reply tag', () => {
+    const { container } = renderHumanReply('好的，我去找你');
+    // 琥珀色「人工回复」标签醒目存在。
+    const tag = container.querySelector('[class*="text-[#b45309]"]');
+    expect(tag?.textContent).toContain('人工回复');
+    // 站员工左侧（justify-start），不走用户右对齐的灰气泡。
+    expect(container.firstElementChild?.innerHTML).toContain('justify-start');
+    expect(container.querySelector('[class*="bg-[#e5e4e0]"]')).toBeNull();
+    expect(container.textContent).toContain('好的，我去找你');
+  });
+
+  it('keeps a normal user message on the right without the tag', () => {
+    const { container } = renderSlashMessage('转人工', []);
+    expect(container.querySelector('[class*="text-[#b45309]"]')).toBeNull();
+    expect(container.querySelector('[class*="bg-[#e5e4e0]"]')).toBeTruthy();
+  });
+});

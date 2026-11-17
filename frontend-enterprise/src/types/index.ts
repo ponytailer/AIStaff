@@ -823,6 +823,8 @@ export type ChatMessage = {
     harness_artifacts?: HarnessArtifact[];
     /** A2UI：该用户消息来自表单提交时，随消息落库的结构化取值。 */
     slot_submission?: Record<string, unknown>;
+    /** owner 在「待回答」收件箱里替员工答复：展示时渲染到员工一侧 + 标签。 */
+    human_reply?: boolean;
     [key: string]: unknown;
   };
   created_at: string;

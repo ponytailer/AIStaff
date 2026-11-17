@@ -42,6 +42,7 @@ import {
   CHAT_GROUP_MESSAGE_CONTENT_CLASS,
   CHAT_GROUP_MESSAGE_LEADER_BADGE_CLASS,
   CHAT_GROUP_MESSAGE_ROW_CLASS,
+  CHAT_HUMAN_REPLY_TAG_CLASS,
   CHAT_MESSAGE_ITEM_CLASS,
   CHAT_MESSAGE_MODE_CHIP_CLASS,
   CHAT_PLAIN_ANSWER_CLASS,
@@ -278,6 +279,8 @@ export default function MessageBubble({
     ? dispatchNoticeInfo(item)
     : null;
   const isDispatchNoticeMessage = item.role === 'assistant' && isDispatchNotice(item);
+  // 人工接管回复（owner 从待回答收件箱回复）：落库是 user 角色，展示走员工一侧。
+  const isHumanReply = item.role === 'user' && Boolean(item.metadata?.human_reply);
   const sentSlashCommand = item.role === 'user'
     ? slashCommandMessage(visibleContent, chat.slashCommands)
     : null;
@@ -294,7 +297,7 @@ export default function MessageBubble({
   const agentHeaderName = chat.displayedAgent
     ? employeeDisplayName(chat.displayedAgent)
     : '数字员工';
-  const clock = item.role === 'assistant' ? messageClock(item.created_at) : '';
+  const clock = item.role === 'assistant' || isHumanReply ? messageClock(item.created_at) : '';
   const teamProgress = item.role === 'assistant' ? activeTeamProgress(item) : null;
   // 用户署名（参考 Claude 风格 thread）：姓名 + 首字符头像，右对齐坐在气泡上方。
   const authUser = chat.authUser;
@@ -323,6 +326,48 @@ export default function MessageBubble({
                 {noticeInfo.intent}
               </span>
             )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 人工接管回复：owner 在「待回答」收件箱里替员工答的话。落库是 user 角色
+  // （agent loop 的输入），但展示必须站在员工一侧 —— owner 恰好是会话提问者
+  // 时，按普通用户气泡渲染会变成「自己回答自己」。员工头像 + 琥珀色
+  // 「人工回复」标签，让它和 AI 答案一眼区分。
+  if (isHumanReply) {
+    return (
+      <div className={cn(CHAT_MESSAGE_ITEM_CLASS, turn.spaced && CHAT_TURN_SPACED_CLASS)}>
+        <div className={cn(chatRowClass('assistant'), CHAT_GROUP_MESSAGE_ROW_CLASS)}>
+          <EmployeeAvatar
+            agent={chat.displayedAgent}
+            size={28}
+            radius={14}
+            className={CHAT_GROUP_MESSAGE_AVATAR_CLASS}
+          />
+          <div className={CHAT_GROUP_MESSAGE_CONTENT_CLASS}>
+            <div className={CHAT_TURN_HEAD_CLASS}>
+              <span className={CHAT_TURN_AUTHOR_CLASS} data-i18n-ignore>
+                <span className="truncate">{agentHeaderName}</span>
+              </span>
+              <span className={CHAT_HUMAN_REPLY_TAG_CLASS} data-i18n-ignore>
+                <StaffdeckIcon name="user" size={11} />
+                人工回复
+              </span>
+              {clock && (
+                <time
+                  className={CHAT_TURN_TIME_CLASS}
+                  dateTime={item.created_at}
+                  suppressHydrationWarning
+                >
+                  {clock}
+                </time>
+              )}
+            </div>
+            <div className={chatBubbleClass('assistant', item.isError)}>
+              <MarkdownMessage content={visibleContent} />
+            </div>
           </div>
         </div>
       </div>

@@ -100,6 +100,12 @@ class ConversationProjection:
             metadata["model_config_id"] = request.model_config_id
         if request.attachments:
             metadata["attachments"] = [item.model_dump(mode="json") for item in request.attachments]
+        # 人工接管回复（owner 在「待回答」收件箱里答复）虽然走的是 user 角色
+        # 消息（agent loop 需要它作为输入驱动 SOP 恢复），但展示上它是**人工
+        # 替员工说的话**：前端靠这个标记把它渲染到员工一侧 + 「人工回复」
+        # 标签，而不是显示成提问者自己的输入（owner 恰好是会话用户时会串位）。
+        if getattr(request, "channel", "") == "human_handoff_resume":
+            metadata["human_reply"] = True
         return metadata
 
     @staticmethod

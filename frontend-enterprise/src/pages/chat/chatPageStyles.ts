@@ -97,9 +97,18 @@ export const CHAT_USER_HEADER_ROW_CLASS = 'mb-[4px] flex min-w-0 items-center ju
 export const CHAT_USER_AVATAR_CLASS =
   'grid size-[26px] shrink-0 place-items-center rounded-full bg-[rgba(194,80,80,0.14)] text-[12px] font-semibold leading-none text-[#b04848]';
 
+/** 「人工回复」标签：owner 在待回答收件箱里替员工答的话，渲染在员工一侧，
+ *  这枚琥珀色标签负责说明「这条不是 AI 说的」——要一眼和 AI 答案区分开。 */
+export const CHAT_HUMAN_REPLY_TAG_CLASS =
+  'inline-flex shrink-0 items-center gap-[4px] rounded-full border-[0.5px] border-[rgba(217,119,6,0.35)] bg-[rgba(217,119,6,0.12)] px-[8px] py-[1px] text-[11px] font-semibold leading-[15px] text-[#b45309]';
+
 // 正文基准 14.5px（tuffui ai-chat 用 text-sm + leading-relaxed，中文再抬半档）。
+// 上限必须写死 px、不能用 min(680px,92%) 这类百分比：用户列是 shrink-to-fit，
+// 气泡的循环百分比 max-width 会让 Chrome 把「列的固有宽度」算塌（实测列塌到
+// 署名行宽度），气泡再取 92% × 塌后宽度 → 「转人工」三个字都能折成两行。
+// 写 680px 后列 = max(署名行, min(内容,680))，短消息单行、长消息右对齐收窄。
 export const CHAT_BUBBLE_BASE_CLASS =
-  'relative box-border min-w-0 max-w-[min(680px,92%)] text-[14.5px] leading-[1.7] wrap-anywhere text-[#18181a]';
+  'relative box-border min-w-0 max-w-[680px] text-[14.5px] leading-[1.7] wrap-anywhere text-[#18181a]';
 /** 助手答案 = **裸文本**（2026-11-17 用户定稿，参考 Claude/agent 聊天版式）：
  *  正文直接落在纸背景上，不再套白卡 —— 白卡只留给「特殊事件」（执行记录 /
  *  转接通知）和输入框。宽度不再收窄：与消息列同宽，长行折行由 wrap-anywhere 兜底。 */
@@ -162,7 +171,7 @@ export const CHAT_MESSAGE_MODE_CHIP_CLASS =
 // ---------------------------------------------------------------------------
 export const CHAT_DISPATCH_NOTICE_ROW_CLASS = 'flex justify-start';
 export const CHAT_DISPATCH_NOTICE_CLASS =
-  'inline-flex max-w-[min(680px,92%)] flex-wrap items-center gap-[7px] rounded-[12px] border-[0.5px] border-[rgba(24,24,26,0.08)] bg-white px-[13px] py-[9px] text-[13px] leading-[1.6] text-[#3f5b57]';
+  'inline-flex max-w-[680px] flex-wrap items-center gap-[7px] rounded-[12px] border-[0.5px] border-[rgba(24,24,26,0.08)] bg-white px-[13px] py-[9px] text-[13px] leading-[1.6] text-[#3f5b57]';
 export const CHAT_DISPATCH_NOTICE_ROUTE_BADGE_CLASS =
   'inline-flex shrink-0 items-center gap-[4px] rounded-[6px] bg-[#dceee9] px-[6px] py-[1px] text-[11px] font-medium leading-[1.5] text-[#0f766e]';
 export const CHAT_DISPATCH_NOTICE_TARGET_CLASS = 'font-medium text-[#0f766e]';
