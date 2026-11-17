@@ -1689,6 +1689,35 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     void replyToHandoff(handoff, reply);
   }, [ensureModelAvailable, handoffReplies, replyToHandoff]);
 
+  // 「无需回答」：这条转人工不需要人接了（用户自己解决了 / 已在别处答过），
+  // 关掉 handoff 并把它从待回答收件箱移除，不给会话追加任何消息。
+  const dismissHandoff = useCallback(async (handoff: HumanHandoffRead): Promise<boolean> => {
+    try {
+      await api.post<HumanHandoffRead>(`/api/chat/handoffs/${handoff.id}:dismiss`, {
+        tenant_id: tenantId,
+        reason: 'owner_dismissed',
+      });
+      notify.success('已标记无需回答，该条已移出待回答');
+      setHandoffs((rows) => rows.filter((item) => item.id !== handoff.id));
+      setHandoffReplies((prev) => {
+        const next = { ...prev };
+        delete next[handoff.id];
+        return next;
+      });
+      loadSessions();
+      getSlot(handoff.session_id);
+      void loadMessages(handoff.session_id);
+      return true;
+    } catch (error) {
+      if (isAuthError(error)) {
+        redirectToLogin();
+        return false;
+      }
+      notify.error(error instanceof Error ? error.message : '标记失败');
+      return false;
+    }
+  }, [getSlot, loadMessages, loadSessions, redirectToLogin, tenantId]);
+
   const openHandoffInbox = useCallback(() => {
     setShowHandoffInbox(true);
     void loadHandoffs();
@@ -4144,6 +4173,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     handoffReplies,
     setHandoffReplies,
     submitHandoffReply,
+    dismissHandoff,
     // composer actions
     handleComposerFileChange,
     handleComposerDragEnter,

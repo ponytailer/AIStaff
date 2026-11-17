@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.db.models import AgentFaqItem, AgentUnansweredQuery
+from app.db.models import AgentFaqIgnoredHandoff, AgentFaqItem, AgentUnansweredQuery
 from app.faq.service import (
     FaqService,
     match_faq,
@@ -138,3 +138,67 @@ def test_shortcircuit_plan_guard(db_session: Session) -> None:
     # 有活跃 SOP 时决策空间非空，不短路
     session.active_skill_id = "skill1"
     assert _faq_shortcircuit_plan(db_session, session, "手机端 outlook 怎么配置", [], None, "normal") is None
+
+
+def test_adopt_from_handoff_removes_candidate_from_list(db_session: Session) -> None:
+    """采纳转人工候选后必须离开「待沉淀」。
+
+    handoff 的 answered 是业务状态不能改（审计/会话恢复还在用），所以按
+    「已忽略」标记排除；同一 handoff 重复采纳也不能撞唯一约束。
+    """
+
+    def _adopt() -> None:
+        FaqService(db_session).create_item(
+            "t1",
+            "agent1",
+            question="工资什么时候发",
+            answer_markdown="总部每月 7 号发工资",
+            keywords=["工资", "发放"],
+            created_by_user_id="u1",
+            source="handoff",
+            source_id="handoff_x",
+        )
+
+    _adopt()
+    ignored = db_session.exec(
+        select(AgentFaqIgnoredHandoff).where(AgentFaqIgnoredHandoff.handoff_id == "handoff_x")
+    ).all()
+    assert len(ignored) == 1
+    assert ignored[0].created_by_user_id == "u1"
+    assert ignored[0].agent_id == "agent1"
+
+    # 幂等：同一 handoff 再采纳一次不会重复插忽略记录（唯一约束会炸）
+    _adopt()
+    assert len(
+        db_session.exec(
+            select(AgentFaqIgnoredHandoff).where(AgentFaqIgnoredHandoff.handoff_id == "handoff_x")
+        ).all()
+    ) == 1
+
+
+def test_adopt_from_unanswered_keeps_ignored_table_clean(db_session: Session) -> None:
+    """无法回答来源走 status=faq_adopted，不应污染忽略表。"""
+
+    row = AgentUnansweredQuery(
+        tenant_id="t1",
+        agent_id="agent1",
+        query="年假怎么请",
+        query_hash="h1",
+        source="model_refusal",
+    )
+    db_session.add(row)
+    db_session.commit()
+
+    FaqService(db_session).create_item(
+        "t1",
+        "agent1",
+        question="年假怎么请",
+        answer_markdown="OA 提交请假单",
+        keywords=["年假", "请假"],
+        created_by_user_id="u1",
+        source="unanswered",
+        source_id=row.id,
+    )
+    db_session.refresh(row)
+    assert row.status == "faq_adopted"
+    assert db_session.exec(select(AgentFaqIgnoredHandoff)).all() == []

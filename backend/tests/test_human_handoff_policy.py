@@ -967,3 +967,116 @@ def test_router_generated_message_slots_are_not_persisted():
     )
 
     assert cleaned == {"product_id": "A1", "quantity": 1}
+
+
+def test_dismiss_human_handoff_closes_inbox_item():
+    """「无需回答」：关掉 pending handoff、会话放回可对话，且不产生人工回复。"""
+    engine = _test_engine()
+    with Session(engine) as db:
+        _admin, user, _other = _seed_handoff_users(db)
+        db.add(
+            ChatSession(
+                id="session_dismiss",
+                tenant_id="tenant_demo",
+                user_id=user.id,
+                agent_id="agent_demo",
+                status="handoff",
+                awaiting_input_json={"type": "human_handoff", "handoff_id": "handoff_dismiss"},
+            )
+        )
+        db.add(
+            HumanHandoffRequest(
+                id="handoff_dismiss",
+                tenant_id="tenant_demo",
+                session_id="session_dismiss",
+                agent_id="agent_demo",
+                requester_user_id=user.id,
+                assignee_user_id="admin_user",
+                pending_question="请人工确认",
+                status="pending",
+            )
+        )
+        db.commit()
+
+        result = chat_api.dismiss_human_handoff(
+            "handoff_dismiss",
+            chat_api.HumanHandoffDismissRequest(tenant_id="tenant_demo"),
+            current_user=User(
+                id="admin_user",
+                tenant_id="tenant_demo",
+                username="admin",
+                role="admin",
+                password_hash="x",
+            ),
+            db=db,
+        )
+        assert result.status == "dismissed"
+
+    with Session(engine) as db:
+        handoff = db.get(HumanHandoffRequest, "handoff_dismiss")
+        assert handoff is not None
+        assert handoff.status == "dismissed"
+        # 没有人工回复 → 不会进 FAQ 待沉淀的转人工候选
+        assert handoff.human_reply is None
+        assert handoff.metadata_json["dismissed_by_user_id"] == "admin_user"
+
+        chat_session = db.get(ChatSession, "session_dismiss")
+        assert chat_session is not None
+        assert chat_session.status == "active"
+        assert chat_session.awaiting_input_json is None
+
+        events = db.exec(
+            select(AgentEvent).where(AgentEvent.event_type == "human_handoff_dismissed")
+        ).all()
+        assert len(events) == 1
+        # 待回答收件箱按 status=pending 拉取，关掉后不再出现
+        pending = db.exec(
+            select(HumanHandoffRequest).where(HumanHandoffRequest.status == "pending")
+        ).all()
+        assert all(row.id != "handoff_dismiss" for row in pending)
+
+
+def test_dismiss_human_handoff_rejects_non_pending():
+    engine = _test_engine()
+    with Session(engine) as db:
+        _admin, user, _other = _seed_handoff_users(db)
+        db.add(
+            ChatSession(
+                id="session_answered",
+                tenant_id="tenant_demo",
+                user_id=user.id,
+                agent_id="agent_demo",
+                status="active",
+            )
+        )
+        db.add(
+            HumanHandoffRequest(
+                id="handoff_answered",
+                tenant_id="tenant_demo",
+                session_id="session_answered",
+                agent_id="agent_demo",
+                requester_user_id=user.id,
+                assignee_user_id="admin_user",
+                pending_question="请人工确认",
+                status="answered",
+                human_reply="已人工处理",
+            )
+        )
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            chat_api.dismiss_human_handoff(
+                "handoff_answered",
+                chat_api.HumanHandoffDismissRequest(tenant_id="tenant_demo"),
+                current_user=User(
+                    id="admin_user",
+                    tenant_id="tenant_demo",
+                    username="admin",
+                    role="admin",
+                    password_hash="x",
+                ),
+                db=db,
+            )
+        assert exc.value.status_code == 409
+    with Session(engine) as db:
+        assert db.get(HumanHandoffRequest, "handoff_answered").status == "answered"

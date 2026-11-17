@@ -20,7 +20,12 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app.db.models import AgentFaqItem, AgentUnansweredQuery, utc_now
+from app.db.models import (
+    AgentFaqIgnoredHandoff,
+    AgentFaqItem,
+    AgentUnansweredQuery,
+    utc_now,
+)
 
 #: 匹配前对 query/关键词做归一化：压空白、全角转半角、小写、剥标点
 #: （标点不影响语义，留着会让「同问不同标点」去重失败）。
@@ -264,6 +269,25 @@ class FaqService:
                 unresolved.faq_item_id = row.id
                 unresolved.updated_at = now
                 self.db.add(unresolved)
+            # 转人工候选采纳后要离开「待沉淀」：handoff 的 answered 是业务状态
+            # 不能改（审计/会话恢复还在用），所以按「已忽略」标记排除出列表。
+            if source == "handoff":
+                already = self.db.exec(
+                    select(AgentFaqIgnoredHandoff).where(
+                        AgentFaqIgnoredHandoff.tenant_id == tenant_id,
+                        AgentFaqIgnoredHandoff.agent_id == agent_id,
+                        AgentFaqIgnoredHandoff.handoff_id == source_id,
+                    )
+                ).first()
+                if already is None:
+                    self.db.add(
+                        AgentFaqIgnoredHandoff(
+                            tenant_id=tenant_id,
+                            agent_id=agent_id,
+                            handoff_id=source_id,
+                            created_by_user_id=created_by_user_id,
+                        )
+                    )
         self.db.commit()
         self.db.refresh(row)
         return row

@@ -49,6 +49,7 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
     handoffReplies,
     setHandoffReplies,
     submitHandoffReply,
+    dismissHandoff,
     agents,
     displayedAgent,
     displayedProfile,
@@ -122,7 +123,11 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
                     <Textarea
                       rows={3}
                       value={handoffReplies[handoff.id] || ''}
-                      placeholder="以当前数字员工的口吻回复。提交后，原会话会继续推进 SOP 流程。"
+                      placeholder={
+                        handoff.trigger_skill_id || handoff.trigger_step_id
+                          ? '以当前数字员工的口吻回复。提交后，原会话会继续推进 SOP 流程。'
+                          : '以当前数字员工的口吻回复。提交后，用户会直接在会话中看到这条答复。'
+                      }
                       onChange={(event) => setHandoffReplies((prev) => ({
                         ...prev,
                         [handoff.id]: event.target.value,
@@ -137,6 +142,13 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
                         }}
                       >
                         打开原会话
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="text-[#6d6d72] hover:text-[#18181a]"
+                        onClick={() => void dismissHandoff(handoff)}
+                      >
+                        无需回答
                       </Button>
                       <Button onClick={() => submitHandoffReply(handoff)}>回复并恢复</Button>
                     </div>

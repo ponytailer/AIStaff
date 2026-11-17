@@ -191,6 +191,11 @@ class HumanHandoffReplyRequest(BaseModel):
     reply: str
 
 
+class HumanHandoffDismissRequest(BaseModel):
+    tenant_id: str
+    reason: str | None = None
+
+
 def session_read(
     row: ChatSession,
     *,
@@ -2441,6 +2446,72 @@ def reply_human_handoff(
     return human_handoff_read(
         row,
         requester_display_name=(requester_user.display_name or requester_user.username) if requester_user else None,
+    )
+
+
+@router.post("/handoffs/{handoff_id}:dismiss", response_model=HumanHandoffRead)
+def dismiss_human_handoff(
+    handoff_id: str,
+    request: HumanHandoffDismissRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+) -> HumanHandoffRead:
+    """「无需回答」：把一条 pending 转人工关掉，不再占用待回答收件箱。
+
+    只改 handoff 状态与已恢复的会话状态，不写人类回复——所以它不会进 FAQ
+    待沉淀的转人工候选（那边只收 answered），也不会触发任何恢复轮次。
+    """
+    _ensure_request_tenant(request.tenant_id, current_user)
+    row = db.get(HumanHandoffRequest, handoff_id)
+    if not row or row.tenant_id != request.tenant_id:
+        raise HTTPException(status_code=404, detail="Handoff request not found")
+    if not is_admin_user(current_user) and row.assignee_user_id not in {None, current_user.id}:
+        raise HTTPException(status_code=403, detail="Handoff request not assigned to current user")
+    if row.status != "pending":
+        raise HTTPException(status_code=409, detail="Handoff request is not pending")
+
+    now = utc_now()
+    row.status = "dismissed"
+    row.updated_at = now
+    row.metadata_json = {
+        **(row.metadata_json or {}),
+        "dismissed_by_user_id": current_user.id,
+        "dismissed_at": now.isoformat(),
+        "dismiss_reason": (request.reason or "").strip()[:200] or None,
+    }
+    db.add(row)
+
+    chat_session = db.get(ChatSession, row.session_id)
+    if chat_session and chat_session.tenant_id == request.tenant_id:
+        # 会话从「等人工」放回可对话状态：用户再发消息能正常走一遍新流程。
+        if chat_session.status == "handoff":
+            chat_session.status = "active"
+        chat_session.awaiting_input_json = None
+        chat_session.updated_at = now
+        db.add(chat_session)
+    db.add(
+        AgentEvent(
+            tenant_id=row.tenant_id,
+            session_id=row.session_id,
+            event_type="human_handoff_dismissed",
+            payload_json={
+                "handoff_id": row.id,
+                "agent_id": row.agent_id,
+                "dismissed_by_user_id": current_user.id,
+                "reason": (request.reason or "").strip()[:200] or None,
+            },
+            created_at=now,
+        )
+    )
+    db.commit()
+    db.refresh(row)
+
+    requester_user = db.get(User, row.requester_user_id) if row.requester_user_id else None
+    return human_handoff_read(
+        row,
+        requester_display_name=(
+            requester_user.display_name or requester_user.username
+        ) if requester_user else None,
     )
 
 
