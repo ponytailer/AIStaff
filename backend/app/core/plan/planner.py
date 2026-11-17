@@ -276,6 +276,7 @@ class TurnPlanner:
                     "standard",
                     "direct_reply",
                     "capability_intro",
+                    "faq_hit",
                 }:
                     frame.execution_mode = "standard"
                 if plan.decision == "handoff_human":

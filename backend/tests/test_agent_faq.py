@@ -318,3 +318,35 @@ def test_handoff_query_skips_human_reply_and_falls_back() -> None:
 
     # 会话消息被清空：回退到 pending_question（写路径已改为存真实问法）
     assert _handoff_query(_FakeDb([]), row) == "bot 转接话术"
+
+
+def test_shortcircuit_plan_survives_planner_normalize(db_session: Session) -> None:
+    """FAQ 短路计划必须活着穿过 planner._normalize。
+
+    真实踩坑：_normalize 的 execution_mode 白名单漏了 faq_hit，命中帧被降级
+    成 standard 走完整 LLM——执行记录显示「命中 FAQ」，回复却是模型自己编的。
+    """
+    from app.core.plan.planner import TurnPlanner
+    from app.core.plan.planner_fastpath import _faq_shortcircuit_plan
+
+    _add_faq(db_session, "手机端 Outlook 配置", ["手机", "outlook", "配置"])
+    session = type("S", (), {})()
+    session.tenant_id = "t1"
+    session.agent_id = "agent1"
+    session.active_skill_id = None
+    session.active_step_id = None
+    session.pending_tasks_json = None
+    session.awaiting_input_json = None
+
+    plan = _faq_shortcircuit_plan(db_session, session, "手机端 outlook 怎么配置", [], None, "normal")
+    assert plan is not None
+
+    normalized = TurnPlanner.__new__(TurnPlanner)._normalize(
+        plan, "手机端 outlook 怎么配置", session, [], None, "normal"
+    )
+    assert len(normalized.task_frames) == 1
+    frame = normalized.task_frames[0]
+    assert frame.execution_mode == "faq_hit"
+    assert frame.decision == "answer_only"
+    assert frame.slot_hints.get("faq_answer") == "标准答案"
+    assert (frame.slot_hints or {}).get("faq_item_id")
