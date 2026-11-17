@@ -15,7 +15,6 @@ from app.api import (
     auth,
     chat,
     dispatchers,
-    evolution,
     faq,
     feedback,
     gallery,
@@ -188,7 +187,6 @@ app.include_router(laya.router)
 app.include_router(oa_assistant.router)
 app.include_router(ai_review.router)
 app.include_router(memories.router)
-app.include_router(evolution.router)
 app.include_router(faq.router)
 app.include_router(feedback.router)
 app.include_router(persona.router)

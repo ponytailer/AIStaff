@@ -31,7 +31,6 @@ import SkillsPage from '../SkillsPage';
 import GeneralSkillsPage from '../GeneralSkillsPage';
 import FaqPage from '../FaqPage';
 import ToolsPage from '../ToolsPage';
-import EvolutionPanel from './EvolutionPanel';
 import { employeeDashboardMetrics } from './employeeDashboardMetrics';
 import {
   agentResourceCount,
@@ -543,7 +542,6 @@ export default function DashboardPage({
             positiveRate={dashboardMetrics.positiveRate}
             negativeRate={dashboardMetrics.negativeRate}
           />
-          {canEditSelectedAgent && <EvolutionPanel agentId={selectedAgent.id} />}
         </>
       )}
       {activeTab === 'knowledge' && (
