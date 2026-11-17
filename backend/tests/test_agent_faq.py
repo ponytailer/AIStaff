@@ -305,18 +305,22 @@ def test_handoff_query_skips_human_reply_and_falls_back() -> None:
             return self._rows
 
     class _FakeDb:
-        def __init__(self, rows: list) -> None:
+        def __init__(self, rows: list, session: object = None) -> None:
             self._rows = rows
+            self._session = session
 
         def exec(self, _statement: object) -> _FakeResult:
             return _FakeResult(self._rows)
+
+        def get(self, _model: object, _key: str) -> object:
+            return self._session
 
     assert (
         _handoff_query(_FakeDb([_msg("总部每月7号发工资", human_reply=True), _msg("工资什么时候发")]), row)
         == "工资什么时候发"
     )
 
-    # 会话消息被清空：回退到 pending_question（写路径已改为存真实问法）
+    # 会话消息被清空且没有标题：回退到 pending_question（写路径已改为存真实问法）
     assert _handoff_query(_FakeDb([]), row) == "bot 转接话术"
 
 
@@ -461,3 +465,119 @@ def test_handoff_shortcircuit_plan_survives_planner_normalize() -> None:
     frame = normalized.task_frames[0]
     assert frame.decision == "handoff_human"
     assert frame.execution_mode == "handoff_intent"
+
+
+def test_suggest_keywords_uses_word_segmentation() -> None:
+    """关键词要提成真实的词，不能是 2-gram 跨词碎片。
+
+    线上反馈：采纳面板里「打印机故障怎么报修」提出「印机」「机故」，
+    「显示用户名」提出「示用」「户名」——owner 根本没法用。
+    """
+
+    kws = suggest_keywords("打印机故障怎么报修")
+    assert "打印机" in kws and "故障" in kws and "报修" in kws
+    for bad in ("印机", "机故"):
+        assert bad not in kws
+
+    kws = suggest_keywords("电脑outlook登陆总是显示用户名可能不正确")
+    assert "outlook" in kws
+    assert "用户名" in kws
+    for bad in ("示用", "户名", "陆总", "是显"):
+        assert bad not in kws
+
+
+def test_handoff_query_skips_handoff_trigger_messages() -> None:
+    """「转人工」按钮发出的消息不能当用户问法。
+
+    真实踩坑：待沉淀里问法显示「转人工」、关键词「转人 / 人工」，
+    采成 FAQ 后任何带「人工」二字的提问都会误命中。
+    """
+    from app.api.faq import _handoff_query
+    from app.db.models import ChatSession, HumanHandoffRequest, Message
+
+    session = ChatSession(
+        id="session_hq", tenant_id="t1", agent_id="agent1", title="婚假怎么请"
+    )
+    row = HumanHandoffRequest(
+        id="handoff_hq", tenant_id="t1", session_id="session_hq",
+        pending_question="转人工",
+    )
+    question = Message(
+        id="m1", tenant_id="t1", session_id="session_hq",
+        role="user", content="婚假怎么请",
+    )
+    trigger = Message(
+        id="m2", tenant_id="t1", session_id="session_hq",
+        role="user", content="转人工",
+    )
+
+    class _Result:
+        def __init__(self, rows: list) -> None:
+            self._rows = rows
+
+        def all(self) -> list:
+            return self._rows
+
+    class _FakeDb:
+        def __init__(self) -> None:
+            self._session = session
+
+        def exec(self, _statement: object) -> _Result:
+            return _Result([question, trigger])
+
+        def get(self, _model: object, _key: str) -> object:
+            return self._session
+
+    # 首条真实提问被采用，纯触发词被跳过
+    assert _handoff_query(_FakeDb(), row) == "婚假怎么请"
+
+
+def test_handoff_query_falls_back_to_session_title() -> None:
+    """消息被清理时用会话标题兜底（标题来自首轮提问）。"""
+    from app.api.faq import _handoff_query
+    from app.db.models import ChatSession, HumanHandoffRequest
+
+    session = ChatSession(
+        id="s2", tenant_id="t1", agent_id="agent1", title="电脑outlook登陆报错"
+    )
+    row = HumanHandoffRequest(
+        id="h2", tenant_id="t1", session_id="s2", pending_question="转人工"
+    )
+
+    class _Result:
+        def all(self) -> list:
+            return []
+
+    class _FakeDb:
+        def exec(self, _statement: object) -> _Result:
+            return _Result()
+
+        def get(self, _model: object, _key: str) -> object:
+            return session
+
+    assert _handoff_query(_FakeDb(), row) == "电脑outlook登陆报错"
+
+
+def test_handoff_query_rejects_bot_script_fallback() -> None:
+    """历史数据里 pending_question 是 bot 转接话术时宁可返回空。"""
+    from app.api.faq import _handoff_query
+    from app.db.models import HumanHandoffRequest
+
+    row = HumanHandoffRequest(
+        id="h3",
+        tenant_id="t1",
+        session_id=None,
+        pending_question=(
+            "已为您转接人工同事跟进。 - 转接事项：报销流程相关问题 - 处理方式："
+            "由人工同事继续对接并给出具体答复，请您留意会话或工单通知。"
+        ),
+    )
+
+    class _FakeDb:
+        def exec(self, _statement: object) -> object:
+            raise AssertionError("session_id 为空时不该查消息")
+
+        def get(self, _model: object, _key: str) -> object:
+            return None
+
+    assert _handoff_query(_FakeDb(), row) == ""

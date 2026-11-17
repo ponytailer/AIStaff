@@ -14,6 +14,7 @@ from app.db.models import (
     User,
     utc_now,
 )
+from app.core.plan.planner_fastpath import is_handoff_trigger_only
 from app.session.session_schema import StepAgentResult
 
 
@@ -195,8 +196,14 @@ class HumanHandoffService:
     def _last_user_question(self, tenant_id: str, session_id: str | None) -> str:
         """会话里用户最后一条真实提问。
 
-        跳过 `metadata.human_reply` 的消息——那是 owner 从「待回答」补的答案
-        （落库也是 user 角色），把它当问法会把问答两头写反。"""
+        两类消息要跳过：
+        - `metadata.human_reply`：owner 从「待回答」补的答案（落库也是 user
+          角色），把它当问法会把问答两头写反；
+        - 纯转人工触发词（「转人工」）：答案尾部的按钮发出去就是一条这样的
+          消息，它不含任何真实问题。线上踩坑——「婚假怎么请 → 转人工」这类
+          会话，pending_question 落成「转人工」，owner 在待回答卡片里看到的
+          「这一步需要你处理」只有「转人工」两个字，FAQ 采纳又问法/关键词全错。
+        """
         if not session_id:
             return ""
         rows = self.db.exec(
@@ -207,15 +214,18 @@ class HumanHandoffService:
                 Message.role == "user",
             )
             .order_by(Message.created_at.desc())
-            .limit(20)
+            .limit(40)
         ).all()
         for row in rows:
             metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
             if metadata.get("human_reply"):
                 continue
             text = re.sub(r"\s+", " ", str(row.content or "")).strip()
-            if text:
-                return text[:600]
+            if not text:
+                continue
+            if is_handoff_trigger_only(text):
+                continue
+            return text[:600]
         return ""
 
     @staticmethod

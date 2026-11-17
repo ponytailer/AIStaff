@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -57,6 +58,66 @@ def is_handoff_intent(message: str) -> bool:
 #: 「当前会话中暂无可自动创建的工单或在线客服接口…」这种把内部实现细节
 #: 抖给用户的段落。
 HANDOFF_INTENT_REPLY = "已为你转接人工同事，稍后会有同事在这里回复你。"
+
+
+#: bot 自己生成的转接话术开头。历史数据里 `pending_question` 被写成了这些
+#: 长文本（旧 bug），它既不是用户问法也不是 SOP 待确认事项，不能当问法用。
+_BOT_HANDOFF_SCRIPT_PREFIXES = (
+    "已为您转接",
+    "正在为您转接",
+    "已收到您的转人工请求",
+    "已为您发起人工客服转接",
+    "好的，已为您转接",
+    "已转接人工",
+    "已为您转接人工",
+)
+
+
+def is_bot_handoff_script(text: str) -> bool:
+    """文本是否是 bot 自己生成的转接话术（而不是用户提问）。
+
+    历史数据排查用：旧版 `HumanHandoffService.pending_question` 会落 bot 的
+    转接话术，这些记录在「待沉淀」里显示成一大段「已为您转接人工同事跟进。
+    - 转接事项：…」，采成 FAQ 问法后关键词变成「已为 / 为您 / 您转 / 转接」
+    这类纯噪声。
+
+    判定故意收紧到「开头标记 + 足够长」：真实用户的「帮我转人工」不会被误判，
+    而 bot 话术都是几十上百字、且必然以这些短语起头。
+    """
+
+    body = re.sub(r"\s+", " ", str(text or "")).strip()
+    if len(body) < 40:
+        return False
+    return body.startswith(_BOT_HANDOFF_SCRIPT_PREFIXES)
+
+
+def is_handoff_trigger_only(message: str) -> bool:
+    """消息是否**只是**在点「转人工」（不含任何真实问题）。
+
+    与 :func:`is_handoff_intent` 的区别：后者判「想去人工」，前者判「除了
+    想去人工什么都没说」。这个区别决定了它能不能被当成用户问法——
+
+    线上踩坑：答案尾部「转人工」按钮发出的就是一条内容为「转人工」的 user
+    消息。FAQ 采纳侧取「会话最后一条用户消息」当用户问法、再拿它提关键词，
+    结果问法变成「转人工」、关键词变成「转人 / 人工」，采出来的 FAQ 以后
+    凡带「人工」二字的提问都会误命中。
+
+    判定：去标点后精确等于某个关键词，或（长度 ≤ 10 且含关键词）——
+    「我要人工客服」「转人工！」算，而「报销怎么弄，不然我转人工吧」不算。
+    """
+
+    text = re.sub(r"[\s\W_]+", "", str(message or "").lower())
+    if not text:
+        return False
+    for keyword in FAST_PATH_HANDOFF_KEYWORDS:
+        needle = re.sub(r"[\s\W_]+", "", keyword.lower())
+        if not needle:
+            continue
+        if text == needle:
+            return True
+        if len(text) <= 10 and needle in text:
+            return True
+    return False
 
 
 def _handoff_shortcircuit_plan(

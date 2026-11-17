@@ -68,12 +68,48 @@ _STOP_GRAMS = {
     "这个", "那个", "是不是", "为什么", "需要", "应该",
 }
 
+#: 中文虚词/代词：含这些字的 2-gram 几乎都是跨词切出来的噪声
+#: （「电脑outlook登陆总是显示用户名可能不正确」→「是显」「示用」）。
+#: 只用于**过滤候选**，不参与正向匹配——宁可少给几个词让 owner 手补，
+#: 也别塞一堆会在无关提问上误命中的 gram。
+_CJK_FUNCTION_CHARS = set(
+    "的了是在和有就都也很要会能可吗呢吧啊呀哦你您我他她它这那个们"
+    "把被让给对从到与及或所之其只为以于还就再又并但却而且"
+)
+
+
+#: 中文分词器（jieba）：只用于「从问法里提候选关键词」这一步。
+#: 为什么需要它：纯 2-gram 滑窗在中文里必然产出跨词碎片
+#: （「打印机故障」→「印机」「机故」，「显示用户名」→「示用」「户名」），
+#: owner 在采纳面板看到的就是一堆毫无意义的词。词典分词给的是真实词
+#: （打印机 / 故障 / 用户名），且零模型依赖、纯本地毫秒级。
+#: 分词失败（未安装/异常）时回退到 2-gram，行为与历史一致。
+try:  # pragma: no cover - 依赖缺失时走回退分支
+    import jieba as _jieba
+
+    _jieba.setLogLevel(60)
+except Exception:  # noqa: BLE001 - 分词只是增强，不能阻断 FAQ 主链路
+    _jieba = None
+
+
+def _cjk_candidates(token: str) -> list[str]:
+    """从一段中文里提候选关键词：优先词典分词，失败回退 2-gram。"""
+
+    if _jieba is not None:
+        try:
+            words = [str(w).strip() for w in _jieba.cut(token)]
+            return [w for w in words if len(w) >= 2]
+        except Exception:  # noqa: BLE001 - 分词异常回退 2-gram
+            pass
+    return [token[i : i + 2] for i in range(len(token) - 1)]
+
 
 def suggest_keywords(question: str, limit: int = 8) -> list[str]:
     """从问题文本自动提取候选关键词（采纳编辑框的预填值）。
 
-    停用词（怎么/什么/请问…）先整段剔除再滑窗，避免「怎么配」「机端怎」
-    这类跨词 gram 混进词表——它们会在无关 query 上制造误命中。
+    停用词（怎么/什么/请问…）先整段剔除再分词，避免「怎么配」这类跨词碎片
+    混进词表——它们会在无关 query 上制造误命中。含虚词的候选一并丢弃，
+    且已被更长候选包含的短候选不重复出现（有「用户名」就不再单独给「用户」）。
     """
 
     normalized = normalize_text(question)
@@ -87,13 +123,21 @@ def suggest_keywords(question: str, limit: int = 8) -> list[str]:
     for token in cjk.split():
         if len(token) < 2:
             continue
-        grams.extend(token[i : i + 2] for i in range(len(token) - 1))
+        grams.extend(_cjk_candidates(token))
+    candidates: list[str] = []
     seen: set[str] = set()
-    picked: list[str] = []
     for gram in grams:
         if gram in _STOP_GRAMS or gram in seen:
             continue
+        if set(gram) & _CJK_FUNCTION_CHARS:
+            continue
         seen.add(gram)
+        candidates.append(gram)
+    # 被更长候选完全包含的短候选丢掉（顺序即优先级）。
+    picked: list[str] = []
+    for gram in candidates:
+        if any(gram != other and gram in other for other in candidates):
+            continue
         picked.append(gram)
         if len(picked) >= limit:
             break

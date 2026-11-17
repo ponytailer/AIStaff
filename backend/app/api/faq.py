@@ -21,10 +21,15 @@ from app.db.models import (
     AgentProfile,
     AgentUnansweredQuery,
     AgentFaqItem,
+    ChatSession,
     HumanHandoffRequest,
     Message,
     User,
     utc_now,
+)
+from app.core.plan.planner_fastpath import (
+    is_bot_handoff_script,
+    is_handoff_trigger_only,
 )
 from app.faq.service import FaqService, suggest_keywords
 from app.security.auth import get_current_user
@@ -101,14 +106,24 @@ def _item_read(row: Any) -> AgentFaqItemRead:
 
 
 def _handoff_query(db: Session, row: HumanHandoffRequest) -> str:
-    """转人工候选的用户问法：取该会话最后一条用户消息（人工回复的对象）。
+    """转人工候选的用户问法：该会话的**主题提问**（第一条真实用户提问）。
 
-    跳过 `metadata.human_reply` 的消息——owner 从「待回答」补的答案落库也是
-    user 角色，不能当成问法；问法缺失时回退到创建 handoff 时记录的
-    pending_question。"""
+    为什么不用「最后一条用户消息」——线上踩坑（三连错）：
+    - 答案尾部的「转人工」按钮发出去就是一条内容为「转人工」的 user 消息，
+      取最后一条 → 问法变成「转人工」，关键词变成「转人 / 人工」；
+    - 跳过触发词后取到的是「我用了foliday的wifi」这类上下文追问，单独看
+      完全不成立，采成 FAQ 以后没人能搜到。
+
+    FAQ 要沉淀的是「这段对话到底在问什么」，也就是进线的第一句真实提问
+    （和会话标题同源）；owner 的人工回复正是对它的答复。
+
+    跳过：`metadata.human_reply`（owner 补的答案，落库也是 user 角色）与
+    纯转人工触发词。都没有时回退 pending_question，它若也是触发词则返回空
+    （前端会跳过这条候选，比拿一个错问法去生成关键词好）。
+    """
 
     if row.session_id:
-        # 取最近一批再逐条过滤，避免 JSON 字段没法直接进 SQL 谓词。
+        # 取最早一批再逐条过滤，避免 JSON 字段没法直接进 SQL 谓词。
         rows = db.exec(
             select(Message)
             .where(
@@ -116,16 +131,29 @@ def _handoff_query(db: Session, row: HumanHandoffRequest) -> str:
                 Message.session_id == row.session_id,
                 Message.role == "user",
             )
-            .order_by(Message.created_at.desc())
+            .order_by(Message.created_at.asc())
             .limit(20)
         ).all()
         for msg in rows:
             metadata = msg.metadata_json if isinstance(msg.metadata_json, dict) else {}
             if metadata.get("human_reply"):
                 continue
-            if str(msg.content or "").strip():
-                return str(msg.content).strip()[:500]
-    return str(row.pending_question or "").strip()[:500]
+            content = str(msg.content or "").strip()
+            if not content:
+                continue
+            if is_handoff_trigger_only(content):
+                continue
+            return content[:500]
+    # 消息被清理（会话删除 / 测试数据清理）时的兜底：会话标题就是首轮提问。
+    if row.session_id:
+        session = db.get(ChatSession, row.session_id)
+        title = str(getattr(session, "title", "") or "").strip()
+        if title and not is_handoff_trigger_only(title) and not is_bot_handoff_script(title):
+            return title[:500]
+    fallback = str(row.pending_question or "").strip()
+    if is_handoff_trigger_only(fallback) or is_bot_handoff_script(fallback):
+        return ""
+    return fallback[:500]
 
 
 @router.get("/agents/{agent_id}/faq/items", response_model=list[AgentFaqItemRead])
