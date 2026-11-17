@@ -441,7 +441,7 @@ export default function FaqPage({
       aria-busy={loading}
     >
       <section className="mb-[36px]">
-        <div className="mb-[14px] flex items-center gap-[6px] text-[#6d6d72]">
+        <div className="mb-[14px] flex items-center gap-[12px] text-[#6d6d72]">
           <span className="text-[14px] leading-none">待沉淀</span>
           <span className="text-[12px] text-[#9a9a9f]">
             答不上来或人工兜底过的问答 —— 确认答案后采纳为 FAQ，下次同样的问题员工直接回答
@@ -465,7 +465,7 @@ export default function FaqPage({
       </section>
 
       <section>
-        <div className="mb-[14px] flex items-center gap-[6px] text-[#6d6d72]">
+        <div className="mb-[14px] flex items-center gap-[12px] text-[#6d6d72]">
           <span className="text-[14px] leading-none">FAQ 库</span>
           <span className="text-[12px] text-[#9a9a9f]">命中规则：≥2 个关键词同时命中才短路回答</span>
           <button
