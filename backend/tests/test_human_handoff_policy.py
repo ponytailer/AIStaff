@@ -840,6 +840,67 @@ def test_handoff_resume_worker_prefers_session_user_after_rebind(monkeypatch):
     assert handled_requests[0].user_id == "admin_user"
 
 
+def test_handoff_resume_worker_skips_plain_transfer(monkeypatch):
+    """普通「转人工」（无 SOP 节点触发）不恢复轮次。
+
+    人工回复本身就是最终答复；旧实现把它当用户消息再跑一轮，员工会先复述一遍
+    再补一堆没问的知识（工资发放时间这类咨询里尤其明显）。
+    """
+    engine = _test_engine()
+    handled_requests: list[ChatTurnRequest] = []
+
+    class FakeAgentLoop:
+        def __init__(self, db: Session) -> None:
+            self.db = db
+
+        def handle_turn(self, request: ChatTurnRequest) -> None:
+            handled_requests.append(request)
+
+    monkeypatch.setattr(chat_api, "engine", engine)
+    monkeypatch.setattr(chat_api, "AgentLoop", FakeAgentLoop)
+    with Session(engine) as db:
+        _admin, user, _other = _seed_handoff_users(db)
+        db.add(
+            ChatSession(
+                id="session_plain",
+                tenant_id="tenant_demo",
+                user_id=user.id,
+                agent_id="agent_demo",
+                status="handoff",
+            )
+        )
+        db.add(
+            HumanHandoffRequest(
+                id="handoff_plain",
+                tenant_id="tenant_demo",
+                session_id="session_plain",
+                agent_id="agent_demo",
+                requester_user_id=user.id,
+                assignee_user_id="admin_user",
+                pending_question="转人工",
+                status="answered",
+                human_reply="总部每月7号发工资",
+            )
+        )
+        db.commit()
+
+    chat_api._resume_human_handoff_worker("handoff_plain")
+
+    assert handled_requests == []
+    with Session(engine) as db:
+        handoff = db.get(HumanHandoffRequest, "handoff_plain")
+        assert handoff is not None
+        # 状态与人工回复保持不动，仅记录跳过原因，便于线上排查「为什么没有追问」。
+        assert handoff.status == "answered"
+        assert handoff.human_reply == "总部每月7号发工资"
+        assert "resume_started_at" not in (handoff.metadata_json or {})
+        events = db.exec(
+            select(AgentEvent).where(AgentEvent.event_type == "human_handoff_resume_skipped")
+        ).all()
+        assert len(events) == 1
+        assert events[0].payload_json["reason"] == "no_active_sop"
+
+
 def test_handoff_resume_worker_persists_failed_resume(monkeypatch):
     engine = _test_engine()
 
@@ -871,6 +932,8 @@ def test_handoff_resume_worker_persists_failed_resume(monkeypatch):
                 agent_id="agent_demo",
                 requester_user_id=user.id,
                 assignee_user_id="admin_user",
+                trigger_skill_id="manual_skill",
+                trigger_step_id="manual_review",
                 pending_question="请人工确认",
                 status="answered",
                 human_reply="人工答复：继续执行后续流程",

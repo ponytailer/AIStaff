@@ -416,7 +416,7 @@ def _apply_handoff_reply(
     answered_by_user_id: str | None,
     source: str = "web",
 ) -> None:
-    """把一条 pending handoff 置为 answered 并触发 SOP 恢复。
+    """把一条 pending handoff 置为 answered；SOP 节点触发的才恢复流程。
 
     供网页 API(reply_human_handoff)与渠道 intake 回复分支复用。
     调用前需已完成权限校验与状态校验;本函数负责落库 + 事件 + 异步恢复。
@@ -478,6 +478,27 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
                 return
             metadata = dict(handoff.metadata_json or {})
             if metadata.get("resume_started_at"):
+                return
+            # 只有 SOP 节点触发的转人工才需要「恢复轮次」：人工回复要作为输入
+            # 驱动被中断的流程继续跑。普通「转人工」（无 skill/step）的人工回复
+            # 本身就是最终答复，再跑一轮只会让员工把人工回复当用户消息重新作答
+            # （复述一遍 + 补充一堆没问的知识），所以直接停在人工回复这里。
+            if not (handoff.trigger_skill_id or handoff.trigger_step_id):
+                now_skip = utc_now()
+                db.add(
+                    AgentEvent(
+                        tenant_id=handoff.tenant_id,
+                        session_id=handoff.session_id,
+                        event_type="human_handoff_resume_skipped",
+                        payload_json={
+                            "handoff_id": handoff.id,
+                            "agent_id": handoff.agent_id,
+                            "reason": "no_active_sop",
+                        },
+                        created_at=now_skip,
+                    )
+                )
+                db.commit()
                 return
             now = utc_now()
             metadata["resume_started_at"] = now.isoformat()

@@ -1510,6 +1510,7 @@
   "已复制 {1} 个技能": "Copied {1} Skill",
   "已复制 {1} 个知识库{2}": "Copied {1} Knowledge Base {2}",
   "已回复，原会话会继续执行": "Response, original conversation will Continue Execute",
+  "已回复，用户已在会话中收到": "Replied, the user has received it in the conversation",
   "已回滚到 {1}": "Roll Back to {1}",
   "已加入发送队列": "Added to Send Queue",
   "排队内容过大，刷新页面后可能无法恢复": "The queued content is too large to restore after a page refresh",

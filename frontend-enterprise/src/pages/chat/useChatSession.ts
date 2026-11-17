@@ -1651,7 +1651,13 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   const replyToHandoff = useCallback(async (handoff: HumanHandoffRead, reply: string): Promise<boolean> => {
     try {
       await api.post<HumanHandoffRead>(`/api/chat/handoffs/${handoff.id}/reply`, { tenant_id: tenantId, reply });
-      notify.success('已回复，原会话会继续执行');
+      // 只有 SOP 节点触发的转人工会恢复流程；普通转人工的人工回复就是最终答复，
+      // 后端不会再跑一轮，提示文案要跟着区分，免得等一个永远不来的追问。
+      notify.success(
+        handoff.trigger_skill_id || handoff.trigger_step_id
+          ? '已回复，原会话会继续执行'
+          : '已回复，用户已在会话中收到',
+      );
       setHandoffs((rows) => rows.filter((item) => item.id !== handoff.id));
       setHandoffReplies((prev) => {
         const next = { ...prev };
