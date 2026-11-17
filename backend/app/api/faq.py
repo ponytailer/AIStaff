@@ -20,6 +20,7 @@ from app.db.models import (
     AgentFaqIgnoredHandoff,
     AgentProfile,
     AgentUnansweredQuery,
+    AgentFaqItem,
     HumanHandoffRequest,
     Message,
     User,
