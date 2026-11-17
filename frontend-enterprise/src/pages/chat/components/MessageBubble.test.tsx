@@ -72,8 +72,18 @@ describe('MessageBubble responsive sizing', () => {
     renderSlashMessage('确认', []);
 
     const message = screen.getByText('确认');
-    const bubble = message.parentElement?.parentElement;
-    expect(bubble?.parentElement?.classList.contains('contents')).toBe(true);
+    // 用户消息现在包在右对齐列里（署名行 + 气泡上下排布），不再是 display:contents。
+    // 链路：正文 span → plain-answer → 气泡 → 右对齐列。
+    const column = message.parentElement?.parentElement?.parentElement;
+    expect(column?.className).toContain('items-end');
+  });
+
+  it('signs user turns with a name + initial avatar above the bubble', () => {
+    const { container } = renderSlashMessage('确认', []);
+
+    // mock 的 chat 没有 authUser，署名回落为「你」；头像取显示名首字符。
+    const avatar = container.querySelector('[class*="194,80,80"]');
+    expect(avatar?.textContent).toBe('你');
   });
 });
 
@@ -228,13 +238,12 @@ describe('MessageBubble reply card', () => {
     return render(<MessageBubble chat={chat} item={item} render={messageRender} />);
   }
 
-  it('puts an answer in a rounded card so replies are not floating text', () => {
+  it('leaves answers as plain text — replies are not boxed (2026-11-17 定稿)', () => {
     const { container } = renderAssistant('复盘已生成，附件里是完整版。');
-    const bubble = container.querySelector('[class*="rounded-[16px]"]');
-    expect(bubble).toBeTruthy();
-    // 与输入框同一套描边语汇：0.5px 发丝 ring（border 会再吃 2px 内容宽）
-    expect(bubble?.className).toContain('ring-[0.5px]');
-    expect(bubble?.textContent).toContain('复盘已生成');
+    // 助手正文不再套圆角卡；白框只留给特殊事件（执行记录 / 转接通知 / 报错）。
+    expect(container.querySelector('[class*="rounded-[16px]"]')).toBeNull();
+    expect(container.querySelector('[class*="ring-[0.5px]"]')).toBeNull();
+    expect(container.textContent).toContain('复盘已生成');
   });
 
   it('leaves one-line status notices bare instead of boxing them', () => {
@@ -242,5 +251,46 @@ describe('MessageBubble reply card', () => {
     const bubble = container.querySelector('[class*="rounded-[16px]"]');
     expect(bubble).toBeNull();
     expect(container.textContent).toContain('已转交给');
+  });
+
+  it('keeps errors in a red-tinted box — errors are special events', () => {
+    const item: ChatMessage = {
+      id: 'message-error',
+      role: 'assistant',
+      content: '调用工具失败，请稍后重试。',
+      isError: true,
+      created_at: '2026-11-17T00:00:00Z',
+    } as ChatMessage;
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-error',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: '调用工具失败，请稍后重试。',
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [],
+      harnessArtifacts: [],
+      statusOnly: false,
+    };
+    const chat = {
+      slashCommands: [],
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+      activeConversationId: 'session-error',
+    } as unknown as UseChatSession;
+    const { container } = render(<MessageBubble chat={chat} item={item} render={messageRender} />);
+    const errorBox = container.querySelector('[class*="rounded-[12px]"]');
+    // 报错色（CHAT_BUBBLE_ERROR_CLASS）经 tailwind-merge 覆盖卡底色，红调最终生效。
+    expect(errorBox?.className).toContain('bg-[#fce7e7]');
+    expect(errorBox?.className).toContain('rounded-[12px]');
+    expect(container.textContent).toContain('调用工具失败');
   });
 });

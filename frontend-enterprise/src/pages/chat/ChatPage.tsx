@@ -69,17 +69,22 @@ export default function ChatPage() {
         onDeleteSession={chat.requestDelete}
         onOpenAdmin={chat.openAdmin}
       />
-      <main className={cn(CHAT_MAIN_CLASS, 'flex-1')}>
-        <ChatHeader chat={chat} />
-        <div className={CHAT_BODY_CLASS}>
-          <div className={CHAT_COLUMN_CLASS}>
-            <div className={CHAT_MESSAGE_SHELL_CLASS}>
-              <MessageList chat={chat} />
+      {/* 左中右三部分的顶边对齐（2026-11-17）：侧栏浮岛与右栏卡片都从
+          island-gap（16px）起头 —— 所以右栏提到 main 的顶层、与标题栏并排，
+          标题栏只覆盖中列。之前右栏压在 88px 标题栏下面，顶边比左岛低 74px。 */}
+      <main className={cn(CHAT_MAIN_CLASS, 'flex-1 flex-row')}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ChatHeader chat={chat} />
+          <div className={CHAT_BODY_CLASS}>
+            <div className={CHAT_COLUMN_CLASS}>
+              <div className={CHAT_MESSAGE_SHELL_CLASS}>
+                <MessageList chat={chat} />
+              </div>
+              <Composer chat={chat} />
             </div>
-            <Composer chat={chat} />
           </div>
-          <ChatContextRail chat={chat} />
         </div>
+        <ChatContextRail chat={chat} />
       </main>
       <ChatDialogs chat={chat} />
     </SidebarProvider>

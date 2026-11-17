@@ -4033,6 +4033,8 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     activeConversationId,
     displayedAgent,
     displayedProfile,
+    /** 当前登录用户（消息列给用户发言署名用；分享访客为 null）。 */
+    authUser: auth?.user ?? null,
     currentSession,
     emptyProfileTags,
     emptyRoleSummary,

@@ -18,8 +18,9 @@ export const CHAT_ICON_BUTTON_CLASS =
   'inline-grid size-[30px] shrink-0 place-items-center rounded-[8px] border-0 bg-transparent p-0 text-[#6d6d72] transition-colors hover:bg-[#f0efec] hover:text-[#18181a]';
 
 /**
- * 对话端唯一的一种「实体卡」语言，消息窗口 / 输入框 / 右栏小卡全都复用它：
+ * 对话端的「实体卡」语言，输入框 / 右栏小卡 / 特殊事件框全都复用它：
  *   白面 + 18px 圆角 + 0.5px 墨色描边（ring，不占盒模型）+ 一层极浅的浮起阴影。
+ * 普通回复**不是**卡（2026-11-17 定稿：正文裸排），只有特殊事件才加框。
  *
  * 为什么一条 token 而不是各写各的：这几张卡在屏幕上是上下叠着的，圆角差 2px、
  * 描边一个暖米一个冷灰，第一眼就会读成「两套组件」。环状描边用 ring 而不是
@@ -32,8 +33,7 @@ export const CHAT_SURFACE_CARD_CLASS =
 // ---------------------------------------------------------------------------
 // Main column + header
 // ---------------------------------------------------------------------------
-export const CHAT_MAIN_CLASS = 'flex min-h-0 min-w-0 flex-col bg-[#f7f7f6]';
-export const CHAT_HEADER_CLASS =
+export const CHAT_MAIN_CLASS = 'flex min-h-0 min-w-0 flex-col bg-[#f7f7f6]';export const CHAT_HEADER_CLASS =
   // h-[88px] + pt-[32px] 是桌面外壳的拖拽区约束（顶部 32px 留给原生标题栏），
   // 不能压缩：ChatHeader.test 里有对应回归用例。这里只去掉分隔线、放开左右内边距。
   'flex h-[88px] shrink-0 items-center justify-between gap-[12px] pt-[32px] pl-[20px] pr-[20px]';
@@ -74,7 +74,7 @@ export const CHAT_GROUP_MESSAGE_LEADER_BADGE_CLASS =
 // 留白对齐。组与组之间用 mt 呼吸，组内只隔 4px —— 这样一眼能看出「哪几句是
 // 同一轮说的」，而不是每条都被 18px 的空隙切成独立卡片。
 // ---------------------------------------------------------------------------
-export const CHAT_TURN_SPACED_CLASS = 'mt-[20px]';
+export const CHAT_TURN_SPACED_CLASS = 'mt-[22px]';
 /** 组内后续消息：占住头像那一列，内容仍在同一条竖线上。 */
 export const CHAT_TURN_SPACER_CLASS = 'w-[28px] shrink-0';
 export const CHAT_TURN_HEAD_CLASS = 'mb-[5px] flex min-w-0 items-center gap-[7px]';
@@ -84,22 +84,32 @@ export const CHAT_TURN_AUTHOR_CLASS =
 export const CHAT_TURN_TIME_CLASS =
   'shrink-0 text-[11.5px] leading-[1.4] tabular-nums text-[#9a9a9f] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100';
 /** 日期分隔：居中胶囊，不用横线（thread 里不出现线）。 */
-export const CHAT_DAY_DIVIDER_CLASS = 'my-[14px] flex justify-center';
+export const CHAT_DAY_DIVIDER_CLASS = 'my-[16px] flex justify-center';
 export const CHAT_DAY_DIVIDER_PILL_CLASS =
   'rounded-full bg-[rgba(24,24,26,0.05)] px-[10px] py-[2px] text-[11px] font-medium leading-[1.5] text-[#6d6d72]';
+
+// ---------------------------------------------------------------------------
+// 用户发言的署名行（参考 Claude 风格的 thread：姓名 + 头像在气泡上方右对齐）
+// 头像取当前登录用户显示名的首字符，暖红调 —— 与员工的青绿头像一眼区分。
+// ---------------------------------------------------------------------------
+export const CHAT_USER_CONTENT_COLUMN_CLASS = 'flex min-w-0 flex-col items-end gap-[6px]';
+export const CHAT_USER_HEADER_ROW_CLASS = 'mb-[4px] flex min-w-0 items-center justify-end gap-[8px]';
+export const CHAT_USER_AVATAR_CLASS =
+  'grid size-[26px] shrink-0 place-items-center rounded-full bg-[rgba(194,80,80,0.14)] text-[12px] font-semibold leading-none text-[#b04848]';
 
 // 正文基准 14.5px（tuffui ai-chat 用 text-sm + leading-relaxed，中文再抬半档）。
 export const CHAT_BUBBLE_BASE_CLASS =
   'relative box-border min-w-0 max-w-[min(680px,92%)] text-[14.5px] leading-[1.7] wrap-anywhere text-[#18181a]';
-/** 助手答案 = 一张圆角卡，和下方输入框同一套语汇（16px 圆角 / 白面 / 0.5px 描边）。
- *  **不加浮起阴影**：它已经落在消息窗口这张白卡里，再叠一层阴影会显脏；
- *  描边就够了 —— 白卡套白卡时，边界只能靠这一圈发丝线交代。 */
-export const CHAT_BUBBLE_ASSISTANT_CLASS =
-  'w-full max-w-full rounded-[16px] bg-white px-[15px] py-[11px] ring-[0.5px] ring-[rgba(24,24,26,0.12)] shadow-[0_1px_2px_rgba(24,24,26,0.035)]';
-/** 提示态（statusOnly / 报错）仍走裸文本：一句话的状态不值得占一整张卡。 */
+/** 助手答案 = **裸文本**（2026-11-17 用户定稿，参考 Claude/agent 聊天版式）：
+ *  正文直接落在纸背景上，不再套白卡 —— 白卡只留给「特殊事件」（执行记录 /
+ *  转接通知）和输入框。宽度不再收窄：与消息列同宽，长行折行由 wrap-anywhere 兜底。 */
+export const CHAT_BUBBLE_ASSISTANT_CLASS = 'w-full max-w-full';
+/** 提示态（statusOnly / 报错）同样走裸文本。 */
 export const CHAT_BUBBLE_ASSISTANT_PLAIN_CLASS = 'w-full max-w-full';
+/** 报错是特殊事件：保留一个红调小框，避免红字直接糊在纸上。 */
+export const CHAT_BUBBLE_ERROR_CARD_CLASS = 'rounded-[12px] border-[0.5px] border-[#f0b4b4] bg-[#fdf2f2] px-[14px] py-[10px]';
 export const CHAT_BUBBLE_USER_CLASS =
-  'rounded-[16px] rounded-tr-[6px] bg-[#e5e4e0] px-[14px] py-[8px] text-[#18181a]';
+  'rounded-[14px] bg-[#e5e4e0] px-[15px] py-[9px] text-[#18181a]';
 export const CHAT_BUBBLE_ERROR_CLASS = 'border-[#f38989] bg-[#fce7e7] text-[#d20b0b]';
 export const CHAT_QUEUED_BUBBLE_CLASS =
   'border border-dashed border-[rgba(24,24,26,0.12)] bg-[#f2f1ee] pr-[42px] text-[rgba(24,24,26,0.8)]';
@@ -118,15 +128,15 @@ export function chatRowClass(role: 'user' | 'assistant' | 'system' | 'tool'): st
 export function chatBubbleClass(
   role: 'user' | 'assistant' | 'system' | 'tool',
   isError?: boolean,
-  /** true = 不套卡（状态提示 / 报错这类一句话消息）。 */
+  /** true = 不套卡（状态提示这类一句话消息）。 */
   plain?: boolean,
 ): string {
   return cn(
     CHAT_BUBBLE_BASE_CLASS,
     role === 'user'
       ? CHAT_BUBBLE_USER_CLASS
-      : plain
-        ? CHAT_BUBBLE_ASSISTANT_PLAIN_CLASS
+      : isError
+        ? cn(CHAT_BUBBLE_ASSISTANT_PLAIN_CLASS, CHAT_BUBBLE_ERROR_CARD_CLASS)
         : CHAT_BUBBLE_ASSISTANT_CLASS,
     isError && CHAT_BUBBLE_ERROR_CLASS,
   );
@@ -147,11 +157,12 @@ export const CHAT_MESSAGE_MODE_CHIP_CLASS =
 
 // ---------------------------------------------------------------------------
 // 调度入口「转接通知」：由路由自己说「已转交给 X」，成员答案在它后面一条。
-// 视觉上刻意比答案轻：淡青底 + 无阴影，读起来像一句旁白，不像一份结论。
+// 特殊事件统一走「加框」语言（2026-11-17 定稿）：白面 + 0.5px 发丝线 + 12px
+// 圆角，和执行记录 / 输入框同一套框；内部保留青绿徽标说明去向。
 // ---------------------------------------------------------------------------
 export const CHAT_DISPATCH_NOTICE_ROW_CLASS = 'flex justify-start';
 export const CHAT_DISPATCH_NOTICE_CLASS =
-  'inline-flex max-w-[min(680px,92%)] flex-wrap items-center gap-[7px] rounded-[12px] border-[0.5px] border-[rgba(15,118,110,0.16)] bg-[rgba(15,118,110,0.06)] px-[13px] py-[9px] text-[13px] leading-[1.6] text-[#3f5b57]';
+  'inline-flex max-w-[min(680px,92%)] flex-wrap items-center gap-[7px] rounded-[12px] border-[0.5px] border-[rgba(24,24,26,0.08)] bg-white px-[13px] py-[9px] text-[13px] leading-[1.6] text-[#3f5b57]';
 export const CHAT_DISPATCH_NOTICE_ROUTE_BADGE_CLASS =
   'inline-flex shrink-0 items-center gap-[4px] rounded-[6px] bg-[#dceee9] px-[6px] py-[1px] text-[11px] font-medium leading-[1.5] text-[#0f766e]';
 export const CHAT_DISPATCH_NOTICE_TARGET_CLASS = 'font-medium text-[#0f766e]';
@@ -204,13 +215,16 @@ export const CHAT_MD_TABLE_CLASS =
 // ---------------------------------------------------------------------------
 // Execution record (执行记录 trace panel)
 // ---------------------------------------------------------------------------
-export const CHAT_TRACE_WRAP_CLASS = 'mb-[10px] min-w-0 max-w-[560px] rounded-[14px] bg-[rgba(24,24,26,0.035)] px-[10px] py-[8px]';
+export const CHAT_TRACE_WRAP_CLASS =
+  'mb-[10px] min-w-0 max-w-[560px] rounded-[12px] border-[0.5px] border-[rgba(24,24,26,0.08)] bg-white px-[11px] py-[9px]';
 export const CHAT_TRACE_SUMMARY_CLASS =
-  'inline-flex w-full cursor-pointer items-center gap-[7px] border-0 bg-transparent p-0 text-[12.5px] font-medium leading-[1.5] text-[#6d6d72] transition-colors hover:text-[#18181a]';
+  'inline-flex w-full cursor-pointer items-center gap-[7px] border-0 bg-transparent p-0 text-left text-[12.5px] font-medium leading-[1.5] text-[#6d6d72] transition-colors hover:text-[#18181a]';
 export const CHAT_TRACE_SUMMARY_RUNNING_CLASS = 'text-[#18181a]';
 export const CHAT_TRACE_SUMMARY_FAILED_CLASS = 'text-[#d20b0b]';
 export const CHAT_TRACE_ICON_CLASS =
   'inline-flex size-[18px] shrink-0 items-center justify-center text-[#6d6d72] [&>svg]:block [&>svg]:size-[14px]';
+/** 特殊事件的「已完成」图标按语义上色：青绿 = 成功（与引用/在线绿点同色）。 */
+export const CHAT_TRACE_ICON_DONE_CLASS = 'text-[#138a55]';
 export const CHAT_TRACE_CHEVRON_CLASS = 'transition-transform duration-150';
 export const CHAT_TRACE_CHEVRON_EXPANDED_CLASS = 'rotate-90';
 export const CHAT_TRACE_DETAILS_CLASS = 'mt-[6px] grid gap-[2px]';
@@ -562,29 +576,32 @@ export const CHAT_SLOT_FORM_SUBMITTED_CLASS =
 // 窄屏收起，全局按钮仍留在标题栏右侧。
 // 视觉：白卡 + 0.5px 发丝线，和消息气泡同一套线性语言，不加阴影层级。
 // ---------------------------------------------------------------------------
-/** 12px 外边距：中间窗口与右栏卡片共用一条上/下基线，四周都留出纸背景。 */
-export const CHAT_BODY_CLASS = 'flex min-h-0 min-w-0 flex-1 gap-[12px] px-[12px] pb-[12px] pt-[2px]';
 /**
- * 中间列：上卡是消息窗口（白卡），下卡退化成**只有输入框本身**（无外壳），
- * 两块共用同一条宽度与同一条中线。
+ * 中列内边距：左 12 与右栏隔开，底 16 与侧栏浮岛的 island-gap 对齐
+ * （之前底 12，输入卡下缘会比左岛低 4px）。右内边距交给右栏自己。
+ */
+export const CHAT_BODY_CLASS = 'flex min-h-0 min-w-0 flex-1 flex-col pb-[16px] pl-[12px] pr-[12px]';
+/**
+ * 中间列：消息直接落在纸背景上（2026-11-17 定稿，参考 Claude/agent 聊天版式），
+ * 没有外层消息窗口卡；下方输入框保持白卡。两块共用同一条宽度与同一条中线。
  *
  * 宽度来源：两处都用 `mx-auto w-full max-w-[768px]` ——
- *   消息卡  = max-w-768（卡内 px-20，内容 728）
+ *   消息列  = max-w-768（px-20，内容 728）
  *   输入框  = max-w-768（form p-10 + textarea px-10，内容 728）
  * 所以不只外框同宽，文字左右缘也对齐。别再给任一侧单独写 808/816。
  */
 export const CHAT_COLUMN_CLASS = 'flex min-h-0 min-w-0 flex-1 flex-col gap-[10px]';
-/** 上卡：消息窗口。与下方输入框**同一张卡**（CHAT_SURFACE_CARD_CLASS）：
- *  同圆角 18px、同 0.5px 描边、同浮起阴影，宽度也同为 max-w-768。 */
-export const CHAT_MESSAGE_SHELL_CLASS = cn(
-  'mx-auto flex min-h-0 w-full max-w-[768px] flex-1 flex-col overflow-hidden',
-  CHAT_SURFACE_CARD_CLASS,
-);
+/** 消息列外壳：只负责限宽与滚动裁剪，不再有任何底色/描边/圆角。 */
+export const CHAT_MESSAGE_SHELL_CLASS =
+  'mx-auto flex min-h-0 w-full max-w-[768px] flex-1 flex-col overflow-hidden';
 // 右栏 = 一列**独立小卡**（参考 handoff 面板的右列：卡片之间留缝，各自圆角，
 // 卡内再嵌一块更浅的内容块）。之前是一整张卡靠发丝线分段，四段读起来像一个
 // 长列表；拆开之后每一段都能单独被看到，高度也随内容走。
+//
+// 顶边对齐（2026-11-17）：右栏提到 main 顶层后，用 16px（island-gap）的内边距
+// 让第一张卡与左侧栏浮岛、以及浮岛的右缘（16px）完全对齐。
 export const CHAT_RAIL_CLASS =
-  'hidden w-[288px] shrink-0 flex-col gap-[10px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:rgba(24,24,26,0.12)_transparent] xl:flex';
+  'hidden w-[288px] shrink-0 flex-col gap-[10px] overflow-y-auto pt-[16px] pb-[16px] pr-[16px] [scrollbar-width:thin] [scrollbar-color:rgba(24,24,26,0.12)_transparent] xl:flex';
 export const CHAT_RAIL_CARD_CLASS = cn(
   'flex shrink-0 flex-col overflow-hidden',
   CHAT_SURFACE_CARD_CLASS,

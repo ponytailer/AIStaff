@@ -58,6 +58,9 @@ import {
   CHAT_TURN_SPACED_CLASS,
   CHAT_TURN_SPACER_CLASS,
   CHAT_TURN_TIME_CLASS,
+  CHAT_USER_AVATAR_CLASS,
+  CHAT_USER_CONTENT_COLUMN_CLASS,
+  CHAT_USER_HEADER_ROW_CLASS,
   chatBubbleClass,
   chatRowClass,
 } from '../chatPageStyles';
@@ -293,6 +296,10 @@ export default function MessageBubble({
     : '数字员工';
   const clock = item.role === 'assistant' ? messageClock(item.created_at) : '';
   const teamProgress = item.role === 'assistant' ? activeTeamProgress(item) : null;
+  // 用户署名（参考 Claude 风格 thread）：姓名 + 首字符头像，右对齐坐在气泡上方。
+  const authUser = chat.authUser;
+  const senderName = (authUser?.display_name || authUser?.username || '你').trim() || '你';
+  const senderInitial = senderName.charAt(0);
 
   // 转接通知单独成一块：只显示「路由 → 转给了谁（+ 判定意图）」，
   // 不渲染 trace、点赞、引用卡片——它不是答案，成员答案在紧跟的下一条气泡里。
@@ -340,7 +347,26 @@ export default function MessageBubble({
           // 同组后续消息：占住头像那一列，内容仍在同一条竖线上。
           <span className={CHAT_TURN_SPACER_CLASS} aria-hidden="true" />
         ))}
-        <div className={assistantWithAvatar ? CHAT_GROUP_MESSAGE_CONTENT_CLASS : 'contents'}>
+        {/* 用户消息：姓名 + 头像的署名行在气泡上方右对齐（组首才出，同组后续贴住气泡）。 */}
+        <div
+          className={
+            assistantWithAvatar
+              ? CHAT_GROUP_MESSAGE_CONTENT_CLASS
+              : item.role === 'user'
+                ? CHAT_USER_CONTENT_COLUMN_CLASS
+                : 'contents'
+          }
+        >
+          {item.role === 'user' && turn.first && (
+            <div className={CHAT_USER_HEADER_ROW_CLASS}>
+              <span className={CHAT_TURN_AUTHOR_CLASS} data-i18n-ignore>
+                <span className="truncate">{senderName}</span>
+              </span>
+              <span className={CHAT_USER_AVATAR_CLASS} aria-hidden="true">
+                {senderInitial}
+              </span>
+            </div>
+          )}
           {/* 组头：谁在说 + 几点说（时间默认隐身，hover 这条才浮现）。 */}
           {assistantWithAvatar && turn.first && (
             <div className={CHAT_TURN_HEAD_CLASS}>

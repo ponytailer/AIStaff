@@ -21,6 +21,7 @@ import {
   CHAT_TRACE_DETAILS_CLASS,
   CHAT_TRACE_FLOW_TEXT_CLASS,
   CHAT_TRACE_ICON_CLASS,
+  CHAT_TRACE_ICON_DONE_CLASS,
   CHAT_TRACE_LINE_CLASS,
   CHAT_TRACE_LINE_CONTENT_CLASS,
   CHAT_TRACE_LINE_DETAIL_CLASS,
@@ -46,10 +47,10 @@ const COT_ICON_MAP: Record<CotTraceIconName, ComponentType<SVGProps<SVGSVGElemen
   tool: IconCotTool,
 };
 
-function CotTraceIcon({ name }: { name: CotTraceIconName }) {
+function CotTraceIcon({ name, className }: { name: CotTraceIconName; className?: string }) {
   const Icon = COT_ICON_MAP[name];
   return (
-    <span className={CHAT_TRACE_ICON_CLASS} aria-hidden="true">
+    <span className={cn(CHAT_TRACE_ICON_CLASS, className)} aria-hidden="true">
       <Icon />
     </span>
   );
@@ -122,7 +123,10 @@ export default function ExecutionRecord({
         )}
         onClick={() => onToggle(traceTurnId, expanded)}
       >
-        <CotTraceIcon name={traceSummaryIconName(summary)} />
+        <CotTraceIcon
+          name={traceSummaryIconName(summary)}
+          className={summary.state === 'completed' ? CHAT_TRACE_ICON_DONE_CLASS : undefined}
+        />
         <span className={cn(summary.state === 'running' && CHAT_TRACE_FLOW_TEXT_CLASS)}>{t(summary.text)}</span>
         {details.length > 0 && (
           <StaffdeckIcon
