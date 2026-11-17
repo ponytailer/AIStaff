@@ -455,10 +455,13 @@ export default function DashboardPage({
                 heroAvatar
               )}
               <div className="mt-[4px] flex flex-wrap items-center gap-4">
+                {/* 去对话必须带上当前员工的 draft 路由：不带 id 裸跳 /workspace/chat
+                    时，对话页会按 localStorage 里残留的旧作用域选员工，
+                    表现为「从张三档案点去对话，进来的却是李四」。 */}
                 <UiButton
                   variant="default"
                   className={heroPrimaryButtonClass}
-                  onClick={() => { window.location.href = '/workspace/chat'; }}
+                  onClick={() => { navigate(`/workspace/chat/draft/${selectedAgent.id}`); }}
                 >
                   <IconChat className="size-[16px]" />
                   去对话
@@ -515,20 +518,19 @@ export default function DashboardPage({
                 </div>
               </div>
 
-              {/* 描述在左、资产统计靠右同一行：窄屏时统计条折到描述下方，仍保持右对齐 */}
-              <div className="flex w-full flex-wrap items-end justify-between gap-x-6 gap-y-2">
-                <p className="m-0 line-clamp-2 min-w-[280px] max-w-[720px] flex-1 text-[14px] leading-[22px] text-[#6d6d72]">
-                  {systemSummary}
-                </p>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <HeroMetric value={selectedKnowledgeCount} label="资料" />
-                  {/* FAQ 是「沉淀下来的标准答案」，不是资源绑定，所以单独数一次 */}
-                  {faqCount ? <HeroMetric value={faqCount.faq_active} label="FAQ" /> : null}
-                  <HeroMetric value={selectedGeneralSkillCount} label="技能" />
-                  <HeroMetric value={selectedSkillCount} label="SOP" />
-                  <HeroMetric value={selectedToolCount} label="工具" />
-                  <HeroMetric value={activeScheduledTasks.length} label="定时任务" />
-                </div>
+              <p className="m-0 line-clamp-2 max-w-[720px] text-[14px] leading-[22px] text-[#6d6d72]">
+                {systemSummary}
+              </p>
+
+              {/* 统计条贴着描述下方，宽度按内容自适应；每格不均分、不折行 */}
+              <div className="flex w-fit max-w-full flex-wrap items-center gap-2">
+                <HeroMetric value={selectedKnowledgeCount} label="资料" />
+                {/* FAQ 是「沉淀下来的标准答案」，不是资源绑定，所以单独数一次 */}
+                {faqCount ? <HeroMetric value={faqCount.faq_active} label="FAQ" /> : null}
+                <HeroMetric value={selectedGeneralSkillCount} label="技能" />
+                <HeroMetric value={selectedSkillCount} label="SOP" />
+                <HeroMetric value={selectedToolCount} label="工具" />
+                <HeroMetric value={activeScheduledTasks.length} label="定时任务" />
               </div>
             </div>
           </div>
@@ -1150,7 +1152,9 @@ function EmployeeProfileTabs({ value, onChange }: { value: ProfileTabKey; onChan
 
 function HeroMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="inline-flex items-end gap-1 rounded-[10px] bg-[#f2f1ee] px-[10px] py-2 whitespace-nowrap">
+    // 宽度按内容走（inline-flex + whitespace-nowrap），不再 flex-1 均分，
+    // 否则「定时任务」这类 4 字标签会被压到折行。
+    <div className="inline-flex shrink-0 items-end gap-1 rounded-[10px] bg-[#f2f1ee] px-[14px] py-2 whitespace-nowrap">
       <strong className="text-[14px] leading-none font-medium text-[#18181a]">{value}</strong>
       <span className="text-[12px] leading-none text-[#3d3d3f]">{label}</span>
     </div>
