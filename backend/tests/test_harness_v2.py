@@ -300,6 +300,37 @@ def test_turn_planner_falls_back_to_an_isolated_conversation_frame() -> None:
     assert frame.execution_mode == "standard"
 
 
+def test_turn_planner_preserves_handoff_decision_without_active_skill() -> None:
+    """纯对话员工（无活跃 SOP）的「转人工」不能在空帧兜底里丢决策。
+
+    线上故障：LLM 输出顶层 decision=handoff_human + 空 task_frames，
+    无活跃 SOP 时兜底分支写死 answer_only，帧上决策丢失 → 下游
+    conversation handoff 分支不触发 → HumanHandoffRequest 不创建，
+    owner 的待回答收件箱收不到任何东西，而 bot 回复却是「已转接人工」。
+    """
+    session = _chat_session()
+    plan = TurnPlan(
+        decision="handoff_human",
+        user_intent="用户要求转接人工客服",
+        reason="用户明确表达转人工诉求，无需本地任务执行，交由人工处理",
+        task_frames=[],
+    )
+
+    normalized = TurnPlanner()._normalize(
+        plan,
+        "转人工",
+        session,
+        available_skills=[],
+    )
+
+    assert normalized.decision == "handoff_human"
+    assert len(normalized.task_frames) == 1
+    frame = normalized.task_frames[0]
+    assert frame.kind == "conversation"
+    assert frame.decision == "handoff_human"
+    assert frame.target_skill_id is None
+
+
 def test_turn_planner_normalizes_execution_mode_defaults() -> None:
     session = _chat_session()
     # 模型可能输出非法 execution_mode：TurnPlan.model_validate 会拒绝并触发
