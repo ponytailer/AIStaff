@@ -380,3 +380,84 @@ def test_shortcircuit_ignores_pending_handoff_frame(db_session: Session) -> None
     assert _faq_shortcircuit_plan(db_session, session, "怎么报销", [], in_progress, "normal") is None
     sop_pending = [{"task_id": "t3", "kind": "sop", "status": "handoff"}]
     assert _faq_shortcircuit_plan(db_session, session, "怎么报销", [], sop_pending, "normal") is None
+
+
+def test_handoff_shortcircuit_plan_bypasses_llm_and_knowledge() -> None:
+    """点「转人工」时零规划直通：不再查知识库、不再跑 Harness 决策循环。
+
+    真实踩坑：trace 里 knowledge_prefetch_conversation 的 query 就是「转人工」，
+    白烧一次检索 + 3 轮模型决策（含 capability_search 找工单接口），十几秒才
+    吐一段「当前会话中暂无可自动创建的工单或在线客服接口…」的啰嗦话术。
+    """
+    from app.core.plan.planner_fastpath import (
+        HANDOFF_INTENT_REPLY,
+        _handoff_shortcircuit_plan,
+    )
+
+    session = type("S", (), {})()
+    session.active_skill_id = None
+    session.active_step_id = None
+    session.pending_tasks_json = None
+    session.awaiting_input_json = None
+
+    plan = _handoff_shortcircuit_plan(session, "转人工", [], None, "normal")
+    assert plan is not None
+    assert plan.decision == "handoff_human"
+    frame = plan.task_frames[0]
+    assert frame.decision == "handoff_human"
+    assert frame.execution_mode == "handoff_intent"
+
+    # 手打长句也认：「我要人工客服」
+    assert _handoff_shortcircuit_plan(session, "我要人工客服", [], None, "normal") is not None
+
+    # 普通问题不误判
+    assert _handoff_shortcircuit_plan(session, "怎么报销", [], None, "normal") is None
+
+    # 有 SOP 可选时交给 LLM：可能是在触发流程而不是要人
+    skill = type("SK", (), {"content_json": {}})()
+    assert _handoff_shortcircuit_plan(session, "转人工", [skill], None, "normal") is None
+
+    # 活跃 SOP / 待补槽时不抢占（SOP 节点内的转交由流程自己决定）
+    session.active_skill_id = "skill1"
+    assert _handoff_shortcircuit_plan(session, "转人工", [], None, "normal") is None
+    session.active_skill_id = None
+    session.awaiting_input_json = {"type": "slot"}
+    assert _handoff_shortcircuit_plan(session, "转人工", [], None, "normal") is None
+    session.awaiting_input_json = None
+
+    # 转人工挂起期间再点一次：仍直通（会复用已有 pending 单，不重复建单）
+    handoff_state = [{"task_id": "t1", "kind": "conversation", "status": "handoff"}]
+    assert _handoff_shortcircuit_plan(
+        session, "转人工", [], handoff_state, "normal"
+    ) is not None
+    # 其它非终态帧仍然拦
+    in_progress = [{"task_id": "t2", "kind": "conversation", "status": "in_progress"}]
+    assert _handoff_shortcircuit_plan(
+        session, "转人工", [], in_progress, "normal"
+    ) is None
+
+    assert HANDOFF_INTENT_REPLY and "转接" in HANDOFF_INTENT_REPLY
+
+
+def test_handoff_shortcircuit_plan_survives_planner_normalize() -> None:
+    """转人工计划穿过 planner._normalize 后仍是 handoff_intent，不被降级。"""
+    from app.core.plan.planner import TurnPlanner
+    from app.core.plan.planner_fastpath import _handoff_shortcircuit_plan
+
+    session = type("S", (), {})()
+    session.tenant_id = "t1"
+    session.agent_id = "agent1"
+    session.active_skill_id = None
+    session.active_step_id = None
+    session.pending_tasks_json = None
+    session.awaiting_input_json = None
+
+    plan = _handoff_shortcircuit_plan(session, "转人工", [], None, "normal")
+    assert plan is not None
+    normalized = TurnPlanner.__new__(TurnPlanner)._normalize(
+        plan, "转人工", session, [], None, "normal"
+    )
+    assert len(normalized.task_frames) == 1
+    frame = normalized.task_frames[0]
+    assert frame.decision == "handoff_human"
+    assert frame.execution_mode == "handoff_intent"

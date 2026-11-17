@@ -1664,6 +1664,9 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
         delete next[handoff.id];
         return next;
       });
+      // 回复完这条待回答就没了收件箱的活儿：弹窗直接关掉，别让 owner 对着
+      // 一个「暂无待回答消息」的空壳再点一次关闭（线上反馈的原话）。
+      setShowHandoffInbox(false);
       loadSessions();
       getSlot(handoff.session_id);
       void loadMessages(handoff.session_id);

@@ -38,6 +38,94 @@ FAST_PATH_HANDOFF_KEYWORDS = (
 )
 
 
+def is_handoff_intent(message: str) -> bool:
+    """消息是否就是在要求转人工（而不是顺带提到人工）。
+
+    「转人工」按钮发的就是字面量，用户手打的也多是「转人工」「我要人工客服」
+    这类短句。判定只看关键词命中，与 planner 快速路径守卫同源——宁可多走
+    一次 LLM，也不把「报销怎么弄，不然我转人工吧」这种混合诉求直接建单。
+    """
+
+    text = " ".join(str(message or "").split()).strip().lower()
+    if not text:
+        return False
+    return any(keyword in text for keyword in FAST_PATH_HANDOFF_KEYWORDS)
+
+
+#: 转人工直通（execution_mode=handoff_intent）的固定答复。
+#: 只陈述事实：已建单 + 坐席会接手。不再让模型自由发挥，也就不会出现
+#: 「当前会话中暂无可自动创建的工单或在线客服接口…」这种把内部实现细节
+#: 抖给用户的段落。
+HANDOFF_INTENT_REPLY = "已为你转接人工同事，稍后会有同事在这里回复你。"
+
+
+def _handoff_shortcircuit_plan(
+    session: ChatSession,
+    message: str,
+    available_skills: list[Skill],
+    task_frame_state: list[dict[str, Any]] | None,
+    interaction_mode: str,
+) -> TurnPlan | None:
+    """「转人工」直通：零 LLM 直接建单，不再查知识库/能力。
+
+    症状：点答案尾部的「转人工」按钮后，员工先去检索知识库（trace 里
+    ``knowledge_prefetch_conversation`` 的 query 就是「转人工」），再走 3 轮
+    Harness 决策（含 ``capability_search`` 找工单接口），最后吐一段「当前会话
+    中暂无可自动创建的工单或在线客服接口…请注意留意会话」的啰嗦话术，十几秒
+    才把单建好。用户点的是动作按钮，语义是明确的，没有任何需要规划的歧义。
+
+    守卫（与 planner 快速路径同源，逐条都不能少）：
+    - 只在 interaction_mode=normal 时介入；
+    - 会话没有活跃 SOP / 待处理任务 / 待补槽 / 进行中帧——那些场景下「转人工」
+      可能是 SOP 节点内的转交，得让流程自己决定；
+    - 消息必须命中转人工关键词（复用 is_handoff_intent）。
+
+    命中即返回 handoff_human 计划；下游 turn_frames 的 conversation handoff
+    分支负责真正建单，话术由 handoff_reply_text 统一给（不再让模型自由发挥）。
+    """
+
+    if interaction_mode != "normal":
+        return None
+    if (
+        str(session.active_skill_id or "").strip()
+        or str(session.active_step_id or "").strip()
+        or session.pending_tasks_json
+        or session.awaiting_input_json
+    ):
+        return None
+    blocking_frames = [
+        frame
+        for frame in (task_frame_state or [])
+        if not (
+            str(frame.get("kind") or "") == "conversation"
+            and str(frame.get("status") or "") == "handoff"
+        )
+    ]
+    if blocking_frames:
+        return None
+    if available_skills:
+        # 有 SOP 可选时让 LLM 判断：这条消息可能是在触发某个流程而不是要人。
+        return None
+    text = " ".join(str(message or "").split()).strip()
+    if not text or not is_handoff_intent(text):
+        return None
+    return TurnPlan(
+        decision="handoff_human",
+        confidence=1.0,
+        user_intent=text,
+        reason="handoff shortcircuit: explicit human handoff request",
+        task_frames=[
+            PlannedTaskFrame(
+                kind="conversation",
+                decision="handoff_human",
+                execution_mode="handoff_intent",
+                user_intent=text,
+                source_message=message,
+            )
+        ],
+    )
+
+
 def _faq_shortcircuit_plan(
     db: Any,
     session: ChatSession,

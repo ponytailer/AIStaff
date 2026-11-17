@@ -277,11 +277,15 @@ class TurnPlanner:
                     "direct_reply",
                     "capability_intro",
                     "faq_hit",
+                    "handoff_intent",
                 }:
                     frame.execution_mode = "standard"
                 if plan.decision == "handoff_human":
                     frame.decision = "handoff_human"
-                    frame.execution_mode = "standard"
+                    # handoff_intent 是按「用户明确要人」直通合成的计划，别把
+                    # 它降级回标准路径——那样又会去查知识库/跑 Harness 决策。
+                    if frame.execution_mode != "handoff_intent":
+                        frame.execution_mode = "standard"
                 elif frame.decision not in {"answer_only", "clarify"}:
                     frame.decision = "answer_only"
                     frame.execution_mode = "standard"

@@ -901,6 +901,59 @@ def test_handoff_resume_worker_skips_plain_transfer(monkeypatch):
         ).all()
         assert len(events) == 1
         assert events[0].payload_json["reason"] == "no_active_sop"
+        # 不恢复轮次 ≠ 不送达：人工回复必须以 human_reply 消息落进会话，
+        # 否则用户永远看不到 owner 回了什么（线上踩坑）。
+        replies = db.exec(
+            select(Message).where(
+                Message.session_id == "session_plain",
+                Message.role == "user",
+            )
+        ).all()
+        assert [row.content for row in replies] == ["总部每月7号发工资"]
+        assert replies[0].metadata_json.get("human_reply") is True
+        assert replies[0].metadata_json.get("handoff_id") == "handoff_plain"
+
+
+def test_handoff_reply_projection_is_idempotent(monkeypatch):
+    """重复执行恢复线程不能把同一句人工回复写两遍。"""
+    engine = _test_engine()
+    monkeypatch.setattr(chat_api, "engine", engine)
+    monkeypatch.setattr(chat_api, "AgentLoop", lambda db: None)
+    with Session(engine) as db:
+        _admin, user, _other = _seed_handoff_users(db)
+        db.add(
+            ChatSession(
+                id="session_dup",
+                tenant_id="tenant_demo",
+                user_id=user.id,
+                agent_id="agent_demo",
+                status="handoff",
+            )
+        )
+        db.add(
+            HumanHandoffRequest(
+                id="handoff_dup",
+                tenant_id="tenant_demo",
+                session_id="session_dup",
+                agent_id="agent_demo",
+                requester_user_id=user.id,
+                assignee_user_id="admin_user",
+                pending_question="转人工",
+                status="answered",
+                human_reply="走 OA 提交",
+            )
+        )
+        db.commit()
+
+    chat_api._resume_human_handoff_worker("handoff_dup")
+    chat_api._resume_human_handoff_worker("handoff_dup")
+
+    with Session(engine) as db:
+        replies = db.exec(
+            select(Message).where(Message.session_id == "session_dup")
+        ).all()
+        assert len(replies) == 1
+        assert replies[0].content == "走 OA 提交"
 
 
 def test_handoff_resume_worker_persists_failed_resume(monkeypatch):

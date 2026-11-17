@@ -34,6 +34,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.plan.planner_fastpath import is_handoff_intent
+
 QUERY_MAX_CHARS = 200
 # 与 knowledge_search 工具侧上限对齐（harness_capability_invoker min(…, 12)）
 MAX_CHUNKS = 8
@@ -94,6 +96,12 @@ def plan_knowledge_prefill_actions(
         query = str(getattr(requirement, "source_user_message", "") or "").strip()
         if len(query) < 2:
             return []  # 空消息/单字符（纯标点、表情）不值得检索
+        # 转人工类消息不预填：用户要的是人，不是知识。线上踩坑——点「转人工」
+        # 按钮发出的就是字面量「转人工」，预填照样拿它去检索知识库（
+        # knowledge_prefetch_conversation 的 query 就是「转人工」），白烧一次
+        # 检索 + 把无关证据塞进 transcript，模型还得先消化再决定转接，慢且啰嗦。
+        if is_handoff_intent(query):
+            return []
         manifest = getattr(requirement, "capability_manifest", None)
         if manifest is None or "knowledge_search" not in manifest.allowed_names():
             return []

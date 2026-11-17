@@ -34,6 +34,7 @@ from app.core.engine.attachments import (
 )
 from app.core.engine.invoke import HarnessCapabilityInvoker
 from app.core.knowledge_flow.prefetch import is_smalltalk
+from app.core.plan.planner_fastpath import HANDOFF_INTENT_REPLY
 from app.core.capability.deliverables import list_published_deliverables
 from app.core.engine.session import (
     HarnessSessionLeaseLost,
@@ -210,6 +211,11 @@ class _FrameExecutionMixin:
                 if not faq_answer:
                     return None
                 reply = faq_answer
+            elif execution_mode == "handoff_intent":
+                # 转人工直通：用户点按钮/明确要人时没有任何决策空间，固定话术
+                # 一句说完，不再检索知识库、不再 capability_search 找工单接口。
+                # 建单在下面 conversation handoff 分支照常发生。
+                reply = HANDOFF_INTENT_REPLY
             else:
                 # 未单独配置问答模型时直接用本轮请求模型——相比标准路径仍省掉
                 # Harness 主模型决策 + ResponseGenerator 两次串行调用。
@@ -259,23 +265,42 @@ class _FrameExecutionMixin:
             self._touch_faq_usage(request.tenant_id, session.agent_id, frame)
         result = TaskExecutionResult(
             task_frame_id=row.task_id,
-            status="completed",
+            status=(
+                # handoff_intent：本帧就是转人工，建单后挂 handoff 状态，
+                # 让会话进入 handoff（owner 收件箱可见、用户看到「已转接」）。
+                "handoff" if execution_mode == "handoff_intent" else "completed"
+            ),
             reply_fragment=reply,
             task_summary=frame.user_intent or (
                 "能力介绍回复。" if execution_mode == "capability_intro" else "社交性对话回复。"
             ),
             action_count=1,
         )
+        if execution_mode == "handoff_intent":
+            # 直通路径不走标准 conversation handoff 分支（那条在 _run_frame
+            # 的循环里），建单必须在这里补上，否则「已转接」只是一句空话。
+            handoff = self.owner._create_human_handoff_request(
+                request.tenant_id,
+                session,
+                None,
+                _step_result(result),
+            )
+            result.artifacts.append(
+                {
+                    "type": "human_handoff",
+                    "handoff_id": getattr(handoff, "id", None),
+                }
+            )
         self.store.finish_frame(
             row,
-            status="completed",
+            status=result.status,
             step_id=row.step_id,
             slots=dict(row.slots_json or {}),
             result=result.model_dump(mode="json"),
         )
         self.store.finish_agent_loop_for_frame(
             row,
-            result_status="completed",
+            result_status=result.status,
             checkpoint={},
             last_run_id=None,
         )
@@ -290,7 +315,7 @@ class _FrameExecutionMixin:
                 "status": result.status,
                 "action_count": result.action_count,
                 "agent_loop_id": agent_loop.id,
-                "agent_loop_status": "completed",
+                "agent_loop_status": result.status,
                 "execution_engine": "harness_v2",
             },
         )

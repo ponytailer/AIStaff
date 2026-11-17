@@ -472,6 +472,31 @@ def _resume_human_handoff_async(handoff_id: str) -> None:
     thread.start()
 
 
+def _handoff_reply_message_exists(db: Session, handoff: HumanHandoffRequest) -> bool:
+    """这条 handoff 的人工回复是否已经投影进会话（幂等保护）。
+
+    reply 接口可能被重试（前端 5xx 重放、owner 双击），恢复线程也可能重复
+    调度；没有这层保护同一句人工回复会重复出现在会话里。
+    """
+
+    rows = db.exec(
+        select(Message)
+        .where(
+            Message.tenant_id == handoff.tenant_id,
+            Message.session_id == handoff.session_id,
+            Message.role == "user",
+        )
+        .order_by(Message.created_at.desc())
+        .limit(50)
+    ).all()
+    return any(
+        isinstance(row.metadata_json, dict)
+        and row.metadata_json.get("human_reply")
+        and str(row.metadata_json.get("handoff_id") or "") == handoff.id
+        for row in rows
+    )
+
+
 def _resume_human_handoff_worker(handoff_id: str) -> None:
     try:
         with Session(engine) as db:
@@ -487,7 +512,10 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
             # 只有 SOP 节点触发的转人工才需要「恢复轮次」：人工回复要作为输入
             # 驱动被中断的流程继续跑。普通「转人工」（无 skill/step）的人工回复
             # 本身就是最终答复，再跑一轮只会让员工把人工回复当用户消息重新作答
-            # （复述一遍 + 补充一堆没问的知识），所以直接停在人工回复这里。
+            # （复述一遍 + 补充一堆没问的知识）——但答复必须真的送到会话里，
+            # 否则用户永远看不到 owner 回了什么（线上：待回答里回了，会话没动静）。
+            # 所以这里直接落一条 human_reply 消息：前端渲染到员工一侧 + 琥珀
+            # 「人工回复」标签，且不触发任何 LLM 轮次。
             if not (handoff.trigger_skill_id or handoff.trigger_step_id):
                 now_skip = utc_now()
                 db.add(
@@ -503,6 +531,36 @@ def _resume_human_handoff_worker(handoff_id: str) -> None:
                         created_at=now_skip,
                     )
                 )
+                if not _handoff_reply_message_exists(db, handoff):
+                    db.add(
+                        Message(
+                            tenant_id=handoff.tenant_id,
+                            session_id=handoff.session_id,
+                            # user 角色是为了让后续对话上下文把它读成「员工说的话」的
+                            # 输入；展示侧靠 human_reply 标记翻到员工一侧。
+                            role="user",
+                            content=handoff.human_reply,
+                            metadata_json={
+                                "human_reply": True,
+                                "handoff_id": handoff.id,
+                                "channel": "human_handoff_resume",
+                            },
+                            created_at=now_skip,
+                        )
+                    )
+                    db.add(
+                        AgentEvent(
+                            tenant_id=handoff.tenant_id,
+                            session_id=handoff.session_id,
+                            event_type="human_handoff_reply_projected",
+                            payload_json={
+                                "handoff_id": handoff.id,
+                                "agent_id": handoff.agent_id,
+                                "reply_preview": handoff.human_reply[:180],
+                            },
+                            created_at=now_skip,
+                        )
+                    )
                 db.commit()
                 return
             now = utc_now()
