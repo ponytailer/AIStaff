@@ -213,8 +213,8 @@ export default function FaqPage({
       notify.error('答案不能为空');
       return;
     }
-    if (drawer.keywords.length < 2) {
-      notify.error('至少配置 2 个触发关键词，避免误命中');
+    if (drawer.keywords.length < 1) {
+      notify.error('至少配置 1 个触发关键词，命中即直接回答');
       return;
     }
     setSaving(true);
@@ -467,7 +467,7 @@ export default function FaqPage({
       <section>
         <div className="mb-[14px] flex items-center gap-[12px] text-[#6d6d72]">
           <span className="text-[14px] leading-none">FAQ 库</span>
-          <span className="text-[12px] text-[#9a9a9f]">命中规则：≥2 个关键词同时命中才短路回答</span>
+          <span className="text-[12px] text-[#9a9a9f]">命中规则：命中任意 1 个关键词即短路回答</span>
           <button
             onClick={openDrawerForNew}
             className="ml-auto flex items-center gap-[5px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12.5px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
@@ -516,7 +516,7 @@ export default function FaqPage({
               </div>
               <div className="mb-6">
                 <label className="mb-2 block text-[12px] tracking-[0.08em] text-[#9a9a9f]">
-                  触发关键词 <span className="tracking-normal text-[#0f766e]">· ≥2 个同时命中才回答</span>
+                  触发关键词 <span className="tracking-normal text-[#0f766e]">· 命中任意 1 个即回答</span>
                 </label>
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[rgba(24,24,26,0.14)] bg-white p-2.5">
                   {drawer.keywords.map((kw) => (

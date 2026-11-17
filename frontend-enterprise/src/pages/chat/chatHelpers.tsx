@@ -1210,6 +1210,7 @@ function publicStreamPhase(data: Record<string, unknown>): string {
   if (phase === 'error') return text || '请求失败';
   if (phase === 'preparing') return text || '正在整理上下文';
   if (phase === 'scheduled_task_draft') return text || '生成定时任务草案';
+  if (phase === 'faq') return text || '检索 FAQ';
   if (isKnowledgeTracePhase(phase)) return text || knowledgeTraceText(data);
   return '正在思考';
 }

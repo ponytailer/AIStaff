@@ -5,6 +5,7 @@ import EmployeeAvatar from '@/components/EmployeeAvatar';
 import StaffdeckIcon from '@/components/StaffdeckIcon';
 import { agentResourceCount, employeeDisplayName } from '@/employee';
 import { EnterpriseRoute } from '@/enums/routes';
+import { useAgentFaqCount } from '@/lib/agentFaq';
 import { persistSharedAgentScope } from '@/lib/agent-scope-storage';
 import { cn } from '@/lib/utils';
 
@@ -199,12 +200,17 @@ export default function ChatContextRail({ chat }: { chat: UseChatSession }) {
     ? (trace.durationMs ?? (trace.completedAt ? trace.completedAt - trace.startedAt : 0))
     : 0;
 
+  // FAQ 不是资源绑定（agent_resource_bindings），单独按员工数：命中即短路回答，
+  // 用户要知道这个员工到底沉淀了多少条标准答案。
+  const faqCount = useAgentFaqCount(displayedAgent?.id);
   const capabilities = displayedAgent
     ? [
       { icon: <StaffdeckIcon name="branch" size={13} />, label: 'SOP', value: agentResourceCount(displayedAgent, 'skill') },
       { icon: <StaffdeckIcon name="spark" size={13} />, label: '技能', value: agentResourceCount(displayedAgent, 'general_skill') },
       { icon: <StaffdeckIcon name="database" size={13} />, label: '资料', value: agentResourceCount(displayedAgent, 'knowledge_base') },
       { icon: <StaffdeckIcon name="tool" size={13} />, label: '工具', value: agentResourceCount(displayedAgent, 'tool') },
+      // 无权限（非 owner/管理员）时 faqCount 为 null：整行不出现，而不是显示「未配置」。
+      ...(faqCount ? [{ icon: <StaffdeckIcon name="chat" size={13} />, label: 'FAQ', value: faqCount.faq_active }] : []),
     ]
     : [];
 

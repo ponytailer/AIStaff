@@ -12,6 +12,7 @@ from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -338,13 +339,35 @@ def faq_overview_count(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session),
 ) -> dict[str, int]:
+    """员工 FAQ 概览计数：员工档案头部指标 + 对话右栏「员工能力」用。"""
+
     ensure_tenant(db, tenant_id)
     ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
-    service = FaqService(db)
     profile = db.get(AgentProfile, agent_id)
     if profile is None or profile.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail="Agent not found")
+    total = db.exec(
+        select(func.count()).select_from(AgentFaqItem).where(
+            AgentFaqItem.tenant_id == tenant_id,
+            AgentFaqItem.agent_id == agent_id,
+        )
+    ).one()
+    active = db.exec(
+        select(func.count()).select_from(AgentFaqItem).where(
+            AgentFaqItem.tenant_id == tenant_id,
+            AgentFaqItem.agent_id == agent_id,
+            AgentFaqItem.status == "active",
+        )
+    ).one()
+    unanswered = db.exec(
+        select(func.count()).select_from(AgentUnansweredQuery).where(
+            AgentUnansweredQuery.tenant_id == tenant_id,
+            AgentUnansweredQuery.agent_id == agent_id,
+            AgentUnansweredQuery.status == "pending",
+        )
+    ).one()
     return {
-        "unanswered": len(service.list_unanswered(tenant_id, agent_id)),
-        "faq_items": len(service.list_items(tenant_id, agent_id)),
+        "faq_items": int(total or 0),
+        "faq_active": int(active or 0),
+        "unanswered": int(unanswered or 0),
     }

@@ -4,10 +4,12 @@
 模型资源；FAQ 条目是人工编辑的（几十条量级），关键词词表由 owner 在采纳
 时确认，命中判定纯内存比对（<5ms），零模型依赖。
 
-命中守卫（防短路答错——短路没有兜底，答错 = 答非所问）：
-- 至少 **2 个关键词同时命中**，单个泛词（「怎么」「密码」）不触发；
-- query 里必须包含 FAQ 问题文本里的核心词（词表由 owner 编辑，默认从
-  问题自动提取 2-gram）；
+命中口径（2026-11-17 调整）：**任意 1 个关键词命中即短路**。
+之前要求 2 个同时命中，实测问「怎么报销」时句子里只有「报销」，
+「报销流程」这种更长的关键词永远不出现，FAQ 建了也命不中。误命中风险
+改由 owner 维护词表来控制：词表放业务核心词（「报销」「发工资」），别放
+「怎么」「流程」这类泛词（自动提取时已剔除停用词）。另外：
+- 单字关键词不参与匹配（中文单字命中噪音远大于信号）；
 - 转人工类关键词由 planner 层守卫（FAST_PATH_HANDOFF_KEYWORDS）先行拦截。
 """
 
@@ -102,12 +104,27 @@ def _keyword_hit_count(keywords: list[str], query: str) -> int:
     return sum(1 for kw in keywords if kw and kw in query)
 
 
-def match_faq(db: Session, tenant_id: str, agent_id: str, message: str) -> AgentFaqItem | None:
-    """对话入口的 FAQ 短路匹配：≥2 个关键词同时命中的 active 条目，取分最高者。"""
+def _hit_keywords(keywords: list[str], query: str) -> list[str]:
+    return [kw for kw in keywords if kw and kw in query]
+
+
+def match_faq_with_stats(
+    db: Session, tenant_id: str, agent_id: str, message: str
+) -> tuple[AgentFaqItem | None, int, list[str]]:
+    """FAQ 短路匹配，附带「候选条数」与命中的关键词（给执行过程展示用）。
+
+    命中口径：**任意 1 个关键词命中即算命中**（2026-11-17 按业务反馈调整）。
+    以前要求 ≥2 个关键词同时命中，实际问法里用户只会说出一个核心词——问
+    「怎么报销」时只有「报销」能命中，「报销流程」那个关键词不会出现在句子
+    里，于是永远不命中。误命中风险由 owner 维护关键词来兜：词表里放
+    「报销」「发工资」这类业务词，别放「怎么」「流程」这类泛词。
+
+    并列时取命中数多者，其次词表占比高者（词表更精准优先）。
+    """
 
     query = normalize_text(message)
     if not query or len(query) < 2:
-        return None
+        return None, 0, []
     rows = db.exec(
         select(AgentFaqItem).where(
             AgentFaqItem.tenant_id == tenant_id,
@@ -115,24 +132,34 @@ def match_faq(db: Session, tenant_id: str, agent_id: str, message: str) -> Agent
             AgentFaqItem.status == "active",
         )
     ).all()
-    best: tuple[int, AgentFaqItem] | None = None
+    candidates = 0
+    best: AgentFaqItem | None = None
+    best_score: tuple[float, float] = (0.0, 0.0)
+    best_hits: list[str] = []
     for row in rows:
-        keywords = [str(k) for k in (row.keywords_json or []) if str(k or "").strip()]
-        if len(keywords) < 2:
+        # 单字关键词不参与：中文里单字命中的噪音压倒性大于信号。
+        keywords = [
+            str(k).strip() for k in (row.keywords_json or []) if len(str(k or "").strip()) >= 2
+        ]
+        if not keywords:
             continue
-        hits = _keyword_hit_count(keywords, query)
-        if hits < 2:
+        candidates += 1
+        hits = _hit_keywords(keywords, query)
+        if not hits:
             continue
-        # 并列时优先词表更精确（命中占比高）者，其次命中数多者
-        ratio = hits / max(1, len(keywords))
-        score = (hits, ratio)
-        if best is None:
-            best = (hits, row)
+        score = (float(len(hits)), len(hits) / max(1, len(keywords)))
+        if best is None or score > best_score:
+            best = row
             best_score = score
-        elif score > best_score:
-            best = (hits, row)
-            best_score = score
-    return best[1] if best else None
+            best_hits = hits
+    return best, candidates, best_hits
+
+
+def match_faq(db: Session, tenant_id: str, agent_id: str, message: str) -> AgentFaqItem | None:
+    """对话入口的 FAQ 短路匹配：取任一关键词命中的 active 条目（并列取分高者）。"""
+
+    item, _candidates, _hits = match_faq_with_stats(db, tenant_id, agent_id, message)
+    return item
 
 
 def record_unanswered(

@@ -54,12 +54,36 @@ def test_suggest_keywords_excludes_stopwords() -> None:
         assert bad not in kws
 
 
-def test_match_requires_two_keyword_hits(db_session: Session) -> None:
+def test_match_hits_on_single_keyword(db_session: Session) -> None:
+    """任意 1 个关键词命中即算命中。
+
+    真实问法只会说出一个核心词：问「怎么报销」时句子里只有「报销」，
+    「报销流程」这种长关键词永远不出现——按 ≥2 命中会让 FAQ 建了也命不中。
+    """
+
     _add_faq(db_session, "手机端 Outlook 配置", ["手机", "outlook", "配置"])
     assert match_faq(db_session, "t1", "agent1", "手机端 outlook 怎么配置") is not None
-    # 单关键词命中不触发（防泛词误答）
-    assert match_faq(db_session, "t1", "agent1", "outlook 是什么") is None
+    # 单个关键词命中即返回
+    assert match_faq(db_session, "t1", "agent1", "outlook 是什么") is not None
+    # 一个词都不沾才不命中
     assert match_faq(db_session, "t1", "agent1", "完全无关的问题") is None
+
+
+def test_match_prefers_more_hits_then_specific(db_session: Session) -> None:
+    """多条同时命中时取命中数多者；命中数相同取词表更精准者。"""
+
+    # broad：词表更杂（还挂了「怎么」），命中占比低；exact：两个词都被说中
+    broad = _add_faq(db_session, "报销流程", ["报销", "怎么", "发票"])
+    exact = _add_faq(db_session, "报销流程与审批", ["报销", "流程"])
+    matched = match_faq(db_session, "t1", "agent1", "报销流程怎么走")
+    # 两条都命中 2 个词，但 exact 的命中占比 2/2 > broad 的 2/3 → 选 exact
+    assert matched is not None and matched.id == exact.id
+    assert broad.id != exact.id
+
+
+def test_single_char_keywords_ignored(db_session: Session) -> None:
+    _add_faq(db_session, "报销流程", ["报"])  # 单字词整条不参与，等于没有可用关键词
+    assert match_faq(db_session, "t1", "agent1", "报一下") is None
 
 
 def test_match_ignores_disabled_and_other_agent(db_session: Session) -> None:
@@ -202,3 +226,49 @@ def test_adopt_from_unanswered_keeps_ignored_table_clean(db_session: Session) ->
     db_session.refresh(row)
     assert row.status == "faq_adopted"
     assert db_session.exec(select(AgentFaqIgnoredHandoff)).all() == []
+
+
+def test_shortcircuit_traces_hit_and_miss(db_session: Session) -> None:
+    """执行过程要能看见 FAQ 检索：命中、未命中各留一条 trace。"""
+
+    from app.core.plan.planner_fastpath import _faq_shortcircuit_plan
+
+    _add_faq(db_session, "报销流程", ["报销", "流程"])
+    session = type("S", (), {})()
+    session.tenant_id = "t1"
+    session.agent_id = "agent1"
+    session.active_skill_id = None
+    session.active_step_id = None
+    session.pending_tasks_json = None
+    session.awaiting_input_json = None
+
+    traces: list[tuple[str, dict]] = []
+
+    def trace(text: str, extra: dict) -> None:
+        traces.append((text, extra))
+
+    plan = _faq_shortcircuit_plan(
+        db_session, session, "怎么报销", [], None, "normal", on_trace=trace
+    )
+    assert plan is not None
+    assert traces and traces[0][1]["faq_hit"] is True
+    assert traces[0][1]["query"] == "怎么报销"
+    assert "报销" in traces[0][1]["faq_keywords"]
+
+    traces.clear()
+    assert (
+        _faq_shortcircuit_plan(
+            db_session, session, "会议室怎么预定", [], None, "normal", on_trace=trace
+        )
+        is None
+    )
+    assert traces and traces[0][1]["faq_hit"] is False
+    assert traces[0][1]["faq_candidates"] == 1
+
+    # 一条 FAQ 都没有的 agent 不刷「未命中」噪音
+    traces.clear()
+    session.agent_id = "agent_without_faq"
+    _faq_shortcircuit_plan(
+        db_session, session, "会议室怎么预定", [], None, "normal", on_trace=trace
+    )
+    assert traces == []

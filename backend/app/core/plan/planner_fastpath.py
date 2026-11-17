@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from app.config import get_settings
@@ -14,7 +15,7 @@ from app.faq.service import (
     FAQ_ANSWER_SLOT,
     FAQ_ITEM_ID_SLOT,
     FAQ_QUESTION_SLOT,
-    match_faq,
+    match_faq_with_stats,
 )
 from app.session.session_schema import (
     PlannedTaskFrame,
@@ -44,13 +45,21 @@ def _faq_shortcircuit_plan(
     available_skills: list[Skill],
     task_frame_state: list[dict[str, Any]] | None,
     interaction_mode: str,
+    *,
+    on_trace: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> TurnPlan | None:
     """FAQ 词法命中短路（反馈自进化）：零 LLM 直接返回标准答案。
 
+    检索顺序：**先 FAQ，未命中再走知识库/完整规划**——FAQ 是 owner 确认过的
+    标准答案，它比知识库检索更权威也更便宜。
+
     守卫与 fast path 同源：结构性上下文必须排除路由决策空间（无活跃 SOP /
     待处理任务 / 待补槽），消息不命中转人工关键词——用户要人时不能拿 FAQ
-    挡。命中判定要求 ≥2 个关键词同时命中（见 app.faq.service.match_faq），
-    单泛词不触发。任何守卫不满足即返回 None，回落完整规划。
+    挡。命中判定见 app.faq.service.match_faq（任意 1 个关键词命中即可）。
+    任何守卫不满足即返回 None，回落完整规划。
+
+    on_trace：命中/未命中都要能在「本轮执行」里看见，否则用户无法判断到底
+    有没有查 FAQ（线上「我加了 FAQ 但没命中」的排查成本全靠这一行）。
     """
 
     if (
@@ -68,9 +77,28 @@ def _faq_shortcircuit_plan(
     lowered = text.lower()
     if any(keyword in lowered for keyword in FAST_PATH_HANDOFF_KEYWORDS):
         return
-    item = match_faq(db, session.tenant_id, session.agent_id or "", text)
+    item, candidates, hits = match_faq_with_stats(
+        db, session.tenant_id, session.agent_id or "", text
+    )
     if item is None or not str(item.answer_markdown or "").strip():
+        # 一条 FAQ 都没有的 agent 不刷这条线（否则每轮都挂一行无信息量的「未命中」）。
+        if on_trace is not None and candidates:
+            on_trace(
+                f"检索 FAQ：未命中（候选 {candidates} 条）",
+                {"query": text, "faq_candidates": candidates, "faq_hit": False},
+            )
         return
+    if on_trace is not None:
+        on_trace(
+            f"命中 FAQ：{item.question}",
+            {
+                "query": text,
+                "faq_candidates": candidates,
+                "faq_hit": True,
+                "faq_keywords": hits,
+                "faq_item_id": item.id,
+            },
+        )
     return TurnPlan(
         decision="answer_only",
         confidence=0.9,

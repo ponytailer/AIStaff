@@ -4090,6 +4090,27 @@ def _event_trace_line(
                 "detail": None,
                 "state": "running",
             }
+        if phase == "faq":
+            # FAQ 预检（先 FAQ 再知识库）：命中/未命中都要留痕，否则「我加了
+            # FAQ 但没命中」只能靠猜。
+            faq_query = str(payload.get("query") or "").strip()
+            faq_hit = bool(payload.get("faq_hit"))
+            faq_keywords = [
+                str(item) for item in (payload.get("faq_keywords") or []) if isinstance(item, str)
+            ]
+            faq_candidates = payload.get("faq_candidates")
+            faq_detail = None
+            if faq_hit and faq_keywords:
+                faq_detail = f"命中关键词：{'、'.join(faq_keywords)}"
+            elif isinstance(faq_candidates, int) and faq_candidates > 0:
+                faq_detail = f"候选 {faq_candidates} 条"
+            return {
+                "id": f"faq_lookup_{faq_query or 'query'}",
+                "kind": "knowledge",
+                "text": text or ("命中 FAQ" if faq_hit else "检索 FAQ"),
+                "detail": faq_detail,
+                "state": "completed",
+            }
         if phase in KNOWLEDGE_TRACE_PHASES:
             query = payload.get("query") if isinstance(payload.get("query"), dict) else {}
             detail_parts = [

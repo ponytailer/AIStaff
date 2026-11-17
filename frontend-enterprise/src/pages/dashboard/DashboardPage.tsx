@@ -30,6 +30,7 @@ import KnowledgeManagePage from '../KnowledgePage';
 import SkillsPage from '../SkillsPage';
 import GeneralSkillsPage from '../GeneralSkillsPage';
 import FaqPage from '../FaqPage';
+import { useAgentFaqCount } from '../../lib/agentFaq';
 import ToolsPage from '../ToolsPage';
 import { employeeDashboardMetrics } from './employeeDashboardMetrics';
 import {
@@ -266,6 +267,10 @@ export default function DashboardPage({
   const positiveFeedback = skills.reduce((sum, item) => sum + (item.total_positive_feedback_count || 0), 0);
   const negativeFeedback = skills.reduce((sum, item) => sum + (item.total_negative_feedback_count || 0), 0);
   const visibleKnowledgeBases = knowledgeBases.filter((item) => !isEmptyDefaultKnowledgeBase(item));
+  // FAQ 计数必须在所有 early return 之前调用：下面有「开放广场 / 小队占位 / 无员工」
+  // 等分支提前 return，放进条件分支里会让 hook 数量随渲染变化（Rendered more
+  // hooks than during the previous render）。
+  const faqCount = useAgentFaqCount(selectedAgent?.id);
 
   // Avoid flashing the 开放广场 / empty state before the agents API resolves,
   // which would otherwise briefly render before the employee profile appears.
@@ -516,6 +521,8 @@ export default function DashboardPage({
 
               <div className="flex w-full max-w-[640px] gap-3">
                 <HeroMetric value={selectedKnowledgeCount} label="资料" />
+                {/* FAQ 是「沉淀下来的标准答案」，不是资源绑定，所以单独数一次 */}
+                {faqCount ? <HeroMetric value={faqCount.faq_active} label="FAQ" /> : null}
                 <HeroMetric value={selectedGeneralSkillCount} label="技能" />
                 <HeroMetric value={selectedSkillCount} label="SOP" />
                 <HeroMetric value={selectedToolCount} label="工具" />

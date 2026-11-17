@@ -2628,6 +2628,27 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
           state: 'running',
           icon: 'judge',
         });
+      } else if (phase === 'faq') {
+        // 「先查 FAQ 再查知识库」要有痕迹：用户加了 FAQ 没命中时，这一行是唯一
+        // 能区分「没查」和「查了没命中」的证据。
+        const faqQuery = typeof item.data.query === 'string' ? item.data.query.trim() : '';
+        const faqHit = item.data.faq_hit === true;
+        const faqKeywords = Array.isArray(item.data.faq_keywords)
+          ? item.data.faq_keywords.filter((kw): kw is string => typeof kw === 'string')
+          : [];
+        const faqCandidates = typeof item.data.faq_candidates === 'number' ? item.data.faq_candidates : 0;
+        upsertVisibleTraceLine({
+          id: `faq_lookup_${faqQuery || 'query'}`,
+          kind: 'knowledge',
+          text: (typeof item.data.text === 'string' && item.data.text) || (faqHit ? '命中 FAQ' : '检索 FAQ'),
+          detail: faqHit && faqKeywords.length
+            ? `命中关键词：${faqKeywords.join('、')}`
+            : faqCandidates > 0
+              ? `候选 ${faqCandidates} 条`
+              : undefined,
+          state: 'completed',
+          icon: 'advance',
+        });
       } else if (isKnowledgeTracePhase(phase)) {
         upsertVisibleTraceLine({
           id: knowledgeTraceLineId(item.data),

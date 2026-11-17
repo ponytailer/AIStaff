@@ -298,6 +298,9 @@ class _TurnRunMixin:
                 routing_skills,
                 planner_state,
                 request.interaction_mode,
+                # 「先查 FAQ 再查知识库」要在执行过程里可见：命中/未命中都落一条
+                # stream_status(phase=faq)，前端渲染成 trace 行。
+                on_trace=lambda text, extra: self._emit_stream_status("faq", text, **extra),
             )
             if faq_plan is not None:
                 plan = self.planner._normalize(
