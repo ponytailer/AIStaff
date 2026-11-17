@@ -527,6 +527,14 @@ export const CHAT_HANDOFF_BLOCK_CLASS =
 export const CHAT_HANDOFF_ACTIONS_CLASS = 'flex justify-end gap-[8px]';
 export const CHAT_HANDOFF_EMPTY_CLASS = 'py-[36px] text-center text-[13px] text-[#6d6d72]';
 
+/**
+ * 答案尾部的可点动作（如「转人工」）：胶囊按钮贴正文左侧，和点赞行同一条
+ * 纵向节奏。青绿主色只在 hover 出现——动作是建议，不该比答案本身更抢眼。
+ */
+export const CHAT_SUGGESTED_ACTIONS_CLASS = 'flex flex-wrap items-center gap-[8px] pt-[2px]';
+export const CHAT_SUGGESTED_ACTION_BTN_CLASS =
+  'inline-flex items-center rounded-full border border-[rgba(24,24,26,0.16)] bg-white px-[11px] py-[3px] text-[12px] font-medium text-[#18181a] transition-colors hover:border-[#0f766e] hover:bg-[#f2f8f6] hover:text-[#0f766e]';
+
 export const CHAT_CITATION_DETAIL_CLASS = 'grid w-full min-w-0 gap-[14px]';
 export const CHAT_CITATION_DETAIL_EYEBROW_CLASS = 'text-[12px] font-medium text-[#6d6d72]';
 export const CHAT_CITATION_DETAIL_TITLE_CLASS = 'text-[18px] font-semibold text-[#18181a]';

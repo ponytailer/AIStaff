@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AgentProfileRead, ChatMessage, ChatSlashCommand } from '@/types';
 
@@ -348,5 +348,69 @@ describe('MessageBubble human handoff reply', () => {
     const { container } = renderSlashMessage('转人工', []);
     expect(container.querySelector('[class*="text-[#b45309]"]')).toBeNull();
     expect(container.querySelector('[class*="bg-[#e5e4e0]"]')).toBeTruthy();
+  });
+});
+
+describe('MessageBubble suggested actions', () => {
+  // 这套用例靠「点不到按钮」做负向断言，前一个 it 的 DOM 必须清干净。
+  afterEach(cleanup);
+
+  function renderAssistant(metadata: ChatMessage['metadata']) {
+    const content = '我这边暂时没有查到报销流程的相关资料。如果你需要，我也可以帮你转接人工同事跟进这个问题。';
+    const item: ChatMessage = {
+      id: 'message-action',
+      role: 'assistant',
+      content,
+      created_at: '2026-09-01T00:00:00Z',
+      metadata,
+    };
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-action',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: content,
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [],
+      harnessArtifacts: [],
+      statusOnly: false,
+    };
+    const sendQuickText = vi.fn();
+    const chat = {
+      sendQuickText,
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+      activeConversationId: 'session-1',
+    } as unknown as UseChatSession;
+    render(<MessageBubble chat={chat} item={item} render={messageRender} />);
+    return sendQuickText;
+  }
+
+  it('renders a handoff action chip and sends its text on click', () => {
+    const sendQuickText = renderAssistant({
+      suggested_actions: [{ type: 'handoff', label: '转人工', text: '转人工' }],
+    });
+
+    const chip = screen.getByRole('button', { name: '转人工' });
+    fireEvent.click(chip);
+    expect(sendQuickText).toHaveBeenCalledWith('转人工');
+  });
+
+  it('renders no chip for plain answers', () => {
+    renderAssistant(undefined);
+    expect(screen.queryByRole('button', { name: '转人工' })).toBeNull();
+  });
+
+  it('ignores malformed action payloads', () => {
+    renderAssistant({ suggested_actions: [{ type: 'handoff' }] as never });
+    expect(screen.queryByRole('button', { name: '转人工' })).toBeNull();
   });
 });

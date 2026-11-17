@@ -14,6 +14,7 @@ import type {
   KnowledgeCitation,
   ScheduledTaskDraftRead,
   ScheduledTaskRead,
+  SuggestedMessageAction,
 } from '@/types';
 
 import {
@@ -52,6 +53,8 @@ import {
   CHAT_QUEUED_DELETE_BTN_CLASS,
   CHAT_QUEUED_MESSAGE_ITEM_CLASS,
   CHAT_STREAM_CURSOR_CLASS,
+  CHAT_SUGGESTED_ACTIONS_CLASS,
+  CHAT_SUGGESTED_ACTION_BTN_CLASS,
   CHAT_TRACE_FLOW_TEXT_CLASS,
   CHAT_TRACE_TOTAL_DURATION_CLASS,
   CHAT_TURN_AUTHOR_CLASS,
@@ -194,6 +197,21 @@ function activeTeamProgress(item: ChatMessage): { phase: string; statusText: str
  * - 总耗时  = 消息发出 → 答案落库（含路由/检索/工具/落库，口径更宽）
  * 两者差距大时，用户一眼能看出慢在「等第一个字」还是「收尾」。
  */
+/**
+ * 答案尾部可点动作（如「转人工」）。判定在后端落库时做过一次，这里只做形状
+ * 收窄——metadata 是 index-signature，直接渲染可能拿到脏数据。
+ */
+function suggestedActionsOf(item: ChatMessage): SuggestedMessageAction[] {
+  if (item.role !== 'assistant') return [];
+  const raw = item.metadata?.suggested_actions;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((row): row is SuggestedMessageAction => {
+    if (!row || typeof row !== 'object') return false;
+    const action = row as { label?: unknown; text?: unknown };
+    return typeof action.label === 'string' && Boolean(action.label) && typeof action.text === 'string';
+  });
+}
+
 function TurnDurationNote({ timing }: { timing: TurnTraceTiming }) {
   const running = timing.completedAt === undefined && timing.durationMs === undefined;
   const [now, setNow] = useState(() => Date.now());
@@ -281,6 +299,7 @@ export default function MessageBubble({
   const isDispatchNoticeMessage = item.role === 'assistant' && isDispatchNotice(item);
   // 人工接管回复（owner 从待回答收件箱回复）：落库是 user 角色，展示走员工一侧。
   const isHumanReply = item.role === 'user' && Boolean(item.metadata?.human_reply);
+  const quickActions = suggestedActionsOf(item);
   const sentSlashCommand = item.role === 'user'
     ? slashCommandMessage(visibleContent, chat.slashCommands)
     : null;
@@ -610,6 +629,23 @@ export default function MessageBubble({
               onConfirm={(nextDraft) => void confirmScheduledTask(nextDraft, item.id)}
               onDismiss={() => dismissScheduledTaskDraft(item.id)}
             />
+          )}
+
+          {/* 可点动作贴正文，不走点评行的组尾判定：它就是答案的一部分
+              （「要不要我帮你转人工」），分开会出现「按钮跟着点赞走」的错位。 */}
+          {quickActions.length > 0 && (
+            <div className={CHAT_SUGGESTED_ACTIONS_CLASS}>
+              {quickActions.map((action) => (
+                <button
+                  key={`${action.type}:${action.text}`}
+                  type="button"
+                  className={CHAT_SUGGESTED_ACTION_BTN_CLASS}
+                  onClick={() => chat.sendQuickText(action.text)}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* 点评与耗时只挂在组尾：同组中间的补充说明不挂，否则一行按钮

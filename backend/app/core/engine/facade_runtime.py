@@ -35,6 +35,7 @@ from app.core.engine.turn import (
     get_or_create_harness_session,
 )
 from app.core.engine.handoff import HumanHandoffService
+from app.core.engine.message_actions import suggested_actions
 from app.core.converse.response import (
     ResponseGenerator,
     format_runtime_failure_reply,
@@ -611,6 +612,18 @@ class _TurnRuntimeMixin:
             if fallback_title:
                 chat_session.title = fallback_title
         chat_session.summary = f"最近回复：{reply[:120]}"
+        # 答案里主动提出「可以帮你转接人工」时，带一个可点动作，用户不必再手打
+        # 「转人工」。已经转过去（会话在 handoff / 有待回答单）就不给，避免重复建单。
+        handoff_pending = bool(
+            chat_session.status == "handoff"
+            or (
+                isinstance(chat_session.awaiting_input_json, dict)
+                and chat_session.awaiting_input_json.get("type") == "human_handoff"
+            )
+        )
+        actions = suggested_actions(reply, handoff_pending=handoff_pending)
+        if actions:
+            metadata["suggested_actions"] = actions
         assistant_metadata = dict(metadata or {})
         if user_message_id:
             assistant_metadata.setdefault("user_message_id", user_message_id)

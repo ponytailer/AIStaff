@@ -812,6 +812,13 @@ export type HarnessArtifact =
       [key: string]: unknown;
     };
 
+export type SuggestedMessageAction = {
+  /** handoff = 转人工（点击后发送 text，走正常发消息链路）。 */
+  type: 'handoff' | string;
+  label: string;
+  text: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant' | 'system' | 'tool';
@@ -825,6 +832,11 @@ export type ChatMessage = {
     slot_submission?: Record<string, unknown>;
     /** owner 在「待回答」收件箱里替员工答复：展示时渲染到员工一侧 + 标签。 */
     human_reply?: boolean;
+    /**
+     * 答案尾部可直接点击的动作（后端落库时判定，目前只有「转人工」）。
+     * 前端不对正文跑正则——措辞是模型生成的，判定只在后端做一次。
+     */
+    suggested_actions?: SuggestedMessageAction[];
     [key: string]: unknown;
   };
   created_at: string;

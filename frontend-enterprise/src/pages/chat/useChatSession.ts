@@ -3767,14 +3767,18 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     userId,
   ]);
 
-  const send = useCallback(async (interactionMode?: ComposerInteractionMode) => {
+  // textOverride：答案尾部动作按钮（如「转人工」）直接以指定文本发一轮，不用把
+  // 文本塞进输入框再触发发送——那样会把用户正在写的草稿冲掉，且 state 更新与
+  // 本次调用不同步（setInput 后立刻 send 读到的还是旧值）。
+  const send = useCallback(async (interactionMode?: ComposerInteractionMode, textOverride?: string) => {
+    const outgoingText = (textOverride ?? input).trim();
     const resolvedInteractionMode = interactionMode || composerIntent || 'normal';
     if (!activeConversationId) return;
-    if (resolvedInteractionMode === 'scheduled_task' && !input.trim()) {
+    if (resolvedInteractionMode === 'scheduled_task' && !outgoingText) {
       notify.warning('请输入要创建的定时任务内容');
       return;
     }
-    if (!input.trim() && readyComposerAttachments.length === 0) return;
+    if (!outgoingText && readyComposerAttachments.length === 0) return;
     if (uploadingComposerAttachment) {
       notify.warning('文件还在解析中，请稍后发送');
       return;
@@ -3793,7 +3797,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
         notify.warning('待回答暂不支持附件，请发送文字回复');
         return;
       }
-      const reply = input.trim();
+      const reply = outgoingText;
       if (!reply) {
         notify.warning('请输入回复内容');
         return;
@@ -3833,14 +3837,14 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       conversationId: currentConversationId,
       agentId: sessionAgentId,
       turnId: `turn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      text: input.trim(),
+      text: outgoingText,
       attachments: readyComposerAttachments.map(toRequestAttachment),
       interactionMode: resolvedInteractionMode,
       modelConfigId: selectedModelConfig?.id,
       createdAt: new Date().toISOString(),
       webSearch: webSearchEnabled,
     };
-    setInput('');
+    if (textOverride === undefined) setInput('');
     setComposerAttachments([]);
     setComposerIntent(null);
     // webSearchEnabled 刻意**不重置**：开关状态跨轮保持（与 ChatGPT 的
@@ -3883,6 +3887,13 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     uploadingComposerAttachment,
     webSearchEnabled,
   ]);
+
+  /** 答案尾部动作按钮（「转人工」）的入口：按给定文本发一轮，不动输入框草稿。 */
+  const sendQuickText = useCallback((text: string) => {
+    const next = String(text || '').trim();
+    if (!next) return;
+    void send(undefined, next);
+  }, [send]);
 
   // A2UI：表单提交复用同一条聊天链路——往会话里落一条**用户消息**，附带
   // ``slot_submission``（结构化取值）。后端拿到它直接写槽、跳过槽位抽取
@@ -4135,6 +4146,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     // handlers
     handleChatMessagesScroll,
     send,
+    sendQuickText,
     submitSlotForm,
     abortStream,
     removeQueuedTurn,
