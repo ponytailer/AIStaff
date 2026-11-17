@@ -101,10 +101,15 @@ def _item_read(row: Any) -> AgentFaqItemRead:
 
 
 def _handoff_query(db: Session, row: HumanHandoffRequest) -> str:
-    """转人工候选的用户问法：取该会话最后一条用户消息（人工回复的对象）。"""
+    """转人工候选的用户问法：取该会话最后一条用户消息（人工回复的对象）。
+
+    跳过 `metadata.human_reply` 的消息——owner 从「待回答」补的答案落库也是
+    user 角色，不能当成问法；问法缺失时回退到创建 handoff 时记录的
+    pending_question。"""
 
     if row.session_id:
-        msg = db.exec(
+        # 取最近一批再逐条过滤，避免 JSON 字段没法直接进 SQL 谓词。
+        rows = db.exec(
             select(Message)
             .where(
                 Message.tenant_id == row.tenant_id,
@@ -112,9 +117,14 @@ def _handoff_query(db: Session, row: HumanHandoffRequest) -> str:
                 Message.role == "user",
             )
             .order_by(Message.created_at.desc())
-        ).first()
-        if msg and str(msg.content or "").strip():
-            return str(msg.content).strip()[:500]
+            .limit(20)
+        ).all()
+        for msg in rows:
+            metadata = msg.metadata_json if isinstance(msg.metadata_json, dict) else {}
+            if metadata.get("human_reply"):
+                continue
+            if str(msg.content or "").strip():
+                return str(msg.content).strip()[:500]
     return str(row.pending_question or "").strip()[:500]
 
 

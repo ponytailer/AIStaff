@@ -51,7 +51,14 @@ class HumanHandoffService:
             return existing
 
         current_step = current_step_resolver()
-        pending_question_text = pending_question(current_step, step_result)
+        # pending_question 语义是「用户在等人工回答的问题」：优先取会话里用户
+        # 最后一条真实提问。resolver 的候选里 step_result.reply 是 bot 的转接
+        # 话术（“正在为您转接人工客服…”），不是问法，只能做最后兜底——否则
+        # FAQ「采纳为 FAQ」和 owner 待回答卡片里的用户问法会变成 bot 的话术。
+        pending_question_text = (
+            self._last_user_question(tenant_id, chat_session.id)
+            or pending_question(current_step, step_result)
+        )
         # Assignee 优先级:SOP 节点指定 → 数字员工负责人 → 租户管理员。
         # 不再从知识库 Contact 概念推断 assignee(知识内容变化会导致处理人不稳定,
         # 且缺少权限/审计入口)。
@@ -185,14 +192,42 @@ class HumanHandoffService:
                 lines.append(f"{_role_label(message.role)}: {content[:240]}")
         return "\n".join(lines)
 
+    def _last_user_question(self, tenant_id: str, session_id: str | None) -> str:
+        """会话里用户最后一条真实提问。
+
+        跳过 `metadata.human_reply` 的消息——那是 owner 从「待回答」补的答案
+        （落库也是 user 角色），把它当问法会把问答两头写反。"""
+        if not session_id:
+            return ""
+        rows = self.db.exec(
+            select(Message)
+            .where(
+                Message.tenant_id == tenant_id,
+                Message.session_id == session_id,
+                Message.role == "user",
+            )
+            .order_by(Message.created_at.desc())
+            .limit(20)
+        ).all()
+        for row in rows:
+            metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+            if metadata.get("human_reply"):
+                continue
+            text = re.sub(r"\s+", " ", str(row.content or "")).strip()
+            if text:
+                return text[:600]
+        return ""
+
     @staticmethod
     def pending_question(
         current_step: dict[str, Any] | None, step_result: StepAgentResult
     ) -> str:
+        # 兜底链：SOP 节点的问题是「待确认事项」，比 bot 的转接话术更接近问法；
+        # step_result.reply（“正在为您转接人工客服…”）放最后。
         candidates: list[Any] = [
-            step_result.reply,
             current_step.get("handoff_question") if current_step else None,
             current_step.get("question") if current_step else None,
+            step_result.reply,
             current_step.get("name") if current_step else None,
         ]
         for candidate in candidates:

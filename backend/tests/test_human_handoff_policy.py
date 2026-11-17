@@ -5,6 +5,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 import app.api.chat as chat_api
 from app.core.engine.facade import AgentLoop
+from app.core.engine.handoff import HumanHandoffService
 from app.db.models import (
     AgentEvent,
     AgentProfile,
@@ -268,9 +269,7 @@ def test_handoff_finalize_creates_pending_request_for_declared_step():
     db = FakeDb(
         exec_results=[
             [],  # no existing pending handoff
-            [],  # no agent owner metadata
-            [],  # no tenant admin in FakeDb, fall back to requester
-            [
+            [  # pending_question 优先取用户最后一条真实提问
                 Message(
                     id="msg_user",
                     tenant_id="tenant_demo",
@@ -279,6 +278,9 @@ def test_handoff_finalize_creates_pending_request_for_declared_step():
                     content="我要转人工处理订单 A001",
                 )
             ],
+            [],  # no agent owner metadata
+            [],  # no tenant admin in FakeDb, fall back to requester
+            [],  # context summary messages
         ],
         get_rows={
             (User, "user_demo"): User(
@@ -315,7 +317,7 @@ def test_handoff_finalize_creates_pending_request_for_declared_step():
     assert handoff.trigger_skill_id == "manual_skill"
     assert handoff.trigger_step_id == "manual_review"
     assert handoff.resume_payload_json["slots"] == {"order_id": "A001"}
-    assert handoff.pending_question == "需要人工复核订单 A001"
+    assert handoff.pending_question == "我要转人工处理订单 A001"
     assert session.awaiting_input_json["handoff_id"] == handoff.id
     assert [record[2] for record in loop.events.records] == ["human_handoff_requested"]
 
@@ -1080,3 +1082,48 @@ def test_dismiss_human_handoff_rejects_non_pending():
         assert exc.value.status_code == 409
     with Session(engine) as db:
         assert db.get(HumanHandoffRequest, "handoff_answered").status == "answered"
+
+
+def test_handoff_pending_question_skips_human_reply_messages():
+    """owner 从「待回答」补的答案落库也是 user 角色，不能被当成用户问法。"""
+    db = FakeDb(
+        exec_results=[
+            [
+                # 倒序返回：最近一条是 owner 的人工回复，再往前才是真实提问
+                Message(
+                    id="msg_reply",
+                    tenant_id="tenant_demo",
+                    session_id="session_handoff",
+                    role="user",
+                    content="总部每月7号发工资",
+                    metadata_json={"human_reply": True},
+                ),
+                Message(
+                    id="msg_question",
+                    tenant_id="tenant_demo",
+                    session_id="session_handoff",
+                    role="user",
+                    content="报销流程怎么走？",
+                ),
+            ]
+        ]
+    )
+    service = HumanHandoffService(db, FakeEvents())
+
+    assert service._last_user_question("tenant_demo", "session_handoff") == "报销流程怎么走？"
+
+
+def test_handoff_pending_question_fallback_prefers_step_question_over_bot_reply():
+    """兜底链里 SOP 节点的问题排在 bot 转接话术（step_result.reply）前面。"""
+    question = HumanHandoffService.pending_question(
+        {"handoff_question": "请人工确认后继续处理。"},
+        StepAgentResult(reply="正在为您转接人工客服，请稍候。", handoff=True),
+    )
+    assert question == "请人工确认后继续处理。"
+
+    # 没有任何可用候选时才落到 bot 话术
+    fallback = HumanHandoffService.pending_question(
+        None,
+        StepAgentResult(reply="正在为您转接人工客服，请稍候。", handoff=True),
+    )
+    assert fallback == "正在为您转接人工客服，请稍候。"

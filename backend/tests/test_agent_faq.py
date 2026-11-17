@@ -272,3 +272,49 @@ def test_shortcircuit_traces_hit_and_miss(db_session: Session) -> None:
         db_session, session, "会议室怎么预定", [], None, "normal", on_trace=trace
     )
     assert traces == []
+
+
+def test_handoff_query_skips_human_reply_and_falls_back() -> None:
+    """采纳为 FAQ 的「用户问法」：跳过 owner 人工回复，优先会话真实提问。
+
+    真实踩坑：owner 从「待回答」回复的内容落库也是 user 角色，旧逻辑会把
+    它当问法；会话消息被清理后又会把 bot 转接话术（pending_question）当问法。"""
+    from app.api.faq import _handoff_query
+    from app.db.models import HumanHandoffRequest, Message
+
+    def _msg(content: str, human_reply: bool = False) -> Message:
+        return Message(
+            id=f"msg_{content[:6]}",
+            tenant_id="t1",
+            session_id="s1",
+            role="user",
+            content=content,
+            metadata_json={"human_reply": True} if human_reply else {},
+        )
+
+    # 会话里有人工回复 + 真实提问：取真实提问
+    row = HumanHandoffRequest(
+        id="handoff_1", tenant_id="t1", session_id="s1", pending_question="bot 转接话术"
+    )
+
+    class _FakeResult:
+        def __init__(self, rows: list) -> None:
+            self._rows = rows
+
+        def all(self) -> list:
+            return self._rows
+
+    class _FakeDb:
+        def __init__(self, rows: list) -> None:
+            self._rows = rows
+
+        def exec(self, _statement: object) -> _FakeResult:
+            return _FakeResult(self._rows)
+
+    assert (
+        _handoff_query(_FakeDb([_msg("总部每月7号发工资", human_reply=True), _msg("工资什么时候发")]), row)
+        == "工资什么时候发"
+    )
+
+    # 会话消息被清空：回退到 pending_question（写路径已改为存真实问法）
+    assert _handoff_query(_FakeDb([]), row) == "bot 转接话术"
