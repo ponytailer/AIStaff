@@ -1670,6 +1670,26 @@ class AgentFaqItem(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class AgentFaqIgnoredHandoff(SQLModel, table=True):
+    """被 owner 从「待沉淀」里删掉的转人工记录。
+
+    HumanHandoffRequest 的 answered 是业务状态不能改（会话恢复/审计要用），
+    所以忽略动作单独落表，列表查询时排除。同一 handoff 忽略一次即可。
+    """
+
+    __tablename__ = "agent_faq_ignored_handoffs"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "agent_id", "handoff_id", name="uq_ignored_handoff"),
+    )
+
+    id: str = Field(default_factory=lambda: new_id("fign"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    agent_id: str = Field(index=True)
+    handoff_id: str = Field(index=True)
+    created_by_user_id: str = Field(index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class MemoryRecord(SQLModel, table=True):
     __tablename__ = "memories"
 

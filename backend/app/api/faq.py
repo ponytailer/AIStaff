@@ -16,6 +16,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.db.models import (
+    AgentFaqIgnoredHandoff,
     AgentProfile,
     AgentUnansweredQuery,
     HumanHandoffRequest,
@@ -165,6 +166,14 @@ def list_handoff_candidates(
 ) -> list[AgentHandoffCandidateRead]:
     ensure_tenant(db, tenant_id)
     ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
+    ignored_ids = set(
+        db.exec(
+            select(AgentFaqIgnoredHandoff.handoff_id).where(
+                AgentFaqIgnoredHandoff.tenant_id == tenant_id,
+                AgentFaqIgnoredHandoff.agent_id == agent_id,
+            )
+        ).all()
+    )
     rows = db.exec(
         select(HumanHandoffRequest)
         .where(
@@ -178,6 +187,8 @@ def list_handoff_candidates(
     result: list[AgentHandoffCandidateRead] = []
     resume_payload: dict[str, Any]
     for row in rows:
+        if row.id in ignored_ids:
+            continue
         resume_payload = row.resume_payload_json if isinstance(row.resume_payload_json, dict) else {}
         query = _handoff_query(db, row)
         if not query:
@@ -263,6 +274,41 @@ def delete_faq_item(
         raise HTTPException(status_code=404, detail="FAQ not found")
     FaqService(db).delete_item(row)
     return {"status": "deleted"}
+
+
+@router.post("/agents/{agent_id}/faq/handoffs/{handoff_id}:dismiss")
+def dismiss_handoff_candidate(
+    agent_id: str,
+    handoff_id: str,
+    tenant_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+) -> dict[str, str]:
+    """从待沉淀列表删掉一条转人工记录（不动 handoff 业务状态）。"""
+
+    ensure_tenant(db, tenant_id)
+    ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
+    row = db.get(HumanHandoffRequest, handoff_id)
+    if row is None or row.tenant_id != tenant_id or row.agent_id != agent_id:
+        raise HTTPException(status_code=404, detail="Handoff not found")
+    exists = db.exec(
+        select(AgentFaqIgnoredHandoff).where(
+            AgentFaqIgnoredHandoff.tenant_id == tenant_id,
+            AgentFaqIgnoredHandoff.agent_id == agent_id,
+            AgentFaqIgnoredHandoff.handoff_id == handoff_id,
+        )
+    ).first()
+    if exists is None:
+        db.add(
+            AgentFaqIgnoredHandoff(
+                tenant_id=tenant_id,
+                agent_id=agent_id,
+                handoff_id=handoff_id,
+                created_by_user_id=current_user.id,
+            )
+        )
+        db.commit()
+    return {"status": "dismissed"}
 
 
 @router.post("/agents/{agent_id}/unanswered/{query_id}:dismiss")

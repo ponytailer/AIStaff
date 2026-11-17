@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import IconEdit from '../assets/icons/edit.svg?react';
+import IconMore from '../assets/icons/more.svg?react';
 import IconRefresh from '../assets/icons/refresh.svg?react';
 import IconTrash from '../assets/icons/trash.svg?react';
 import { api, TENANT_ID } from '../api/client';
@@ -6,6 +8,15 @@ import { isEnterpriseAdmin, type EnterpriseAuthUser } from '../auth';
 import { canManageEmployeeAgent } from '../employee';
 import { readEmployeeScope } from '../lib/agent-scope-storage';
 import { notify } from '@/components/ui/app-toast';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { StatusBadge } from './scheduled-tasks/StatusBadge';
 import type { AgentProfileRead } from '../types';
 
 interface FaqItem {
@@ -23,6 +34,7 @@ interface UnansweredQuery {
   query: string;
   hit_count: number;
   source: string;
+  updated_at: string;
   suggested_keywords: string[];
 }
 
@@ -31,8 +43,14 @@ interface HandoffCandidate {
   query: string;
   pending_question: string | null;
   human_reply: string | null;
+  answered_at: string | null;
   suggested_keywords: string[];
 }
+
+/** 待沉淀行：两个来源合并成一张表，用 badge 区分。 */
+type CandidateRow =
+  | { key: string; kind: 'unanswered'; row: UnansweredQuery }
+  | { key: string; kind: 'handoff'; row: HandoffCandidate };
 
 type DrawerSource = 'unanswered' | 'handoff' | 'manual' | 'edit';
 
@@ -46,36 +64,26 @@ interface DrawerState {
   suggested: string[];
 }
 
-const SOURCE_LABEL: Record<string, string> = {
-  unanswered: '自动收集',
-  handoff: '人工兜底',
-  manual: '手动新建',
-  edit: '编辑',
+const MENU_CONTENT_CLASS = 'min-w-[140px] rounded-[12px] p-1';
+const MENU_ITEM_CLASS = 'gap-[8px] rounded-[8px] px-[10px] py-[7px] text-[13px]';
+
+const SOURCE_META: Record<string, { label: string; tone: 'blue' | 'orange' | 'gray' }> = {
+  unanswered: { label: '自动收集', tone: 'blue' },
+  handoff: { label: '人工兜底', tone: 'orange' },
+  manual: { label: '手动新建', tone: 'gray' },
 };
 
-function faqSectionLabel(source: string) {
-  return SOURCE_LABEL[source] ?? source;
+function sourceBadge(source: string) {
+  const meta = SOURCE_META[source] ?? { label: source, tone: 'gray' as const };
+  return <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>;
 }
 
-function SectionHead({ no, title, desc, action }: { no: string; title: string; desc?: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline gap-3 border-b border-[rgba(24,24,26,0.14)] pb-3">
-      <span className="font-serif text-[13px] font-medium text-[#0f766e]">{no}</span>
-      <h2 className="font-serif text-[21px] font-semibold tracking-[0.01em] text-[#18181a]">{title}</h2>
-      {desc && <span className="ml-auto text-[12px] text-[rgba(24,24,26,0.4)]">{desc}</span>}
-      {action}
-    </div>
-  );
-}
-
-function Tag({ label, tone }: { label: string; tone: 'teal' | 'amber' | 'muted' }) {
-  const cls =
-    tone === 'teal'
-      ? 'bg-[rgba(15,118,110,0.08)] text-[#0f766e]'
-      : tone === 'amber'
-        ? 'bg-[rgba(133,79,11,0.09)] text-[#854f0b]'
-        : 'bg-[rgba(24,24,26,0.04)] text-[rgba(24,24,26,0.4)]';
-  return <span className={`rounded-full px-2.5 py-[1px] text-[11.5px] tracking-[0.03em] ${cls}`}>{label}</span>;
+function formatTime(value?: string | null) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '-';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export default function FaqPage({
@@ -92,9 +100,8 @@ export default function FaqPage({
   const [unanswered, setUnanswered] = useState<UnansweredQuery[]>([]);
   const [handoffs, setHandoffs] = useState<HandoffCandidate[]>([]);
   const [items, setItems] = useState<FaqItem[]>([]);
-  const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<CandidateRow | FaqItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [newKw, setNewKw] = useState('');
 
@@ -133,28 +140,38 @@ export default function FaqPage({
     void load();
   }, [load]);
 
-  const openDrawerForUnanswered = (row: UnansweredQuery) => {
-    setDrawer({
-      source: 'unanswered',
-      sourceId: row.id,
-      editItemId: null,
-      question: row.query,
-      answer: '',
-      keywords: row.suggested_keywords.slice(0, 6),
-      suggested: row.suggested_keywords,
-    });
-  };
-  const openDrawerForHandoff = (row: HandoffCandidate) => {
+  const candidates: CandidateRow[] = useMemo(
+    () => [
+      ...unanswered.map((row) => ({ key: `u:${row.id}`, kind: 'unanswered' as const, row })),
+      ...handoffs.map((row) => ({ key: `h:${row.id}`, kind: 'handoff' as const, row })),
+    ],
+    [handoffs, unanswered],
+  );
+
+  const openDrawer = (candidate: CandidateRow) => {
+    if (candidate.kind === 'unanswered') {
+      setDrawer({
+        source: 'unanswered',
+        sourceId: candidate.row.id,
+        editItemId: null,
+        question: candidate.row.query,
+        answer: '',
+        keywords: candidate.row.suggested_keywords.slice(0, 6),
+        suggested: candidate.row.suggested_keywords,
+      });
+      return;
+    }
     setDrawer({
       source: 'handoff',
-      sourceId: row.id,
+      sourceId: candidate.row.id,
       editItemId: null,
-      question: row.query,
-      answer: row.human_reply || '',
-      keywords: row.suggested_keywords.slice(0, 6),
-      suggested: row.suggested_keywords,
+      question: candidate.row.query,
+      answer: candidate.row.human_reply || '',
+      keywords: candidate.row.suggested_keywords.slice(0, 6),
+      suggested: candidate.row.suggested_keywords,
     });
   };
+
   const openDrawerForEdit = (item: FaqItem) => {
     setDrawer({
       source: 'edit',
@@ -232,17 +249,26 @@ export default function FaqPage({
     }
   };
 
-  const dismiss = async (row: UnansweredQuery) => {
+  const deleteCandidate = async (candidate: CandidateRow) => {
     if (!agentId) return;
     try {
-      await api.post(
-        `/api/enterprise/agents/${encodeURIComponent(agentId)}/unanswered/${row.id}:dismiss?tenant_id=${TENANT_ID}`,
-        {},
-      );
-      setUnanswered((prev) => prev.filter((r) => r.id !== row.id));
-      notify.success('已忽略，同类问题被反复问起时会重新出现');
+      if (candidate.kind === 'unanswered') {
+        await api.post(
+          `/api/enterprise/agents/${encodeURIComponent(agentId)}/unanswered/${candidate.row.id}:dismiss?tenant_id=${TENANT_ID}`,
+          {},
+        );
+        setUnanswered((prev) => prev.filter((r) => r.id !== candidate.row.id));
+      } else {
+        await api.post(
+          `/api/enterprise/agents/${encodeURIComponent(agentId)}/faq/handoffs/${candidate.row.id}:dismiss?tenant_id=${TENANT_ID}`,
+          {},
+        );
+        setHandoffs((prev) => prev.filter((r) => r.id !== candidate.row.id));
+      }
+      setConfirmTarget(null);
+      notify.success('已从待沉淀列表删除');
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : '操作失败');
+      notify.error(error instanceof Error ? error.message : '删除失败');
     }
   };
 
@@ -266,182 +292,212 @@ export default function FaqPage({
     try {
       await api.delete(`/api/enterprise/agents/${encodeURIComponent(agentId)}/faq/items/${item.id}?tenant_id=${TENANT_ID}`);
       setItems((prev) => prev.filter((r) => r.id !== item.id));
-      setConfirmDeleteId(null);
+      setConfirmTarget(null);
       notify.success('FAQ 已删除');
     } catch (error) {
       notify.error(error instanceof Error ? error.message : '删除失败');
     }
   };
 
-  const emptyRow = (text: string) => (
-    <div className="border-b border-[rgba(24,24,26,0.08)] py-11 text-center text-[13px] text-[rgba(24,24,26,0.4)]">{text}</div>
-  );
+  const candidateColumns: DataTableColumn<CandidateRow>[] = [
+    {
+      key: 'query',
+      title: '用户问法',
+      className: 'whitespace-normal',
+      render: (row) => (
+        <div className="flex min-w-0 flex-col gap-[3px] py-[6px]">
+          <span className="line-clamp-2 leading-[20px] text-[#18181a]" title={row.row.query}>
+            {row.row.query}
+          </span>
+          {row.kind === 'handoff' && row.row.human_reply && (
+            <span className="line-clamp-1 text-[12px] text-[#6d6d72]" title={row.row.human_reply}>
+              人工回复：{row.row.human_reply}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'source',
+      title: '来源',
+      width: 108,
+      render: (row) => sourceBadge(row.kind),
+    },
+    {
+      key: 'count',
+      title: '被问次数',
+      width: 96,
+      render: (row) => (row.kind === 'unanswered' ? `${row.row.hit_count} 次` : '-'),
+    },
+    {
+      key: 'time',
+      title: '时间',
+      width: 150,
+      render: (row) => (row.kind === 'unanswered' ? formatTime(row.row.updated_at) : formatTime(row.row.answered_at)),
+    },
+    {
+      key: 'actions',
+      title: '操作',
+      width: 132,
+      align: 'right',
+      render: (row) => (
+        <div className="flex items-center justify-end gap-[4px]">
+          <button
+            onClick={() => openDrawer(row)}
+            className="rounded-[8px] px-[10px] py-[6px] text-[12.5px] font-medium text-[#1a71ff] transition-colors hover:bg-black/5 hover:text-[#4a8dff]"
+          >
+            采纳
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="更多操作"
+              className="grid size-7 place-items-center rounded-[8px] text-[#6d6d72] transition-colors outline-none hover:bg-black/5 hover:text-[#18181a]"
+            >
+              <IconMore className="size-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className={MENU_CONTENT_CLASS}>
+              <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => setConfirmTarget(row)}>
+                <IconTrash />
+                删除
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
+  ];
+
+  const itemColumns: DataTableColumn<FaqItem>[] = [
+    {
+      key: 'question',
+      title: '问题',
+      className: 'whitespace-normal',
+      render: (row) => (
+        <div className="flex min-w-0 flex-col gap-[3px] py-[6px]">
+          <span className="line-clamp-1 font-medium leading-[20px] text-[#18181a]" title={row.question}>
+            {row.question}
+          </span>
+          <span className="line-clamp-1 text-[12px] text-[#6d6d72]" title={row.answer_markdown}>
+            {row.answer_markdown}
+          </span>
+        </div>
+      ),
+    },
+    { key: 'source', title: '来源', width: 108, render: (row) => sourceBadge(row.source) },
+    {
+      key: 'keywords',
+      title: '关键词',
+      width: 190,
+      render: (row) => (
+        <span className="line-clamp-1 text-[12px] text-[#6d6d72]" title={row.keywords.join('、')}>
+          {row.keywords.join('、') || '-'}
+        </span>
+      ),
+    },
+    { key: 'usage', title: '命中', width: 76, render: (row) => `${row.usage_count} 次` },
+    {
+      key: 'status',
+      title: '状态',
+      width: 84,
+      render: (row) => (
+        <button onClick={() => void toggleItem(row)} className="outline-none">
+          <StatusBadge tone={row.status === 'active' ? 'green' : 'gray'}>
+            {row.status === 'active' ? '已启用' : '已停用'}
+          </StatusBadge>
+        </button>
+      ),
+    },
+    {
+      key: 'actions',
+      title: '操作',
+      width: 96,
+      align: 'right',
+      render: (row) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="FAQ 操作"
+            className="ml-auto grid size-7 place-items-center rounded-[8px] text-[#6d6d72] transition-colors outline-none hover:bg-black/5 hover:text-[#18181a]"
+          >
+            <IconMore className="size-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className={MENU_CONTENT_CLASS}>
+            <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => openDrawerForEdit(row)}>
+              <IconEdit />
+              编辑
+            </DropdownMenuItem>
+            <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => setConfirmTarget(row)}>
+              <IconTrash />
+              删除
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
 
   return (
     <div
       className={embedded ? 'min-h-0' : 'min-h-full box-border px-[48px] pt-[32px] pb-[43px] max-[900px]:px-[16px]'}
       aria-busy={loading}
     >
-      <div className="flex items-center justify-between pb-5">
-        <div className="text-[13px] text-[rgba(24,24,26,0.6)]">
-          答不上来的问题自动收集，人工兜过的问答可以复盘，确认后的问答沉淀为 FAQ——下次同样的问题员工直接回答。
+      <section className="mb-[36px]">
+        <div className="mb-[14px] flex items-center gap-[6px] text-[#6d6d72]">
+          <span className="text-[14px] leading-none">待沉淀</span>
+          <span className="text-[12px] text-[#9a9a9f]">
+            答不上来或人工兜底过的问答 —— 确认答案后采纳为 FAQ，下次同样的问题员工直接回答
+          </span>
+          <button
+            onClick={() => void load()}
+            className="ml-auto flex items-center gap-[5px] rounded-[8px] px-[8px] py-[5px] text-[12.5px] text-[#6d6d72] transition-colors hover:bg-black/5 hover:text-[#18181a]"
+          >
+            <IconRefresh className="size-3.5" />
+            刷新
+          </button>
         </div>
-        <button onClick={() => void load()} className="flex items-center gap-1.5 rounded-[10px] border border-[rgba(24,24,26,0.14)] bg-white px-3 py-1.5 text-[12.5px] text-[rgba(24,24,26,0.8)] transition hover:border-[rgba(24,24,26,0.4)]">
-          <IconRefresh className="h-3.5 w-3.5" />
-          刷新
-        </button>
-      </div>
-
-      <section className="mb-14">
-        <SectionHead no="01" title="无法回答" desc="检索不足或模型拒答时自动收集 · 同问合并计数" />
-        <div>
-          {unanswered.length === 0
-            ? emptyRow('暂无待处理的问题，员工这阵子状态不错。')
-            : unanswered.map((row) => (
-                <div key={row.id} className="grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1.5 border-b border-[rgba(24,24,26,0.08)] px-1 py-4 transition hover:bg-[rgba(24,24,26,0.03)]">
-                  <div>
-                    <div className="text-[14px] font-medium tracking-[0.01em] text-[#18181a]">{row.query}</div>
-                    <div className="mt-1.5 flex items-center gap-2 text-[12px] text-[rgba(24,24,26,0.4)]">
-                      <Tag label="自动收集" tone="teal" />
-                      <span>
-                        被问 <b className="font-medium text-[rgba(24,24,26,0.6)]">{row.hit_count}</b> 次 · 来源 {row.source === 'knowledge_refusal' ? '知识拒答' : row.source}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="row-span-2 flex items-center gap-2">
-                    <button onClick={() => openDrawerForUnanswered(row)} className="rounded-[10px] border border-[#18181a] bg-[#18181a] px-3.5 py-[7px] text-[12.5px] text-white transition hover:bg-black">
-                      写答案 → FAQ
-                    </button>
-                    <button onClick={() => void dismiss(row)} className="rounded-[10px] px-2 py-[7px] text-[12.5px] text-[rgba(24,24,26,0.4)] transition hover:text-[#a32d2d]">
-                      忽略
-                    </button>
-                  </div>
-                </div>
-              ))}
-        </div>
-      </section>
-
-      <section className="mb-14">
-        <SectionHead no="02" title="转人工记录" desc="人工已回复的会话 · 复盘后可沉淀为标准答案" />
-        <div>
-          {handoffs.length === 0
-            ? emptyRow('暂无转人工记录。')
-            : handoffs.map((row) => (
-                <div key={row.id} className="grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1.5 border-b border-[rgba(24,24,26,0.08)] px-1 py-4 transition hover:bg-[rgba(24,24,26,0.03)]">
-                  <div>
-                    <div className="text-[14px] font-medium tracking-[0.01em] text-[#18181a]">{row.query}</div>
-                    <div className="mt-1.5 flex items-center gap-2 text-[12px] text-[rgba(24,24,26,0.4)]">
-                      <Tag label="人工兜底" tone="amber" />
-                    </div>
-                    {row.human_reply && (
-                      <div className="mt-2 rounded-r-xl border-l-2 border-[#854f0b] bg-[rgba(133,79,11,0.07)] px-4 py-3 text-[13px] text-[rgba(24,24,26,0.8)]">
-                        <div className="mb-1 text-[11.5px] tracking-[0.05em] text-[#854f0b]">人工当时的回复</div>
-                        {row.human_reply}
-                      </div>
-                    )}
-                  </div>
-                  <div className="row-span-2 flex items-center gap-2">
-                    <button onClick={() => openDrawerForHandoff(row)} className="rounded-[10px] border border-[#18181a] bg-[#18181a] px-3.5 py-[7px] text-[12.5px] text-white transition hover:bg-black">
-                      改答案 → FAQ
-                    </button>
-                  </div>
-                </div>
-              ))}
-        </div>
+        <DataTable
+          aria-label="待沉淀问答列表"
+          columns={candidateColumns}
+          data={candidates}
+          rowKey={(row) => row.key}
+          loading={loading}
+          emptyText="暂无待沉淀的问答，员工这阵子状态不错。"
+        />
       </section>
 
       <section>
-        <SectionHead
-          no="03"
-          title="FAQ 库"
-          desc="命中规则：≥2 个关键词同时命中才短路回答"
-          action={
-            <button onClick={openDrawerForNew} className="rounded-[10px] border border-[rgba(24,24,26,0.14)] bg-white px-3 py-1.5 text-[12.5px] text-[rgba(24,24,26,0.8)] transition hover:border-[rgba(24,24,26,0.4)]">
-              ＋ 手动新建
-            </button>
-          }
-        />
-        <div className="mt-4 overflow-hidden rounded-[20px] border border-[rgba(24,24,26,0.14)] bg-white">
-          {items.length === 0 ? (
-            <div className="py-11 text-center text-[13px] text-[rgba(24,24,26,0.4)]">还没有 FAQ，从上面的待沉淀列表采纳第一条吧。</div>
-          ) : (
-            items.map((item) => (
-              <div key={item.id} className="border-b border-[rgba(24,24,26,0.08)] last:border-b-0">
-                <button
-                  onClick={() => setOpenItemId(openItemId === item.id ? null : item.id)}
-                  className="flex w-full items-center gap-3.5 px-6 py-[18px] text-left transition hover:bg-[rgba(24,24,26,0.03)]"
-                >
-                  <span className="flex-1 text-[14px] font-medium text-[#18181a]">{item.question}</span>
-                  <Tag label={faqSectionLabel(item.source)} tone={item.source === 'handoff' ? 'amber' : 'teal'} />
-                  <span className="text-[12px] text-[rgba(24,24,26,0.4)]">命中 {item.usage_count} 次</span>
-                  <span
-                    role="switch"
-                    aria-checked={item.status === 'active'}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void toggleItem(item);
-                    }}
-                    className={`relative h-5 w-[34px] flex-none rounded-full transition ${item.status === 'active' ? 'bg-[#0f766e]' : 'bg-[rgba(24,24,26,0.14)]'}`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-[0_0_0_0.5px_rgba(24,24,26,0.14)] transition-all ${item.status === 'active' ? 'left-4' : 'left-0.5'}`}
-                    />
-                  </span>
-                  <span className={`text-[12px] text-[rgba(24,24,26,0.4)] transition-transform ${openItemId === item.id ? 'rotate-90 text-[#0f766e]' : ''}`}>▶</span>
-                </button>
-                {openItemId === item.id && (
-                  <div className="px-6 pb-5">
-                    <div className="rounded-r-xl border-l-2 border-[#0f766e] bg-[rgba(15,118,110,0.06)] px-4 py-3 text-[13.5px] text-[rgba(24,24,26,0.8)]">{item.answer_markdown}</div>
-                    <div className="mt-3.5 flex flex-wrap gap-2">
-                      {item.keywords.map((kw) => (
-                        <span key={kw} className="rounded-full border border-[rgba(24,24,26,0.08)] bg-[rgba(24,24,26,0.04)] px-3 py-[3px] text-[12px] text-[rgba(24,24,26,0.6)]">
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="mt-3 text-[12px] text-[rgba(24,24,26,0.4)]">
-                      命中 <b className="font-medium text-[rgba(24,24,26,0.6)]">{item.usage_count}</b> 次 · 每次短路回答省去约 12s 规划开销
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      <button onClick={() => openDrawerForEdit(item)} className="rounded-[10px] border border-[rgba(24,24,26,0.14)] bg-white px-3 py-1.5 text-[12.5px] text-[rgba(24,24,26,0.8)] transition hover:border-[rgba(24,24,26,0.4)]">
-                        编辑
-                      </button>
-                      {confirmDeleteId === item.id ? (
-                        <span className="flex items-center gap-2 text-[12.5px] text-[rgba(24,24,26,0.6)]">
-                          确认删除该条 FAQ？
-                          <button onClick={() => void deleteItem(item)} className="rounded-[8px] bg-[#a32d2d] px-2.5 py-1 text-white">
-                            确认
-                          </button>
-                          <button onClick={() => setConfirmDeleteId(null)} className="text-[rgba(24,24,26,0.4)]">
-                            取消
-                          </button>
-                        </span>
-                      ) : (
-                        <button onClick={() => setConfirmDeleteId(item.id)} className="flex items-center gap-1.5 rounded-[10px] px-2.5 py-1.5 text-[12.5px] text-[rgba(24,24,26,0.4)] transition hover:text-[#a32d2d]">
-                          <IconTrash className="h-3.5 w-3.5" />
-                          删除
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
-          )}
+        <div className="mb-[14px] flex items-center gap-[6px] text-[#6d6d72]">
+          <span className="text-[14px] leading-none">FAQ 库</span>
+          <span className="text-[12px] text-[#9a9a9f]">命中规则：≥2 个关键词同时命中才短路回答</span>
+          <button
+            onClick={openDrawerForNew}
+            className="ml-auto flex items-center gap-[5px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12.5px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
+          >
+            ＋ 手动新建
+          </button>
         </div>
+        <DataTable
+          aria-label="员工 FAQ 列表"
+          columns={itemColumns}
+          data={items}
+          rowKey={(row) => row.id}
+          loading={loading}
+          emptyText="还没有 FAQ，从上面的待沉淀列表采纳第一条吧。"
+        />
       </section>
 
       {drawer && (
         <>
-          <div className="fixed inset-0 z-40 bg-[rgba(24,24,26,0.28)] transition-opacity" onClick={closeDrawer} />
+          <div className="fixed inset-0 z-40 bg-[rgba(24,24,26,0.28)]" onClick={closeDrawer} />
           <aside className="fixed right-0 top-0 bottom-0 z-50 flex w-[480px] max-w-[92vw] flex-col border-l border-[rgba(24,24,26,0.14)] bg-[#fbfbfa]">
             <div className="flex items-baseline justify-between border-b border-[rgba(24,24,26,0.14)] px-8 pb-4 pt-6">
-              <h3 className="font-serif text-[20px] font-semibold text-[#18181a]">{drawer.editItemId ? '编辑 FAQ' : '沉淀为 FAQ'}</h3>
-              <span className="text-[12px] text-[rgba(24,24,26,0.4)]">来源 · {faqSectionLabel(drawer.source)}</span>
+              <h3 className="font-serif text-[20px] font-semibold text-[#18181a]">{drawer.editItemId ? '编辑 FAQ' : '采纳为 FAQ'}</h3>
+              <span className="text-[12px] text-[#9a9a9f]">
+                {drawer.editItemId ? '修改后立即生效' : `来源 · ${SOURCE_META[drawer.source]?.label ?? '手动新建'}`}
+              </span>
             </div>
             <div className="flex-1 overflow-y-auto px-8 py-6">
               <div className="mb-6">
-                <label className="mb-2 block text-[12px] tracking-[0.08em] text-[rgba(24,24,26,0.4)]">用户问法</label>
+                <label className="mb-2 block text-[12px] tracking-[0.08em] text-[#9a9a9f]">用户问法</label>
                 <input
                   value={drawer.question}
                   onChange={(e) => setDrawer({ ...drawer, question: e.target.value })}
@@ -450,7 +506,7 @@ export default function FaqPage({
                 />
               </div>
               <div className="mb-6">
-                <label className="mb-2 block text-[12px] tracking-[0.08em] text-[rgba(24,24,26,0.4)]">标准答案</label>
+                <label className="mb-2 block text-[12px] tracking-[0.08em] text-[#9a9a9f]">标准答案</label>
                 <textarea
                   value={drawer.answer}
                   onChange={(e) => setDrawer({ ...drawer, answer: e.target.value })}
@@ -459,14 +515,17 @@ export default function FaqPage({
                 />
               </div>
               <div className="mb-6">
-                <label className="mb-2 block text-[12px] tracking-[0.08em] text-[rgba(24,24,26,0.4)]">
+                <label className="mb-2 block text-[12px] tracking-[0.08em] text-[#9a9a9f]">
                   触发关键词 <span className="tracking-normal text-[#0f766e]">· ≥2 个同时命中才回答</span>
                 </label>
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[rgba(24,24,26,0.14)] bg-white p-2.5">
                   {drawer.keywords.map((kw) => (
-                    <span key={kw} className="flex items-center gap-1.5 rounded-full bg-[rgba(24,24,26,0.04)] px-3 py-1 text-[12px] text-[rgba(24,24,26,0.6)]">
+                    <span
+                      key={kw}
+                      className="flex items-center gap-1.5 rounded-full bg-[rgba(24,24,26,0.04)] px-3 py-1 text-[12px] text-[#6d6d72]"
+                    >
                       {kw}
-                      <button onClick={() => removeKeyword(kw)} className="text-[13px] leading-none text-[rgba(24,24,26,0.4)] hover:text-[#a32d2d]">
+                      <button onClick={() => removeKeyword(kw)} className="text-[13px] leading-none text-[#9a9a9f] hover:text-[#a32d2d]">
                         ×
                       </button>
                     </span>
@@ -485,29 +544,39 @@ export default function FaqPage({
                   />
                 </div>
                 {drawer.suggested.length > 0 && (
-                  <div className="mt-2 text-[12px] leading-relaxed text-[rgba(24,24,26,0.4)]">
+                  <div className="mt-2 text-[12px] leading-relaxed text-[#9a9a9f]">
                     建议词：{drawer.suggested.filter((k) => !drawer.keywords.includes(k)).slice(0, 8).join('、') || '已全部加入'}
                   </div>
                 )}
               </div>
               <div className="mb-2">
-                <label className="mb-2 block text-[12px] tracking-[0.08em] text-[rgba(24,24,26,0.4)]">回答预览</label>
-                <div className="rounded-xl border border-[rgba(24,24,26,0.08)] bg-white px-4 py-3.5 text-[13px] text-[rgba(24,24,26,0.8)]">
+                <label className="mb-2 block text-[12px] tracking-[0.08em] text-[#9a9a9f]">回答预览</label>
+                <div className="rounded-xl border border-[rgba(24,24,26,0.08)] bg-white px-4 py-3.5 text-[13px] text-[#3d3d3f]">
                   {drawer.answer
-                    ? drawer.answer.split('\n').map((line, idx) => <p key={idx} className="min-h-[1.4em]">{line}</p>)
+                    ? drawer.answer.split('\n').map((line, idx) => (
+                        <p key={idx} className="min-h-[1.4em]">
+                          {line}
+                        </p>
+                      ))
                     : '（答案为空）'}
-                  <div className="mt-2.5 rounded-lg border border-[rgba(24,24,26,0.14)] px-3 py-2 text-[12px] text-[rgba(24,24,26,0.4)]">
+                  <div className="mt-2.5 rounded-lg border border-[rgba(24,24,26,0.14)] px-3 py-2 text-[12px] text-[#9a9a9f]">
                     回答末尾将自动附加「来自员工 FAQ」提示
                   </div>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2.5 border-t border-[rgba(24,24,26,0.14)] px-8 py-5">
-              <span className="mr-auto text-[12px] text-[rgba(24,24,26,0.4)]">{drawer.editItemId ? '保存后立即生效' : '采纳后立即对用户生效'}</span>
-              <button onClick={closeDrawer} className="rounded-[10px] border border-[rgba(24,24,26,0.14)] bg-white px-4 py-2 text-[12.5px] text-[rgba(24,24,26,0.8)]">
+              <span className="mr-auto text-[12px] text-[#9a9a9f]">
+                {drawer.editItemId ? '保存后立即生效' : '采纳后立即对用户生效'}
+              </span>
+              <button onClick={closeDrawer} className="rounded-[10px] border border-[rgba(24,24,26,0.14)] bg-white px-4 py-2 text-[12.5px] text-[#18181a]">
                 取消
               </button>
-              <button onClick={() => void adopt()} disabled={saving} className="rounded-[10px] border border-[#18181a] bg-[#18181a] px-4 py-2 text-[12.5px] text-white transition hover:bg-black disabled:opacity-60">
+              <button
+                onClick={() => void adopt()}
+                disabled={saving}
+                className="rounded-[10px] border border-[#18181a] bg-[#18181a] px-4 py-2 text-[12.5px] text-white transition hover:bg-black disabled:opacity-60"
+              >
                 {saving ? '保存中…' : drawer.editItemId ? '保存修改' : '确认采纳'}
               </button>
             </div>
@@ -515,8 +584,27 @@ export default function FaqPage({
         </>
       )}
 
+      <ConfirmDialog
+        open={Boolean(confirmTarget)}
+        onOpenChange={(open) => {
+          if (!open) setConfirmTarget(null);
+        }}
+        title={confirmTarget && 'kind' in confirmTarget ? '从待沉淀删除' : '删除 FAQ'}
+        description={
+          confirmTarget && 'kind' in confirmTarget
+            ? '删除后该条记录不再出现在待沉淀列表；同类问题被再次问起时会重新收集。'
+            : '删除后员工将不再用这条标准答案回答，恢复走知识检索。'
+        }
+        confirmText="确认删除"
+        onConfirm={() => {
+          if (!confirmTarget) return;
+          if ('kind' in confirmTarget) void deleteCandidate(confirmTarget);
+          else void deleteItem(confirmTarget);
+        }}
+      />
+
       {!canManage && (
-        <div className="mt-8 rounded-xl border border-[rgba(24,24,26,0.14)] bg-white px-5 py-4 text-[13px] text-[rgba(24,24,26,0.6)]">
+        <div className="mt-8 rounded-xl border border-[rgba(24,24,26,0.14)] bg-white px-5 py-4 text-[13px] text-[#6d6d72]">
           当前账号对该员工没有管理权限（仅员工创建人或租户管理员可以编辑 FAQ）。
         </div>
       )}
