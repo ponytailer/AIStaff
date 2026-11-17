@@ -16,6 +16,7 @@ from app.api import (
     chat,
     dispatchers,
     evolution,
+    faq,
     feedback,
     gallery,
     general_skill_shares,
@@ -188,6 +189,7 @@ app.include_router(oa_assistant.router)
 app.include_router(ai_review.router)
 app.include_router(memories.router)
 app.include_router(evolution.router)
+app.include_router(faq.router)
 app.include_router(feedback.router)
 app.include_router(persona.router)
 app.include_router(scheduled_tasks.enterprise_router)

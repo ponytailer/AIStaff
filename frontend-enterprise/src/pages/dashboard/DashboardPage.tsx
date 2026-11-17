@@ -14,6 +14,7 @@ import IconFolder from '../../assets/icons/cap-folder.svg?react';
 import IconCapClipboard from '../../assets/icons/cap-clipboard.svg?react';
 import IconCapMagicWand from '../../assets/icons/cap-magicwand.svg?react';
 import IconCapBriefcase from '../../assets/icons/cap-briefcase.svg?react';
+import IconActionChat from '../../assets/icons/action-chat.svg?react';
 import { api, TENANT_ID } from '../../api/client';
 import type { EnterpriseAuthUser } from '../../auth';
 import AppHeader from '../../components/AppHeader';
@@ -28,6 +29,7 @@ import WorkRecordTab, { ActivityTimeline } from './WorkRecordTab';
 import KnowledgeManagePage from '../KnowledgePage';
 import SkillsPage from '../SkillsPage';
 import GeneralSkillsPage from '../GeneralSkillsPage';
+import FaqPage from '../FaqPage';
 import ToolsPage from '../ToolsPage';
 import EvolutionPanel from './EvolutionPanel';
 import { employeeDashboardMetrics } from './employeeDashboardMetrics';
@@ -555,6 +557,9 @@ export default function DashboardPage({
       )}
       {activeTab === 'tools' && (
         <ToolsPage embedded currentUser={currentUser} onLogout={onLogout} />
+      )}
+      {activeTab === 'faq' && canEditSelectedAgent && (
+        <FaqPage embedded currentUser={currentUser} agent={selectedAgent} />
       )}
       {activeTab === 'scheduled' && <ScheduledTasksTab />}
       {activeTab === 'memories' && <MemoriesTab currentUser={currentUser} agent={selectedAgent} />}
@@ -1095,7 +1100,7 @@ function MetricTile({ label, value }: { label: string; value: number }) {
   );
 }
 
-type ProfileTabKey = 'work' | 'knowledge' | 'sop' | 'skills' | 'tools' | 'scheduled' | 'memories' | 'logs';
+type ProfileTabKey = 'work' | 'knowledge' | 'sop' | 'skills' | 'tools' | 'faq' | 'scheduled' | 'memories' | 'logs';
 
 const PROFILE_TABS: {
   key: ProfileTabKey;
@@ -1108,6 +1113,7 @@ const PROFILE_TABS: {
   { key: 'sop', label: 'SOP', Icon: IconCapClipboard, route: EnterpriseRoute.Skills },
   { key: 'skills', label: '技能', Icon: IconCapMagicWand, route: EnterpriseRoute.GeneralSkills },
   { key: 'tools', label: '工具', Icon: IconCapBriefcase, route: EnterpriseRoute.Tools },
+  { key: 'faq', label: 'FAQ', Icon: IconActionChat, route: EnterpriseRoute.Dashboard },
   { key: 'scheduled', label: '定时任务', Icon: IconProfileAlarm, route: EnterpriseRoute.ScheduledTasks },
   { key: 'memories', label: '记忆', Icon: IconProfileHistory, route: EnterpriseRoute.Memories },
   { key: 'logs', label: '对话日志', Icon: IconProfileCalendar, route: EnterpriseRoute.Feedback },

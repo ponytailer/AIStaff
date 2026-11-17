@@ -103,7 +103,12 @@ def ensure_agent_scope_manager(
 
 def agent_owned_by_user(row: AgentProfile, user: User) -> bool:
     metadata = row.metadata_json or {}
-    return metadata.get("owner_user_id") == user.id
+    # 创建人即 owner（反馈自进化等管理动作的授权基础）；显式移交过的
+    # owner_user_id 优先。
+    return (
+        metadata.get("owner_user_id") == user.id
+        or metadata.get("created_by_user_id") == user.id
+    )
 
 
 def ensure_personal_knowledge_owner(row: object, current_user: object) -> None:

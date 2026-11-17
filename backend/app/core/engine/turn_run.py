@@ -66,6 +66,7 @@ from app.core.base.request_compiler import (
     TaskRequestCompiler,
 )
 from app.core.plan.planner import TurnPlanner, turn_plan_router_decision
+from app.core.plan.planner_fastpath import _faq_shortcircuit_plan
 from app.core.base.ui_flags import knowledge_citations_hidden
 from app.db.models import (
     ChatSession,
@@ -286,51 +287,73 @@ class _TurnRunMixin:
                 planner_state,
             )
         else:
-            # 意图识别缓存：指纹含全部 planner 输入，命中即省一次模型调用；
-            # Redis 不可用/指纹不可算 → 直接走原调用，行为与改造前一致。
-            intent_cache_key = _intent_cache_key(
+            # FAQ 短路（反馈自进化）：词法命中已采纳的 FAQ 时零 LLM 直接返回
+            # 标准答案，绕过意图缓存与 planner——FAQ 答案编辑后必须立刻生效，
+            # 不能吃旧缓存；未命中才走意图缓存 / planner 原链路。守卫与
+            # planner fast path 同源（无 SOP 路由空间 + 非转人工）。
+            faq_plan = _faq_shortcircuit_plan(
+                self.db,
                 session,
+                execution_request.message,
                 routing_skills,
-                request,
-                conversation_context,
-                memory_context,
                 planner_state,
+                request.interaction_mode,
             )
-            plan: TurnPlan | None = None
-            if intent_cache_key:
-                cached_plan = get_json(intent_cache_key)
-                if isinstance(cached_plan, dict):
-                    try:
-                        plan = TurnPlan.model_validate(cached_plan)
-                    except Exception:  # noqa: BLE001 - 缓存损坏按未命中处理
-                        plan = None
-            if plan is None:
-                # planner 是在 user_message_received 事件转发到 stream worker
-                # 之前执行的，其 LLM span 若不显式携带 turn_id，诊断脚本就无法
-                # 把 planner 慢调用归因到具体 turn（观测缺口）。ContextVar
-                # 属性合并机制允许这里直接注入。
-                from app.observability.spans import llm_span_attributes
-
-                with llm_span_attributes(
-                    turn_id=self.user_message_id,
-                    user_message_id=self.user_message_id,
-                ):
-                    plan = self.planner.plan(
-                        _turn_planner_message(request),
-                        session,
-                        routing_skills,
-                        planner_model_config,
-                        deepcopy(conversation_context),
-                        memory_context,
-                        planner_state,
-                        interaction_mode=request.interaction_mode,
-                    )
+            if faq_plan is not None:
+                plan = self.planner._normalize(
+                    faq_plan,
+                    execution_request.message,
+                    session,
+                    routing_skills,
+                    planner_state,
+                    request.interaction_mode,
+                )
+            else:
+                # 意图识别缓存：指纹含全部 planner 输入，命中即省一次模型调用；
+                # Redis 不可用/指纹不可算 → 直接走原调用，行为与改造前一致。
+                plan = None
+                intent_cache_key = _intent_cache_key(
+                    session,
+                    routing_skills,
+                    request,
+                    conversation_context,
+                    memory_context,
+                    planner_state,
+                )
                 if intent_cache_key:
-                    set_json(
-                        intent_cache_key,
-                        plan.model_dump(mode="json"),
-                        ttl_seconds=INTENT_CACHE_TTL_SECONDS,
-                    )
+                    cached_plan = get_json(intent_cache_key)
+                    if isinstance(cached_plan, dict):
+                        try:
+                            plan = TurnPlan.model_validate(cached_plan)
+                        except Exception:  # noqa: BLE001 - 缓存损坏按未命中处理
+                            plan = None
+                if plan is None:
+                    # planner 是在 user_message_received 事件转发到 stream worker
+                    # 之前执行的，其 LLM span 若不显式携带 turn_id，诊断脚本就无法
+                    # 把 planner 慢调用归因到具体 turn（观测缺口）。ContextVar
+                    # 属性合并机制允许这里直接注入。
+                    from app.observability.spans import llm_span_attributes
+
+                    with llm_span_attributes(
+                        turn_id=self.user_message_id,
+                        user_message_id=self.user_message_id,
+                    ):
+                        plan = self.planner.plan(
+                            _turn_planner_message(request),
+                            session,
+                            routing_skills,
+                            planner_model_config,
+                            deepcopy(conversation_context),
+                            memory_context,
+                            planner_state,
+                            interaction_mode=request.interaction_mode,
+                        )
+                    if intent_cache_key:
+                        set_json(
+                            intent_cache_key,
+                            plan.model_dump(mode="json"),
+                            ttl_seconds=INTENT_CACHE_TTL_SECONDS,
+                        )
         self._renew_session_lease()
         self._raise_if_cancelled(request, session)
         slot_hydration = SlotHydrationPolicy.hydrate_plan(
@@ -426,7 +449,7 @@ class _TurnRunMixin:
             frame.task_id: frame.execution_mode
             for frame in plan.task_frames
             if frame.kind == "conversation"
-            and frame.execution_mode in {"direct_reply", "capability_intro"}
+            and frame.execution_mode in {"direct_reply", "capability_intro", "faq_hit"}
             and frame.task_id
         }
         self.db.commit()

@@ -1647,6 +1647,62 @@ class AgentEvent(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class AgentUnansweredQuery(SQLModel, table=True):
+    """反馈自进化 · 无法回答的 query（自动收集）。
+
+    来源：知识直答路径检索不足 / 模型拒答。同员工同问哈希去重合并计数，
+    采纳进 FAQ 或被忽略后状态流转，不再出现在待处理列表。
+    """
+
+    __tablename__ = "agent_unanswered_queries"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "agent_id", "query_hash", name="uq_unanswered_agent_query"),
+    )
+
+    id: str = Field(default_factory=lambda: new_id("unq"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    agent_id: str = Field(index=True)
+    # 归一化（去空白/全角转半角/lower）后的 md5，去重键
+    query_hash: str = Field(index=True)
+    query: str
+    hit_count: int = Field(
+        default=1, sa_column=Column(Integer, nullable=False, server_default="1")
+    )
+    source: str = Field(default="knowledge_refusal", index=True)
+    status: str = Field(default="pending", index=True)
+    last_session_id: Optional[str] = None
+    last_message_id: Optional[str] = None
+    faq_item_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class AgentFaqItem(SQLModel, table=True):
+    """员工 FAQ：owner/管理员确认后的标准问答，对话命中即短路直答。
+
+    命中判定用 keywords 词法匹配（≥2 个关键词同时命中），不依赖 embedding。
+    """
+
+    __tablename__ = "agent_faq_items"
+
+    id: str = Field(default_factory=lambda: new_id("faq"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    agent_id: str = Field(index=True)
+    question: str
+    answer_markdown: str = ""
+    keywords_json: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    source: str = Field(default="manual", index=True)
+    source_id: Optional[str] = None
+    status: str = Field(default="active", index=True)
+    usage_count: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default="0")
+    )
+    created_by_user_id: str = Field(index=True)
+    adopted_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class MemoryRecord(SQLModel, table=True):
     __tablename__ = "memories"
 

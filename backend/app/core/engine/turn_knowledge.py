@@ -66,6 +66,7 @@ from app.core.base.request_compiler import (
     TaskRequestCompiler,
 )
 from app.core.plan.planner import TurnPlanner, turn_plan_router_decision
+from app.core.plan.planner_fastpath import FAST_PATH_HANDOFF_KEYWORDS
 from app.core.base.ui_flags import knowledge_citations_hidden
 from app.db.models import (
     ChatSession,
@@ -530,6 +531,7 @@ class _KnowledgeWorkflowMixin:
             reply = self.owner.response_generator.generate(
                 *arguments, operation=KNOWLEDGE_ANSWER_OPERATION
             )
+            self._record_unanswered_if_refusal(message, session, reply)
             return self._finalize_image_reply(reply, legend)
         # 真流式：逐 token 下发；中途失败会把已下发内容作废并抛给调用方降级
         # （见 _run_knowledge_workflow 的 except）。
@@ -552,9 +554,48 @@ class _KnowledgeWorkflowMixin:
         if tail:
             emitted.append(tail)
             self._emit_stream_delta(tail)
+        self._record_unanswered_if_refusal(message, session, "".join(raw_parts).strip())
         return self._finalize_image_reply(
             "".join(raw_parts).strip(), legend, "".join(emitted).strip()
         )
+
+    def _record_unanswered_if_refusal(
+        self,
+        message: str,
+        session: ChatSession,
+        reply: str,
+    ) -> None:
+        """反馈自进化收集：知识直答以拒答话术收场时，把 query 记入待沉淀池。
+
+        只收集「确实没答上」的：检索不足但模型硬答、或命中知识的不算。
+        转人工类问题不收集——那类有人工兜底，走 handoff 复盘，进池会双计。
+        收集失败静默（不影响回答）。
+        """
+
+        try:
+            if self.db is None:
+                return
+            text = str(reply or "")
+            if not text or not _is_refusal(text):
+                return
+            lowered = text.lower()
+            if any(kw in lowered for kw in FAST_PATH_HANDOFF_KEYWORDS):
+                return
+            from app.faq.service import record_unanswered
+
+            record_unanswered(
+                self.db,
+                getattr(session, "tenant_id", None) or "",
+                getattr(session, "agent_id", None) or "",
+                str(message or ""),
+                session_id=getattr(session, "id", None),
+                message_id=self.user_message_id,
+            )
+        except Exception:  # noqa: BLE001 - 收集失败不影响回答
+            try:
+                self.db.rollback()
+            except Exception:  # noqa: BLE001 - db 不可用时静默
+                pass
 
     def _finalize_image_reply(
         self,

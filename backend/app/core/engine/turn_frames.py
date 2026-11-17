@@ -144,6 +144,25 @@ logger = logging.getLogger(__name__)
 
 
 class _FrameExecutionMixin:
+    def _touch_faq_usage(
+        self, tenant_id: str, agent_id: str | None, frame: Any
+    ) -> None:
+        """FAQ 短路命中后 usage_count+1；失败静默——计数不影响回答。"""
+
+        from app.db.models import AgentFaqItem
+
+        item_id = str((frame.slot_hints or {}).get("faq_item_id") or "").strip()
+        if not item_id or not agent_id:
+            return
+        try:
+            row = self.db.get(AgentFaqItem, item_id)
+            if row and row.tenant_id == tenant_id and row.agent_id == agent_id:
+                row.usage_count = int(row.usage_count or 0) + 1
+                self.db.add(row)
+                self.db.commit()
+        except Exception:  # noqa: BLE001
+            self.db.rollback()
+
     def _run_direct_reply_frame(
         self,
         request: ChatTurnRequest,
@@ -182,29 +201,39 @@ class _FrameExecutionMixin:
             },
         )
         try:
-            # 未单独配置问答模型时直接用本轮请求模型——相比标准路径仍省掉
-            # Harness 主模型决策 + ResponseGenerator 两次串行调用。
-            answer_model = model_config
-            persona_prompt = self.owner._get_persona_prompt(
-                request.tenant_id, session.agent_id
-            )
-            capability_summary: str | None = None
-            if execution_mode == "capability_intro":
-                capability_summary = _capability_summary_text(
-                    self.db, request.tenant_id, session.agent_id
+            # faq_hit：反馈自进化的标准答案已在规划期命中，零 LLM 直出。
+            # 答案不存在（FAQ 被并发删除/停用）时返回 None 降级标准路径。
+            # 正文回放由外层 _handle_turn_stream_v2 的匀速回放统一处理，
+            # 这里只产出 reply_fragment。
+            if execution_mode == "faq_hit":
+                faq_answer = str((frame.slot_hints or {}).get("faq_answer") or "").strip()
+                if not faq_answer:
+                    return None
+                reply = faq_answer
+            else:
+                # 未单独配置问答模型时直接用本轮请求模型——相比标准路径仍省掉
+                # Harness 主模型决策 + ResponseGenerator 两次串行调用。
+                answer_model = model_config
+                persona_prompt = self.owner._get_persona_prompt(
+                    request.tenant_id, session.agent_id
                 )
-                if not capability_summary:
-                    # 没有任何可介绍的能力：仍可直出（提示语会引导模型坦率说明），
-                    # 但传 None 会走问候分支，因此显式给一个空清单说明。
-                    capability_summary = "（当前该数字员工暂无可介绍的业务能力。）"
-            reply = self._answer_direct_reply(
-                execution_request.message,
-                persona_prompt,
-                memory_context,
-                conversation_context,
-                answer_model,
-                capability_summary=capability_summary,
-            )
+                capability_summary: str | None = None
+                if execution_mode == "capability_intro":
+                    capability_summary = _capability_summary_text(
+                        self.db, request.tenant_id, session.agent_id
+                    )
+                    if not capability_summary:
+                        # 没有任何可介绍的能力：仍可直出（提示语会引导模型坦率说明），
+                        # 但传 None 会走问候分支，因此显式给一个空清单说明。
+                        capability_summary = "（当前该数字员工暂无可介绍的业务能力。）"
+                reply = self._answer_direct_reply(
+                    execution_request.message,
+                    persona_prompt,
+                    memory_context,
+                    conversation_context,
+                    answer_model,
+                    capability_summary=capability_summary,
+                )
         except Exception as exc:  # noqa: BLE001 - 降级到标准路径
             # 生成中途失败：清掉已下发的半截增量，避免降级到标准路径后
             # 两段互不相关的文本拼在一起。
@@ -225,6 +254,9 @@ class _FrameExecutionMixin:
                 },
             )
             return None
+        if execution_mode == "faq_hit":
+            # FAQ 命中计数：owner 在工作台看命中率调整词条
+            self._touch_faq_usage(request.tenant_id, session.agent_id, frame)
         result = TaskExecutionResult(
             task_frame_id=row.task_id,
             status="completed",

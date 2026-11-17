@@ -10,6 +10,12 @@ from typing import Any
 
 from app.config import get_settings
 from app.db.models import ChatSession, Skill
+from app.faq.service import (
+    FAQ_ANSWER_SLOT,
+    FAQ_ITEM_ID_SLOT,
+    FAQ_QUESTION_SLOT,
+    match_faq,
+)
 from app.session.session_schema import (
     PlannedTaskFrame,
     TurnPlan,
@@ -29,6 +35,62 @@ FAST_PATH_HANDOFF_KEYWORDS = (
     "human support",
     "real person",
 )
+
+
+def _faq_shortcircuit_plan(
+    db: Any,
+    session: ChatSession,
+    message: str,
+    available_skills: list[Skill],
+    task_frame_state: list[dict[str, Any]] | None,
+    interaction_mode: str,
+) -> TurnPlan | None:
+    """FAQ 词法命中短路（反馈自进化）：零 LLM 直接返回标准答案。
+
+    守卫与 fast path 同源：结构性上下文必须排除路由决策空间（无活跃 SOP /
+    待处理任务 / 待补槽），消息不命中转人工关键词——用户要人时不能拿 FAQ
+    挡。命中判定要求 ≥2 个关键词同时命中（见 app.faq.service.match_faq），
+    单泛词不触发。任何守卫不满足即返回 None，回落完整规划。
+    """
+
+    if (
+        interaction_mode != "normal"
+        or str(session.active_skill_id or "").strip()
+        or str(session.active_step_id or "").strip()
+        or session.pending_tasks_json
+        or task_frame_state
+        or session.awaiting_input_json
+    ):
+        return
+    text = " ".join(str(message or "").split()).strip()
+    if not text or text.startswith("/"):
+        return
+    lowered = text.lower()
+    if any(keyword in lowered for keyword in FAST_PATH_HANDOFF_KEYWORDS):
+        return
+    item = match_faq(db, session.tenant_id, session.agent_id or "", text)
+    if item is None or not str(item.answer_markdown or "").strip():
+        return
+    return TurnPlan(
+        decision="answer_only",
+        confidence=0.9,
+        user_intent=text,
+        reason="faq shortcircuit: keyword match on adopted FAQ",
+        task_frames=[
+            PlannedTaskFrame(
+                kind="conversation",
+                decision="answer_only",
+                execution_mode="faq_hit",
+                user_intent=text,
+                source_message=message,
+                slot_hints={
+                    FAQ_ANSWER_SLOT: str(item.answer_markdown),
+                    FAQ_QUESTION_SLOT: str(item.question),
+                    FAQ_ITEM_ID_SLOT: str(item.id),
+                },
+            )
+        ],
+    )
 
 
 def _fast_path_plan(
