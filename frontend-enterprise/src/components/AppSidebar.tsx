@@ -1257,6 +1257,20 @@ function ChatEmployeeCard({
         </div>
       </div>
 
+      {/* 待回答提醒：不藏在下拉菜单里，员工卡上常驻一枚红标，owner 一眼看到。 */}
+      {handoffCount > 0 && onOpenHandoffs && (
+        <button
+          type="button"
+          onClick={onOpenHandoffs}
+          className="flex h-[30px] w-full shrink-0 items-center gap-[7px] rounded-[10px] bg-[#fdecec] px-[10px] text-left text-[12.5px] font-medium text-[#d0342c] transition-colors hover:bg-[#fbdcdc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(211,26,26,0.3)]"
+        >
+          <span className="relative inline-flex size-[7px] shrink-0 rounded-full bg-[#e02b2b] motion-safe:animate-pulse" />
+          <span className="truncate">
+            {handoffCount > 99 ? '99+' : handoffCount} 条待回答 · 点击处理
+          </span>
+        </button>
+      )}
+
       {/* 资产条一直渲染：没选员工时没有 chips，但「更多」里的导航（广场/回首页）不该跟着消失。 */}
       <div className="flex items-center gap-[5px]">
           {assets.map((asset) => (
