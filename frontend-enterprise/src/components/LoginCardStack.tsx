@@ -33,12 +33,17 @@ function hiddenState(scale: number): CSSProperties {
 /**
  * 登录框的「视差浮层卡片堆」：
  *
- *   scene —— 透视容器，承接指针事件
- *   tilt  —— 指针视差：整个卡堆随光标轻微 3D 转动（createAnimatable 平滑跟随）
- *   shell —— 每张卡的静态错位（位移 + 旋转 + 缩放，内联 transform，不参与动画）
- *   float —— 漂浮：每张卡以不同周期缓慢上下呼吸
+ *   scene    —— 透视容器，承接指针事件
+ *   depth    —— 后排整层压到 z 轴 -60px：无论怎么转，深度上永远压不过前排表单
+ *   tilt     —— 指针视差：只转后排装饰卡（createAnimatable 平滑跟随）
+ *   shell    —— 每张卡的静态错位（位移 + 旋转 + 缩放，内联 transform，不参与动画）
+ *   float    —— 漂浮：每张装饰卡以不同周期缓慢上下呼吸
  *
  * 后排三张是产品界面示意卡（骨架条 + 能力片），前排是真实登录表单。
+ *
+ * 表单卡是交互面，必须钉死：不随指针转、也不漂浮。
+ * 原来整堆一起转 + 前排自己上下浮，指针移到输入栏上时整个表单在光标底下晃，
+ * 悬停目标（输入框描边、I-beam 光标）反复翻转，看起来就是「鼠标乱窜」。
  */
 export default function LoginCardStack({ children }: LoginCardStackProps) {
   const sceneRef = useRef<HTMLDivElement>(null);
@@ -66,7 +71,8 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
       .add(backs, { opacity: [0, 1], scale: [0.7, 1], duration: 640, delay: stagger(110), ease: 'outBack' }, 0)
       .add(front, { opacity: [0, 1], scale: [0.82, 1], duration: 780, ease: 'outBack' }, 320);
 
-    // 漂浮：每张卡不同周期、不同相位，画面不「死」也不「晃」
+    // 漂浮：每张装饰卡不同周期、不同相位，画面不「死」也不「晃」。
+    // 只浮后排：前排表单是交互面，浮起来会让悬停目标在光标底下漂。
     const floats = backs.map((card, index) =>
       animate(card, {
         y: [0, index % 2 ? -11 : 11],
@@ -77,14 +83,6 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
         alternate: true,
       }),
     );
-    const frontFloat = animate(front, {
-      y: [0, -6],
-      duration: 3400,
-      delay: 1600,
-      ease: 'inOutSine',
-      loop: true,
-      alternate: true,
-    });
 
     // 指针视差：精细指针设备才启用，触屏不做。
     //
@@ -141,7 +139,6 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
     return () => {
       intro.revert();
       floats.forEach((item) => item.revert());
-      frontFloat.revert();
       if (frameId) cancelAnimationFrame(frameId);
       scene.removeEventListener('pointerenter', onPointerEnter);
       scene.removeEventListener('pointermove', onPointerMove);
@@ -154,38 +151,45 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
 
   return (
     <div ref={sceneRef} className="relative flex w-full justify-center py-[10px] [perspective:1200px]">
-      <div ref={tiltRef} className="relative h-[352px] w-[min(560px,94vw)] [transform-style:preserve-3d] [will-change:transform]">
-        {BACK_CARDS.map((card, index) => (
-          <div
-            key={card.tone}
-            aria-hidden
-            className="absolute left-1/2 top-1/2"
-            style={{
-              transform: `translate(-50%, -50%) translate(${card.x}px, ${card.y}px) rotate(${card.rotate}deg) scale(${card.scale})`,
-            }}
-          >
-            <div
-              ref={(el) => {
-                backRefs.current[index] = el;
-              }}
-              style={hiddenState(1)}
-              className="w-[290px] rounded-[16px] border border-black/[0.06] bg-white p-[18px] shadow-[0_20px_50px_rgba(17,17,17,0.10)] [will-change:transform]"
-            >
-              {card.bars.map((bar, barIndex) => (
-                <div key={barIndex} className={`${BAR_CLASS} ${bar} ${barIndex > 0 ? 'mt-[10px]' : ''}`} />
-              ))}
-              <div className="mt-[16px] flex gap-[8px]">
-                <span className={`rounded-[7px] px-[10px] py-[3px] text-[11px] ${TONE_CLASS[card.tone]}`}>
-                  数字员工
-                </span>
-                <span className="rounded-[7px] bg-[#eef1f6] px-[10px] py-[3px] text-[11px] text-[#757f9c]">
-                  执行记录
-                </span>
+      <div className="relative h-[352px] w-[min(560px,94vw)] [transform-style:preserve-3d]">
+        {/* 后排装饰卡：整层先压到 -60px 深度，再由 tilt 整层随指针微转。
+            分层是为了让表单卡彻底退出 3D 旋转——装饰怎么动都抢不到表单的
+            悬停目标，指针在输入栏上时表单纹丝不动。 */}
+        <div aria-hidden className="absolute inset-0 [transform:translateZ(-60px)] [transform-style:preserve-3d]">
+          <div ref={tiltRef} className="absolute inset-0 [transform-style:preserve-3d] [will-change:transform]">
+            {BACK_CARDS.map((card, index) => (
+              <div
+                key={card.tone}
+                className="absolute left-1/2 top-1/2"
+                style={{
+                  transform: `translate(-50%, -50%) translate(${card.x}px, ${card.y}px) rotate(${card.rotate}deg) scale(${card.scale})`,
+                }}
+              >
+                <div
+                  ref={(el) => {
+                    backRefs.current[index] = el;
+                  }}
+                  style={hiddenState(1)}
+                  className="w-[290px] rounded-[16px] border border-black/[0.06] bg-white p-[18px] shadow-[0_20px_50px_rgba(17,17,17,0.10)] [will-change:transform]"
+                >
+                  {card.bars.map((bar, barIndex) => (
+                    <div key={barIndex} className={`${BAR_CLASS} ${bar} ${barIndex > 0 ? 'mt-[10px]' : ''}`} />
+                  ))}
+                  <div className="mt-[16px] flex gap-[8px]">
+                    <span className={`rounded-[7px] px-[10px] py-[3px] text-[11px] ${TONE_CLASS[card.tone]}`}>
+                      数字员工
+                    </span>
+                    <span className="rounded-[7px] bg-[#eef1f6] px-[10px] py-[3px] text-[11px] text-[#757f9c]">
+                      执行记录
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
+        </div>
 
+        {/* 前排表单卡：交互面，不参与视差与漂浮 */}
         <div className="absolute left-1/2 top-1/2 z-10" style={{ transform: 'translate(-50%, -50%)' }}>
           <div
             ref={frontRef}
