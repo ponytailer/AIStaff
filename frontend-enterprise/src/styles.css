@@ -4786,16 +4786,14 @@ pre {
 }
 
 .knowledge-section-tree,
-.knowledge-quality-list,
-.knowledge-evidence-list {
+.knowledge-quality-list {
   display: grid;
   gap: 8px;
   margin-top: 10px;
 }
 
 .knowledge-section-node span,
-.knowledge-quality-item strong,
-.knowledge-evidence-item .ui-typography {
+.knowledge-quality-item strong {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4823,92 +4821,6 @@ pre {
 
 .knowledge-evidence-stat small {
   color: var(--muted-foreground);
-}
-
-.knowledge-search-debug {
-  display: grid;
-  gap: 14px;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.knowledge-search-debug.is-compact {
-  max-height: 360px;
-  overflow: auto;
-  padding-right: 4px;
-}
-
-.knowledge-search-debug.is-compact .knowledge-route-trace {
-  grid-template-columns: 1fr;
-}
-
-.knowledge-route-trace {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
-}
-
-.knowledge-route-step {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  min-width: 0;
-  padding: 11px;
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  background: var(--surface-subtle);
-}
-
-.knowledge-route-step > span {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
-  border-radius: 999px;
-  color: var(--accent);
-  font-weight: 760;
-  background: var(--surface);
-}
-
-.knowledge-route-step > div {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.knowledge-route-step strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.knowledge-route-step small {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--muted-foreground);
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.knowledge-evidence-item {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  background: var(--surface-subtle);
-}
-
-.knowledge-evidence-item .ui-typography {
-  display: block;
-}
-
-.knowledge-evidence-item .ui-typography + .ui-typography {
-  margin-top: 7px;
 }
 
 .knowledge-section-heading {

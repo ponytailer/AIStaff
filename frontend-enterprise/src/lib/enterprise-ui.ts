@@ -46,18 +46,6 @@ export const OUTLINE_ACTION_BUTTON_CLASS =
 export const OUTLINE_ACTION_BUTTON_SM_CLASS =
   'h-[32px] gap-[4px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[12px] text-[12px] font-normal text-[#3d3d3f] hover:border-[#ddd9d2] hover:bg-[#f2f1ee] hover:text-[#18181a] [&_svg:not([class*="size-"])]:size-[14px]';
 
-/** Integrated search combo wrapper (input + submit button). */
-export const SEARCH_COMBO_CLASS =
-  'flex h-[32px] min-w-0 items-stretch overflow-hidden rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white transition-colors focus-within:border-[#18181a]';
-
-/** Integrated search combo input field. */
-export const SEARCH_COMBO_INPUT_CLASS =
-  'min-w-0 flex-1 bg-transparent px-[14px] text-[14px] text-[#17191f] outline-none placeholder:text-[#d6d1c9]';
-
-/** Integrated search combo submit button. */
-export const SEARCH_COMBO_BUTTON_CLASS =
-  'shrink-0 bg-[#18181a] px-[20px] text-[14px] font-normal text-white transition-colors hover:bg-[#303030] disabled:pointer-events-none disabled:opacity-50';
-
 /** Format a backend timestamp in the active UI locale, or `-` when empty/invalid. */
 export function formatDateTime(value?: string): string {
   return formatClientDateTime(value, '-');

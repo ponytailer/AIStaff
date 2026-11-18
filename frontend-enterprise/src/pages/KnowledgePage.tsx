@@ -34,7 +34,6 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import KnowledgeApiDialog from '@/components/knowledge/KnowledgeApiDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import KnowledgeGraphCanvas from '@/components/KnowledgeGraphCanvas';
-import { ModelConfigDropdown } from '@/components/ModelConfigDropdown';
 import { Paginator } from '@/components/Paginator';
 import { ResourceImportDialog } from '@/components/ResourceImportDialog';
 import { StatCard } from '@/components/StatCard';
@@ -65,7 +64,7 @@ import { notify } from '@/components/ui/app-toast';
 import { Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyTextToClipboard } from '@/lib/clipboard';
-import { DIALOG_CANCEL_BUTTON_CLASS, DIALOG_FOOTER_CLASS, DIALOG_PRIMARY_BUTTON_CLASS, MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_ITEM_DANGER_CLASS, MOBILE_CARD_CLASS, OUTLINE_ACTION_BUTTON_CLASS, OUTLINE_ACTION_BUTTON_SM_CLASS, SEARCH_COMBO_BUTTON_CLASS, SEARCH_COMBO_CLASS, SEARCH_COMBO_INPUT_CLASS, SELECT_TRIGGER_CLASS, formatDate } from '@/lib/enterprise-ui';
+import { DIALOG_CANCEL_BUTTON_CLASS, DIALOG_FOOTER_CLASS, DIALOG_PRIMARY_BUTTON_CLASS, MENU_CONTENT_CLASS, MENU_ITEM_CLASS, MENU_ITEM_DANGER_CLASS, MOBILE_CARD_CLASS, OUTLINE_ACTION_BUTTON_CLASS, OUTLINE_ACTION_BUTTON_SM_CLASS, SELECT_TRIGGER_CLASS, formatDate } from '@/lib/enterprise-ui';
 import {
   clearSharedAgentScope,
   emitAgentScopeChange,
@@ -102,15 +101,12 @@ import type {
   KnowledgeDocumentPage,
   KnowledgeBasePage,
   KnowledgeIngestJobRead,
-  KnowledgeSearchResponse,
   AgentProfileRead,
-  ModelConfigRead,
 } from '../types';
 
 const KNOWLEDGE_PAGE_SIZE = 10;
 /** 「从我的知识库导入」在来源下拉里的伪 id（个人库没有来源员工）。 */
 const PERSONAL_IMPORT_SOURCE_ID = '__personal__';
-const KNOWLEDGE_SEARCH_MODEL_STORAGE_KEY = 'knowledge-search-model';
 const TERMINAL_KNOWLEDGE_JOB_STATUSES = new Set(['succeeded', 'failed', 'cancelled']);
 const KnowledgeGraphVisualization = lazy(() => import('@/components/knowledge/KnowledgeGraphVisualization').then(
   (module) => ({ default: module.KnowledgeGraphVisualization }),
@@ -246,15 +242,8 @@ export default function KnowledgeManagePage({
   const [contentSaving, setContentSaving] = useState(false);
   const [documentSearch, setDocumentSearch] = useState('');
   const [knowledgeBaseFilter, setKnowledgeBaseFilter] = useState('__all__');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResult, setSearchResult] = useState<KnowledgeSearchResponse | null>(null);
   // 个人知识库的「API 接入」指引
   const [apiGuideOpen, setApiGuideOpen] = useState(false);
-  const [modelConfigs, setModelConfigs] = useState<ModelConfigRead[]>([]);
-  const [selectedSearchModelId, setSelectedSearchModelId] = useState(
-    () => window.localStorage.getItem(`${KNOWLEDGE_SEARCH_MODEL_STORAGE_KEY}:${TENANT_ID}`) || '',
-  );
   const [okfConcepts, setOkfConcepts] = useState<KnowledgeConceptRead[]>([]);
   const [okfLoading, setOkfLoading] = useState(false);
   const [okfImportOpen, setOkfImportOpen] = useState(false);
@@ -390,24 +379,6 @@ export default function KnowledgeManagePage({
     void refresh(effectiveKnowledgeAgentId(agents, resolvedAgentId));
   }, [agentScopeLoaded, agentId, agents, currentUser?.id]);
 
-  useEffect(() => {
-    api
-      .get<ModelConfigRead[]>(`/api/enterprise/model-configs?tenant_id=${TENANT_ID}`)
-      .then((items) => {
-        const enabled = items.filter((item) => item.enabled);
-        setModelConfigs(enabled);
-        setSelectedSearchModelId((current) => {
-          if (current && enabled.some((item) => item.id === current)) return current;
-          const fallback = enabled.find((item) => item.is_default)?.id || enabled[0]?.id || '';
-          if (fallback) {
-            window.localStorage.setItem(`${KNOWLEDGE_SEARCH_MODEL_STORAGE_KEY}:${TENANT_ID}`, fallback);
-          }
-          return fallback;
-        });
-      })
-      .catch(() => setModelConfigs([]));
-  }, []);
-
   // 入库期间轮询文档进度：目录索引/知识图谱/引用来源三块产物都在入库**最后一步**
   // 才写库，此前接口只会返回 0。没有轮询时，用户对着 0/0/0 等 3~10 分钟，会判定
   // 「文档处理失败」并删库重传（2026-09-14 实测真实发生）。
@@ -488,7 +459,6 @@ export default function KnowledgeManagePage({
     setBuckets([]);
     setOkfConcepts([]);
     setOkfLintIssues([]);
-    setSearchResult(null);
   }
 
   async function loadAgentScope() {
@@ -590,7 +560,6 @@ export default function KnowledgeManagePage({
   async function loadBuckets(document: KnowledgeDocumentRead, select = true) {
     if (select) setSelectedDocument(document);
     setBuckets([]);
-    setSearchResult(null);
     try {
       const [rows] = await Promise.all([
         api.get<KnowledgeBucketRead[]>(
@@ -673,7 +642,6 @@ export default function KnowledgeManagePage({
     if (knowledgeBaseId === '__all__') {
       setSelectedDocument(null);
       setBuckets([]);
-      setSearchResult(null);
       void loadOkfConcepts(undefined);
       return;
     }
@@ -693,39 +661,7 @@ export default function KnowledgeManagePage({
     }
     setSelectedDocument(null);
     setBuckets([]);
-    setSearchResult(null);
     void loadOkfConcepts(knowledgeBaseId);
-  }
-
-  async function runKnowledgeSearch() {
-    const query = searchQuery.trim();
-    if (!query) {
-      notify.warning('请输入要调试的知识问题');
-      return;
-    }
-    setSearchLoading(true);
-    try {
-      const response = await api.post<KnowledgeSearchResponse>('/api/enterprise/knowledge/search', {
-        tenant_id: TENANT_ID,
-        ...(isPersonalScope ? { mine: true } : { agent_id: effectiveAgentId || undefined }),
-        knowledge_base_ids:
-          knowledgeBaseFilter !== '__all__'
-            ? [knowledgeBaseFilter]
-            : selectedDocument?.knowledge_base_id
-              ? [selectedDocument.knowledge_base_id]
-              : undefined,
-        query,
-        model_config_id: selectedSearchModelId || undefined,
-        mode: 'debug',
-        max_depth: 3,
-        need_evidence_pack: true,
-      });
-      setSearchResult(response);
-    } catch (error) {
-      notify.error(error instanceof Error ? error.message : '知识检索失败');
-    } finally {
-      setSearchLoading(false);
-    }
   }
 
   async function openImportKnowledgeBases(sourceMode: 'plaza' | 'employee' | 'personal' = 'plaza', selectedResourceId?: string) {
@@ -1305,13 +1241,18 @@ export default function KnowledgeManagePage({
         </div>
       ),
     },
-    {
-      key: 'actions',
-      title: '操作',
-      width: 70,
-      align: 'right',
-      render: (row) => renderKnowledgeBaseActions(row),
-    },
+    // 「操作」列跟着管理权限走。只读用户那一列只剩版本管理 / 导出 / 知识图谱检查
+    // —— 都是运维这个库的动作。留一个连表头都叫「操作」却一项也改不了的列，
+    // 只会让人反复去点。
+    ...(canManageCurrentScope
+      ? [{
+          key: 'actions',
+          title: '操作',
+          width: 70,
+          align: 'right' as const,
+          render: (row: KnowledgeBaseRead) => renderKnowledgeBaseActions(row),
+        }]
+      : []),
   ];
 
   const renderMobileKnowledgeBaseCard = (item: KnowledgeBaseRead) => (
@@ -1330,9 +1271,11 @@ export default function KnowledgeManagePage({
           <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{item.description || '未填写描述'}</span>
           <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">创建者：{resourceCreatorName(item) || '-'}</span>
         </div>
-        <span onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-          {renderKnowledgeBaseActions(item)}
-        </span>
+        {canManageCurrentScope && (
+          <span onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+            {renderKnowledgeBaseActions(item)}
+          </span>
+        )}
       </div>
       <div className="mt-[10px] flex flex-wrap items-center gap-[6px]">
         {statusTag(item.status)}
@@ -1493,11 +1436,9 @@ export default function KnowledgeManagePage({
         </div>
       </div>
 
-      {/* 「知识图谱」和「渐进检索调试」只给能管理这个库的人看。
-          前者是文档卡片 / 目录索引 / 引用来源的深挖入口，后者是拿员工自己的模型
-          跑一遍召回、把命中的原文切片摊开 —— 都是运维知识库的动作，不是「看一眼
-          有哪些库」。只读用户保留上面的列表和统计就够，多出来的两块既点不开也
-          只是把别人的内部资料铺在屏幕上。 */}
+      {/* 「知识图谱」只给能管理这个库的人看：它是文档卡片 / 目录索引 / 引用来源的
+          深挖入口，属于运维知识库的动作，不是「看一眼有哪些库」。只读用户保留上面
+          的列表和统计就够，多出来的这块既点不开，也只是把别人的内部资料铺在屏幕上。 */}
       {canManageCurrentScope && (
       <div className="mt-[16px] flex flex-col gap-[16px]">
         <KCard title="知识图谱">
@@ -1516,49 +1457,6 @@ export default function KnowledgeManagePage({
               onEditConcept={openConceptEditor}
             />
           )}
-        </KCard>
-
-        <KCard title="渐进检索调试">
-          <div className="flex w-full flex-col gap-[14px]">
-            <div className="flex flex-wrap items-center gap-[10px]">
-              <label className={cn(SEARCH_COMBO_CLASS, 'min-w-[280px] flex-1 max-w-[560px]')}>
-                <input
-                  autoComplete="off"
-                  data-1p-ignore="true"
-                  data-lpignore="true"
-                  data-bwignore="true"
-                  className={SEARCH_COMBO_INPUT_CLASS}
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      void runKnowledgeSearch();
-                    }
-                  }}
-                  placeholder="输入知识问题"
-                />
-                <button
-                  type="button"
-                  className={SEARCH_COMBO_BUTTON_CLASS}
-                  disabled={searchLoading}
-                  onClick={() => void runKnowledgeSearch()}
-                >
-                  {searchLoading ? '检索中…' : '检索'}
-                </button>
-              </label>
-              <ModelConfigDropdown
-                models={modelConfigs}
-                value={selectedSearchModelId}
-                onChange={(modelId) => {
-                  setSelectedSearchModelId(modelId);
-                  window.localStorage.setItem(`${KNOWLEDGE_SEARCH_MODEL_STORAGE_KEY}:${TENANT_ID}`, modelId);
-                }}
-                buttonClassName="h-[34px]"
-              />
-            </div>
-            <KnowledgeSearchDebug result={searchResult} loading={searchLoading} />
-          </div>
         </KCard>
       </div>
       )}
@@ -3326,80 +3224,6 @@ function previewEvidenceItems(buckets: KnowledgeBucketRead[], chunkCount: number
   return [];
 }
 
-function KnowledgeSearchDebug({
-  result,
-  loading,
-  compact = false,
-}: {
-  result: KnowledgeSearchResponse | null;
-  loading: boolean;
-  compact?: boolean;
-}) {
-  if (loading) {
-    return <span className="text-[13px] text-[#6d6d72]">正在按目录索引和知识图谱检索，并整理引用来源...</span>;
-  }
-  if (!result) {
-    return <EmptyState description="尚未运行检索" />;
-  }
-  const selectedConcepts = result.selected_concepts || [];
-  const okfCitations = result.okf_citations || [];
-  return (
-    <div className={`knowledge-search-debug${compact ? ' is-compact' : ''}`}>
-      <div className="knowledge-route-trace">
-        {(result.route_trace || result.trace || []).map((item, index) => (
-          <div className="knowledge-route-step" key={`${String(item.phase || 'phase')}-${index}`}>
-            <span>{index + 1}</span>
-            <div>
-              <strong>{routePhaseLabel(String(item.phase || ''))}</strong>
-              <small>{String(item.message || '')}</small>
-            </div>
-          </div>
-        ))}
-      </div>
-      <Accordion type="multiple" className="flex flex-col gap-[6px]">
-        <AccordionItem value="concepts">
-          <AccordionTrigger>{`知识图谱 ${selectedConcepts.length}`}</AccordionTrigger>
-          <AccordionContent>
-            <pre className="knowledge-json">{JSON.stringify(selectedConcepts, null, 2)}</pre>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="okf-citations">
-          <AccordionTrigger>{`知识图谱引用 ${okfCitations.length}`}</AccordionTrigger>
-          <AccordionContent>
-            <pre className="knowledge-json">{JSON.stringify(okfCitations, null, 2)}</pre>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="documents">
-          <AccordionTrigger>{`文档 ${result.selected_documents.length}`}</AccordionTrigger>
-          <AccordionContent>
-            <pre className="knowledge-json">{JSON.stringify(result.selected_documents, null, 2)}</pre>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="sections">
-          <AccordionTrigger>{`展开来源 ${result.expanded_sections.length}`}</AccordionTrigger>
-          <AccordionContent>
-            <pre className="knowledge-json">{JSON.stringify(result.expanded_sections, null, 2)}</pre>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="evidence">
-          <AccordionTrigger>{`引用来源包 ${result.evidence_pack.length}`}</AccordionTrigger>
-          <AccordionContent>
-            <div className="knowledge-evidence-list">
-              {result.evidence_pack.map((item) => (
-                <div className="knowledge-evidence-item" key={item.chunk_id}>
-                  <strong className="text-[13px] font-semibold text-foreground">{item.section_path || item.source_path || item.chunk_id}</strong>
-                  <p className="m-0 text-[13px] text-foreground">{item.excerpt}</p>
-                  <span className="text-[13px] text-[#6d6d72]">{item.confidence_reason}</span>
-                </div>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </div>
-  );
-}
-
 function DiscoveryColumn({
   title,
   description,
@@ -3462,23 +3286,6 @@ function DiscoveryColumn({
       )}
     </div>
   );
-}
-
-function routePhaseLabel(phase: string) {
-  const map: Record<string, string> = {
-    document_route: '选择知识库文档',
-    document_route_lexical: '按相关性选择知识库文档',
-    okf_concept_route: '选择知识图谱',
-    okf_only: '仅命中知识图谱',
-    bucket_route: '展开内部索引',
-    bucket_route_lexical: '按相关性选择内部索引',
-    section_expand: '读取来源',
-    read_chunks: '读取引用来源',
-    evidence_pack: '整理引用来源包',
-    no_documents: '没有文档',
-    no_buckets: '没有内部索引',
-  };
-  return map[phase] || phase || '检索阶段';
 }
 
 function isEmptyDefaultKnowledgeBase(item: KnowledgeBaseRead) {

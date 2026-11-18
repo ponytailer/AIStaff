@@ -268,10 +268,9 @@ describe('KnowledgeManagePage 员工知识库的「从我的知识库导入」',
 describe('KnowledgeManagePage 只读用户的工作台', () => {
   /**
    * 非 owner 进别人的知识库页时，「知识图谱」（文档卡片 / 目录索引 / 引用来源）
-   * 和「渐进检索调试」都不该出现：前者会把内部原文切片摊在屏幕上，后者还会拿
-   * 员工自己的模型真跑一遍召回。只读用户保留列表与统计即可。
+   * 不该出现：它会把内部原文切片摊在屏幕上。只读用户保留列表与统计即可。
    */
-  it('非 owner 看不到知识图谱与渐进检索调试两块内容区', async () => {
+  it('非 owner 看不到知识图谱内容区', async () => {
     const calls = mockFetch([]);
     render(
       <I18nProvider>
@@ -290,18 +289,16 @@ describe('KnowledgeManagePage 只读用户的工作台', () => {
 
     expect(await screen.findByText(/你可以查看这个员工的知识库，但不能修改/)).toBeTruthy();
     expect(screen.queryByText('知识图谱')).toBeNull();
-    expect(screen.queryByText('渐进检索调试')).toBeNull();
     // 列表本身要保留 —— 只读不等于看不到
     expect(await screen.findByText('知识库列表')).toBeTruthy();
   });
 
-  it('owner 自己看得到这两块', async () => {
+  it('owner 自己看得到知识图谱', async () => {
     mockFetch([]);
     renderPage('employee');
 
     await screen.findByText('知识库列表');
     expect(await screen.findByText('知识图谱')).toBeTruthy();
-    expect(await screen.findByText('渐进检索调试')).toBeTruthy();
     // owner 不该看到只读提示
     expect(screen.queryByText(/但不能修改/)).toBeNull();
   });
