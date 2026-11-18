@@ -219,6 +219,12 @@ function safeExternalHttpUrl(value: string): string | null {
 }
 
 /**
+ * 链接末尾常被句子标点黏住（`https://a.com/x.`、`https://a.com/x，`）。
+ * 这些不属于 URL，要剥掉再当 href，但要原样留在链接外面。
+ */
+const LINK_TRAILING_PUNCTUATION = /[.,!?;:\uff0c\u3002\uff01\uff1f\uff1b\uff1a\u3001)\]}>]+$/;
+
+/**
  * 行内代码里只放了一个裸 URL 时，它其实是个链接。
  *
  * 模型很爱用反引号强调下载地址（`` `https://…/Outlook处理.reg` ``），而
@@ -228,13 +234,17 @@ function safeExternalHttpUrl(value: string): string | null {
  * `<a>` 补样式当然无效：那个 `<a>` 压根没被创建过。
  *
  * 这里只回收「整段就是一个 URL」的行内代码，带空格/换行的仍当真正的代码片段。
+ * 返回 { href, label }：label 剥掉尾部标点，href 用剥干净的地址。
  */
-function codeSpanUrl(content: string): string | null {
+function codeSpanUrl(content: string): { href: string; label: string } | null {
   const text = content.trim();
   if (!text) return null;
   if (!/^(?:https?:\/\/|www\.)/i.test(text)) return null;
   if (/[\s<>"'`]/.test(text)) return null;
-  return safeExternalHttpUrl(/^www\./i.test(text) ? `https://${text}` : text);
+  const label = text.replace(LINK_TRAILING_PUNCTUATION, '');
+  if (!label) return null;
+  const href = safeExternalHttpUrl(/^www\./i.test(label) ? `https://${label}` : label);
+  return href ? { href, label } : null;
 }
 
 /**
@@ -307,20 +317,23 @@ export function renderInlineMarkdown(
     const key = `${keyPrefix}-inline-${index}`;
     if (token.startsWith('`') && token.endsWith('`')) {
       const codeContent = token.slice(1, -1);
-      const codeHref = codeSpanUrl(codeContent);
-      if (codeHref) {
-        // 反引号包的裸 URL 还原成链接（见 codeSpanUrl 的说明）。
+      const codeLink = codeSpanUrl(codeContent);
+      if (codeLink) {
+        // 反引号包的裸 URL 还原成链接（见 codeSpanUrl 的说明）。尾部标点
+        // 留在链接外，否则 href 会带上句号打开 404。
+        const trailing = codeContent.trim().slice(codeLink.label.length);
         nodes.push(
           <a
             key={key}
             className={CHAT_MARKDOWN_LINK_CLASS}
-            href={codeHref}
+            href={codeLink.href}
             target="_blank"
             rel="noreferrer"
           >
-            {codeContent.trim()}
+            {codeLink.label}
           </a>,
         );
+        if (trailing) nodes.push(trailing);
       } else {
         nodes.push(<code key={key}>{codeContent}</code>);
       }

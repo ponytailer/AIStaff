@@ -78,14 +78,19 @@ def build_image_refs(payload: dict[str, Any]) -> tuple[dict[str, int], list[dict
                 return index, legend
             number = len(index) + 1
             index[asset_id] = number
-            legend.append(
-                {
-                    "ref": REF_TOKEN % number,
-                    "caption": _display_caption(match.group(1)),
-                    "url": asset_public_path(asset_id),
-                    "source": _entry_source(entry),
-                }
-            )
+            item: dict[str, Any] = {
+                "ref": REF_TOKEN % number,
+                "caption": _display_caption(match.group(1)),
+                "url": asset_public_path(asset_id),
+                "source": _entry_source(entry),
+            }
+            # 图属于哪篇文档。兜底补图时按「答案依据的文档」过滤，否则会把这轮
+            # 检索里顺带召回的其他文档的图一起倾泻出去（2026-11-18 实测：问 M365
+            # 验证框，答案正确，末尾却补了 8 张「手机端 Outlook 配置说明」的截图）。
+            document_id = str(entry.get("document_id") or "").strip()
+            if document_id:
+                item["document_id"] = document_id
+            legend.append(item)
     return index, legend
 
 
@@ -223,12 +228,20 @@ def strip_image_refs(text: str) -> str:
 def build_image_appendix(
     legend: Iterable[dict[str, Any]],
     limit: int = 2,
+    *,
+    document_ids: Iterable[str] | None = None,
 ) -> str:
     """模型一张图都没引用时，补在文末的「原文档配图」区块。
 
     返回空串表示没有可补的图，调用方据此决定要不要加分隔线。
+
+    ``document_ids`` 是「这次答案真正依据的文档」。传了就只补这些文档的图：
+    检索为了召回率会顺带捞回同主题的其他文档（问 M365 验证框，证据里混进了
+    「手机端 Outlook 配置说明」），它们的截图与答案无关，补上去就是噪声 ——
+    用户看到的是「文字答得对，图却是别人文档的」。传 None 保持旧行为。
     """
 
+    allowed = {value for value in document_ids or () if value}
     picked: list[str] = []
     for item in legend:
         if not isinstance(item, dict):
@@ -237,6 +250,9 @@ def build_image_appendix(
             break
         url = str(item.get("url") or "").strip()
         if not url:
+            continue
+        owner = str(item.get("document_id") or "").strip()
+        if allowed and owner and owner not in allowed:
             continue
         caption = str(item.get("caption") or "").strip() or _DEFAULT_CAPTION
         # 兜底补的是多张同名「原文档配图」时没有编号会分不清，用图例编号

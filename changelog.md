@@ -4,7 +4,7 @@
 
 ## 202611
 
-- **New**: **StaffDeck 浏览器助手（Chrome / Edge + Firefox 双版本）**
+- **New**: **AIStaff浏览器助手（Chrome / Edge + Firefox 双版本）**
 - **Feat**: **插件支持答案里的原文档配图**
 - **New**: **原文档配图随答案回给用户**
 - **New**: **员工转让**

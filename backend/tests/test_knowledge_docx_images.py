@@ -173,13 +173,14 @@ def test_compacted_payload_uses_short_ref_and_legend() -> None:
     assert len(content) < len("住客可在 L 层免费寄存。" * 120)
     assert content.endswith("{{img:1}}")
     assert "kasset://" not in content
-    # 图例：标记 → 图题 → 真实 URL → 来源
+    # 图例：标记 → 图题 → 真实 URL → 来源 → 所属文档（兜底补图按它过滤）
     assert legend == [
         {
             "ref": "{{img:1}}",
             "caption": "行李寄存位置",
             "url": asset_public_path("kasset_ab12"),
             "source": "行李服务/寄存",
+            "document_id": "kdoc_1",
         }
     ]
 
@@ -474,6 +475,99 @@ def test_appendix_only_when_model_used_no_image() -> None:
     assert "/api/a.png" in appendix and "/api/b.png" in appendix
     assert "/api/c.png" not in appendix
     assert build_image_appendix([{"ref": "{{img:1}}", "url": ""}]) == ""
+
+
+def test_appendix_is_restricted_to_the_documents_the_answer_cites() -> None:
+    """兜底补图只能补「答案依据的文档」的图。
+
+    线上真实案例（2026-11-18, session_c605b35b51926e96）：问「Outlook 频繁弹
+    M365 验证框的处理办法」，正文答得完全正确、只引用了 M365 那篇文档，但检索
+    为了召回率把「手机端 Outlook 配置说明」「电脑端 Outlook 配置手册」也捞了进来，
+    于是文末补了 8 张手机端配置截图 —— 与答案毫无关系的图。
+    """
+
+    from app.core.engine.turn_knowledge import _answer_document_ids
+    from app.knowledge.image_refs import build_image_appendix
+
+    legend = [
+        {
+            "ref": "{{img:1}}",
+            "caption": "原文档配图",
+            "url": "/api/phone1.png",
+            "document_id": "kdoc_phone",
+        },
+        {
+            "ref": "{{img:2}}",
+            "caption": "原文档配图",
+            "url": "/api/phone2.png",
+            "document_id": "kdoc_phone",
+        },
+        {
+            "ref": "{{img:3}}",
+            "caption": "注册表步骤",
+            "url": "/api/m365.png",
+            "document_id": "kdoc_m365",
+        },
+    ]
+    citations = [
+        {"label": "[1]", "document_id": "kdoc_m365"},
+        {"label": "[2]", "document_id": "kdoc_phone"},
+    ]
+
+    # 正文只引了 [1]（M365 那篇）→ 只补 M365 的图
+    allowed = _answer_document_ids("按以下步骤修复[1]", citations)
+    assert allowed == {"kdoc_m365"}
+    appendix = build_image_appendix(legend, 8, document_ids=allowed)
+    assert "/api/m365.png" in appendix
+    assert "/api/phone1.png" not in appendix
+    assert "/api/phone2.png" not in appendix
+
+    # 正文没写编号 → 靠相关性分数判断依据文档
+    payload = {
+        "evidence_pack": [
+            {"document_id": "kdoc_m365", "relevance_score": 7.74},
+            {"document_id": "kdoc_phone", "relevance_score": 5.31},
+        ]
+    }
+    assert _answer_document_ids("按以下步骤修复", citations, payload) == {"kdoc_m365"}
+    # 连分数都没有 → 无从判断，退回不过滤（宁可多补也不误删）
+    assert _answer_document_ids("按以下步骤修复", citations, None) is None
+
+
+def test_top_relevance_documents_keeps_ties() -> None:
+    """分数并列时都算依据，不能因为排序随机就漏掉一篇。"""
+
+    from app.core.engine.turn_knowledge import _top_relevance_documents
+
+    payload = {
+        "evidence_pack": [
+            {"document_id": "kdoc_a", "relevance_score": 6.0},
+            {"document_id": "kdoc_b", "relevance_score": 6.0},
+            {"document_id": "kdoc_c", "relevance_score": 3.2},
+        ]
+    }
+
+    assert _top_relevance_documents(payload) == {"kdoc_a", "kdoc_b"}
+    assert _top_relevance_documents({}) is None
+    assert _top_relevance_documents(None) is None
+
+
+def test_appendix_drops_every_image_when_cited_document_has_none() -> None:
+    """被引用的文档本身没图时，宁可一张都不补，也不要拿别的文档的图凑数。"""
+
+    from app.knowledge.image_refs import build_image_appendix
+
+    legend = [
+        {
+            "ref": f"{{{{img:{index}}}}}",
+            "caption": "原文档配图",
+            "url": f"/api/other{index}.png",
+            "document_id": "kdoc_other",
+        }
+        for index in range(1, 9)
+    ]
+
+    assert build_image_appendix(legend, 8, document_ids={"kdoc_cited"}) == ""
 
 
 def test_docx_table_images_are_extracted() -> None:

@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import time
 from collections.abc import Iterator
 from copy import deepcopy
@@ -237,6 +238,75 @@ def _is_refusal(text: str) -> bool:
     return any(marker in (text or "") for marker in _REFUSAL_MARKERS)
 
 
+def _answer_document_ids(
+    text: str,
+    citations: list[dict[str, Any]] | None,
+    payload: dict[str, Any] | None = None,
+) -> set[str] | None:
+    """答案正文引用了哪几篇文档。
+
+    兜底补图必须只补「答案真正依据的文档」。检索按召回率取 chunk，同主题的
+    其他文档会一起进证据包（问 M365 验证框，混进「手机端 Outlook 配置说明」
+    和「电脑端 Outlook 配置手册」），它们的截图与答案毫无关系 —— 全补上去就是
+    用户看到的「文字答得对，图却是别人文档的」。
+
+    判定顺序：
+    1. 正文里有 ``[n]``：只认这些编号对应的文档。模型引了哪条证据，就说明
+       哪篇文档是它的依据；没被引用的文档不该出图。
+    2. 正文没写编号：取证据里 ``relevance_score`` 最高的那篇（并列都算）。
+       这条路径很常见——知识直答的正文往往直接叙述，不带 ``[n]``。
+    3. 都拿不到：返回 None，不过滤（保持旧行为，宁可多补也不误删）。
+
+    返回 None 表示不做过滤。
+    """
+
+    cited_labels = {int(match) for match in re.findall(r"\[(\d{1,3})\]", text or "")}
+    if cited_labels and citations:
+        documents: set[str] = set()
+        for index, item in enumerate(citations, start=1):
+            if not isinstance(item, dict):
+                continue
+            match = re.fullmatch(r"\[(\d+)\]", str(item.get("label") or "").strip())
+            label = int(match.group(1)) if match else index
+            if label not in cited_labels:
+                continue
+            document_id = str(item.get("document_id") or "").strip()
+            if document_id:
+                documents.add(document_id)
+        if documents:
+            return documents
+    return _top_relevance_documents(payload)
+
+
+def _top_relevance_documents(payload: dict[str, Any] | None) -> set[str] | None:
+    """证据里相关性最高的文档（并列取全部）。
+
+    模型没写引用时，这是唯一能判断「这段答案是在讲哪篇文档」的信号。用它过滤
+    兜底补图，才不会把同轮召回的旁支文档截图补上去。
+    """
+
+    if not isinstance(payload, dict):
+        return None
+    entries: list[dict[str, Any]] = []
+    for key in ("evidence_pack", "chunks", "selected_concepts"):
+        items = payload.get(key)
+        if isinstance(items, list):
+            entries.extend(item for item in items if isinstance(item, dict))
+    best: float | None = None
+    documents: set[str] = set()
+    for entry in entries:
+        document_id = str(entry.get("document_id") or "").strip()
+        score = entry.get("relevance_score")
+        if not document_id or not isinstance(score, (int, float)) or isinstance(score, bool):
+            continue
+        if best is None or score > best:
+            best = float(score)
+            documents = {document_id}
+        elif score == best:
+            documents.add(document_id)
+    return documents or None
+
+
 def _image_appendix_enabled() -> bool:
     """兜底补图开关。关掉后只保留「模型主动引用」这一条路径。"""
 
@@ -455,6 +525,10 @@ class _KnowledgeWorkflowMixin:
                 # 证据包里的图例：ref → 图题 → URL。模型只复述 ref，
                 # URL 由这里落地时拼，避免它抄 66 字符的签名 URL 抄出静默 404。
                 image_refs=data.get("image_refs"),
+                # 兜底补图要知道「答案引用了哪几篇文档」：证据里混进同主题
+                # 其他文档时，只补被引用的那几篇的图。
+                citations=citations,
+                knowledge_payload=data,
             )
             trace(
                 "knowledge_workflow_completed",
@@ -499,6 +573,8 @@ class _KnowledgeWorkflowMixin:
         memory_context: list[dict[str, object]],
         conversation_context: dict[str, Any] | None,
         image_refs: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
+        knowledge_payload: dict[str, Any] | None = None,
     ) -> str:
         """知识工作流的唯一一次作答调用。
 
@@ -532,7 +608,9 @@ class _KnowledgeWorkflowMixin:
                 *arguments, operation=KNOWLEDGE_ANSWER_OPERATION
             )
             self._record_unanswered_if_refusal(message, session, reply)
-            return self._finalize_image_reply(reply, legend)
+            return self._finalize_image_reply(
+                reply, legend, citations=citations, payload=knowledge_payload
+            )
         # 真流式：逐 token 下发；中途失败会把已下发内容作废并抛给调用方降级
         # （见 _run_knowledge_workflow 的 except）。
         #
@@ -556,7 +634,11 @@ class _KnowledgeWorkflowMixin:
             self._emit_stream_delta(tail)
         self._record_unanswered_if_refusal(message, session, "".join(raw_parts).strip())
         return self._finalize_image_reply(
-            "".join(raw_parts).strip(), legend, "".join(emitted).strip()
+            "".join(raw_parts).strip(),
+            legend,
+            "".join(emitted).strip(),
+            citations=citations,
+            payload=knowledge_payload,
         )
 
     def _record_unanswered_if_refusal(
@@ -602,6 +684,9 @@ class _KnowledgeWorkflowMixin:
         raw: str,
         legend: list[dict[str, Any]],
         streamed: str | None = None,
+        *,
+        citations: list[dict[str, Any]] | None = None,
+        payload: dict[str, Any] | None = None,
     ) -> str:
         """把正文里的 ``{{img:N}}`` 落地成 markdown 图片。
 
@@ -617,7 +702,11 @@ class _KnowledgeWorkflowMixin:
             return text
         if not _image_appendix_enabled() or _is_refusal(text):
             return text
-        appendix = build_image_appendix(legend, KNOWLEDGE_IMAGE_APPENDIX_LIMIT)
+        appendix = build_image_appendix(
+            legend,
+            KNOWLEDGE_IMAGE_APPENDIX_LIMIT,
+            document_ids=_answer_document_ids(text, citations, payload),
+        )
         if not appendix:
             return text
         return f"{text}\n\n---\n\n{appendix}"
