@@ -391,14 +391,22 @@ export const CHAT_EMPTY_STAT_CELL_CLASS =
 // 与上方两张 #e5e4e0 的灰卡形成层级 —— 上方是「这是谁」的信息卡，这里是
 // 「你可以做什么」的可点动作，两者视觉语言必须能分开。描边用 ring 而不是
 // border，理由同 CHAT_SURFACE_CARD_CLASS（不占盒模型，避免 1px 抖动）。
+/*
+ * 宽度随文字走，不做等分栅格。
+ *
+ * 早先用 `grid-cols-1 sm:grid-cols-2` + 卡片 `w-full`，卡片会被拉到整列宽：
+ * 「电脑端如何设置 outlook」这种十几个字的句子后面拖出一大片空白，看着像输入框
+ * 而不是一张「点一下就说这句」的卡片。改成 flex-wrap 后每张卡按内容收缩，
+ * 短句就短、长句自然换行，只有整行放不下时才折行。
+ */
 export const CHAT_EMPTY_PROMPT_GRID_CLASS =
-  'grid w-full grid-cols-1 gap-[10px] sm:grid-cols-2';
+  'flex w-full flex-wrap items-start gap-[10px]';
 export const CHAT_EMPTY_PROMPT_CARD_CLASS =
-  'group flex w-full items-start gap-[9px] rounded-[14px] bg-white px-[13px] py-[11px] text-left ring-[0.5px] ring-[rgba(24,24,26,0.12)] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-[background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-[#f0efec] hover:ring-[rgba(24,24,26,0.28)] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-[#0f766e] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-white';
+  'group inline-flex max-w-full items-start gap-[9px] rounded-[14px] bg-white px-[13px] py-[11px] text-left ring-[0.5px] ring-[rgba(24,24,26,0.12)] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-[background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-[#f0efec] hover:ring-[rgba(24,24,26,0.28)] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-[#0f766e] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-white';
 export const CHAT_EMPTY_PROMPT_ICON_CLASS =
   'mt-[1px] grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[rgba(15,118,110,0.10)] text-[#0f766e]';
 export const CHAT_EMPTY_PROMPT_TEXT_CLASS =
-  'line-clamp-2 min-w-0 flex-1 text-[12.5px] leading-[1.5] text-[#3d3d3f] group-hover:text-[#18181a] [overflow-wrap:anywhere]';
+  'line-clamp-2 min-w-0 text-[12.5px] leading-[1.5] text-[#3d3d3f] group-hover:text-[#18181a] [overflow-wrap:anywhere]';
 
 // 空态开场白（员工配了 greeting_message 时，新会话的第一句）
 //
