@@ -171,6 +171,44 @@ def test_published_dispatcher_is_readable_by_others(db) -> None:
     assert [item["id"] for item in listed.json()] == [DISPATCHER_ID]
 
 
+def test_mine_only_hides_other_peoples_published_dispatchers(db) -> None:
+    """「我的小队」必须只返回自己的。
+
+    真实事故：demo（member）打开侧栏「我的小队」，看到管理员发布的
+    「重庆项目助手」—— 那是别人的队。默认列表口径是「可见」（含广场），
+    语义上是给跨页引用用的；「我的小队」页问的是归属，必须走 ``mine_only``。
+    """
+    _seed_dispatcher(db)
+    row = db.get(AgentProfile, DISPATCHER_ID)
+    metadata = dict(row.metadata_json or {})
+    metadata["published_to_gallery"] = True
+    row.metadata_json = metadata
+    db.add(row)
+    db.commit()
+
+    other = _install(db, OTHER_ID)
+    # 默认口径：能看见（广场里别人的队），这是跨页名称解析需要的
+    assert [item["id"] for item in other.get(BASE, params={"tenant_id": TENANT}).json()] == [
+        DISPATCHER_ID
+    ]
+    # 「我的」口径：一条都不该有 —— 它不是我的
+    mine = other.get(BASE, params={"tenant_id": TENANT, "mine_only": "true"})
+    assert mine.status_code == 200, mine.text
+    assert mine.json() == []
+    # 概览与列表同口径，否则统计卡会说「1 个小队」而列表是空的
+    overview = other.get(
+        f"{BASE}/overview", params={"tenant_id": TENANT}
+    )
+    assert overview.status_code == 200, overview.text
+    assert overview.json()["squads"] == 0
+
+    # owner 自己那边照常看得到
+    owner_mine = _install(db, OWNER_ID).get(
+        BASE, params={"tenant_id": TENANT, "mine_only": "true"}
+    )
+    assert [item["id"] for item in owner_mine.json()] == [DISPATCHER_ID]
+
+
 def test_can_manage_flag_reflects_ownership(db) -> None:
     """``can_manage`` 是前端档案页「只读 / 可配置」的唯一依据。
 

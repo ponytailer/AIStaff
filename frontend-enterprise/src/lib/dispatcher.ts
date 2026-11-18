@@ -149,12 +149,25 @@ export async function fetchDispatcherOverview(
 
 export async function listDispatchers(
   tenantId: string = TENANT_ID,
-  options?: { galleryOnly?: boolean },
+  options?: {
+    galleryOnly?: boolean;
+    /**
+     * 只回「我的」（归属本人；管理员为全租户）。
+     *
+     * 「我的小队」页必须带这个：不带的话后端按「可见」返回，别人发布到广场的
+     * 小队也会混进来，页面上还挂着编辑/删除按钮 —— 点一下就是 403。
+     * 广场列表（`galleryOnly`）与跨页名称解析则相反，需要能看见别人的。
+     */
+    mineOnly?: boolean;
+  },
 ): Promise<DispatcherRead[]> {
   const params = new URLSearchParams({ tenant_id: tenantId });
   // 广场「员工小队」tab 用这个：只回已发布的，且不按归属过滤（广场本来就能看别人的）
   if (options?.galleryOnly) {
     params.set('gallery_only', 'true');
+  }
+  if (options?.mineOnly) {
+    params.set('mine_only', 'true');
   }
   return api.get<DispatcherRead[]>(`${BASE}?${params.toString()}`);
 }

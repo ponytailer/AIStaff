@@ -95,6 +95,7 @@ export default function DispatcherDetailPanel({
   activity,
   busy,
   publishing,
+  canManage = true,
   onCreate,
   onChat,
   onEdit,
@@ -106,6 +107,14 @@ export default function DispatcherDetailPanel({
   activity?: DispatcherActivityRead;
   busy?: boolean;
   publishing?: boolean;
+  /**
+   * 能否配置这个小队（创建人或管理员，后端 `can_manage`）。
+   *
+   * 默认 true 是为了兼容只渲染自己小队的老调用点；一旦列表口径放错（比如
+   * 「我的小队」混进了别人发布的队），这里会把「配置成员 / 去修 / 调整 /
+   * 发布到广场 / 删除」全部收掉，只留「去对话」和「档案」—— 那两个是读。
+   */
+  canManage?: boolean;
   onCreate: () => void;
   onChat: () => void;
   onEdit: () => void;
@@ -173,29 +182,33 @@ export default function DispatcherDetailPanel({
           >
             {busy ? '打开中…' : '去对话'}
           </button>
-          <button type="button" onClick={onEdit} className={ghostButtonClass}>
-            配置成员
-          </button>
+          {canManage && (
+            <button type="button" onClick={onEdit} className={ghostButtonClass}>
+              配置成员
+            </button>
+          )}
           <button type="button" onClick={onProfile} className={ghostButtonClass}>
             员工小队档案
           </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={`更多操作 ${dispatcher.name}`}
-              className="-ml-[2px] grid size-[34px] place-items-center rounded-[9px] border border-[#e6e4df] bg-white text-[#b4bac8] transition-colors hover:text-[#55555a]"
-            >
-              <StaffdeckIcon name="more" size={15} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[172px]">
-              <DropdownMenuItem onSelect={() => onGallery(!dispatcher.published_to_gallery)} disabled={publishing}>
-                {dispatcher.published_to_gallery ? '从广场下架' : '发布到广场'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onDelete} className="text-[#c0392b]">
-                删除小队
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canManage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={`更多操作 ${dispatcher.name}`}
+                className="-ml-[2px] grid size-[34px] place-items-center rounded-[9px] border border-[#e6e4df] bg-white text-[#b4bac8] transition-colors hover:text-[#55555a]"
+              >
+                <StaffdeckIcon name="more" size={15} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[172px]">
+                <DropdownMenuItem onSelect={() => onGallery(!dispatcher.published_to_gallery)} disabled={publishing}>
+                  {dispatcher.published_to_gallery ? '从广场下架' : '发布到广场'}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={onDelete} className="text-[#c0392b]">
+                  删除小队
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {(missingRule > 0 || modelBroken) && (
@@ -211,13 +224,15 @@ export default function DispatcherDetailPanel({
                 绑定的模型已被删除或停用
               </span>
             )}
-            <button
-              type="button"
-              onClick={onEdit}
-              className="ml-auto shrink-0 text-[11.5px] font-medium text-[#8a5a12] underline-offset-2 hover:underline"
-            >
-              去修
-            </button>
+            {canManage && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="ml-auto shrink-0 text-[11.5px] font-medium text-[#8a5a12] underline-offset-2 hover:underline"
+              >
+                去修
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -226,9 +241,11 @@ export default function DispatcherDetailPanel({
         <Section
           title="成员与路由规则"
           action={
-            <button type="button" onClick={onEdit} className="text-[11.5px] text-[#0f766e] hover:underline">
-              去配置
-            </button>
+            canManage ? (
+              <button type="button" onClick={onEdit} className="text-[11.5px] text-[#0f766e] hover:underline">
+                去配置
+              </button>
+            ) : null
           }
         >
           <div className="divide-y divide-black/[0.04]">
@@ -246,9 +263,11 @@ export default function DispatcherDetailPanel({
         <Section
           title="无法匹配时"
           action={
-            <button type="button" onClick={onEdit} className="text-[11.5px] text-[#0f766e] hover:underline">
-              调整
-            </button>
+            canManage ? (
+              <button type="button" onClick={onEdit} className="text-[11.5px] text-[#0f766e] hover:underline">
+                调整
+              </button>
+            ) : null
           }
         >
           <p className="m-0 text-[12.5px] text-[#18181a]">

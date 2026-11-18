@@ -182,7 +182,11 @@ export default function AgentsPage({
       // 两个列表并行拉：调度入口是独立类型，混在 /agents 里会污染员工计数
       const [rows, dispatchRows, modelRows] = await Promise.all([
         api.get<AgentProfileRead[]>(`/api/enterprise/agents?tenant_id=${TENANT_ID}`),
-        listDispatchers().catch(() => [] as DispatcherRead[]),
+        // 「我的小队」页要的是归属而不是「能看见」：不加 mineOnly 时后端会把
+        // 别人发布到广场的小队一起返回，页面上就出现了不属于自己的队，
+        // 还配着可点的编辑/删除（点了必定 403）。
+        listDispatchers(undefined, mode === 'dispatchers' ? { mineOnly: true } : undefined)
+          .catch(() => [] as DispatcherRead[]),
         api
           .get<ModelConfigRead[]>(`/api/enterprise/model-configs?tenant_id=${TENANT_ID}`)
           .catch(() => [] as ModelConfigRead[]),
@@ -672,6 +676,9 @@ export default function AgentsPage({
                   activity={selectedActivity}
                   busy={Boolean(selectedDispatcher && selectingAgentId === selectedDispatcher.id)}
                   publishing={Boolean(selectedDispatcher && publishingDispatcherId === selectedDispatcher.id)}
+                  // 归属判定以后端 can_manage 为准（创建人或管理员）。列表已经按
+                  // mine_only 过滤过，这里再收一次是防「绕过列表直接进」的兜底。
+                  canManage={Boolean(selectedDispatcher?.can_manage)}
                   onCreate={() => openDispatcherEditor(null)}
                   onChat={() => {
                     if (selectedDispatcher) void selectDispatcher(selectedDispatcher);

@@ -70,7 +70,7 @@ export default function EmployeeGalleryPage({
   async function loadSquads() {
     setSquadsLoading(true);
     try {
-      setSquads(await listDispatchers());
+      setSquads(await listDispatchers(undefined, { mineOnly: true }));
       setSquadsLoaded(true);
     } catch (error) {
       notify.error(error instanceof Error ? error.message : '加载员工小队失败');

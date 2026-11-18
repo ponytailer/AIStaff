@@ -264,10 +264,15 @@ def create_dispatcher(
 def _visible_dispatcher_rows(
     db: Session, tenant_id: str, current_user: User
 ) -> list[AgentProfile]:
-    """当前用户可见的小队行（列表与概览共用同一份可见性口径）。
+    """当前用户可见的小队行（跨页的「能看一眼」口径）。
 
-    管理员看全部；普通用户只看自己建的 —— 与 ``/api/enterprise/agents`` 一致。
-    两个接口各写一份的话，早晚会出现「概览数字比列表多一个」这种账对不上的情况。
+    管理员看全部；普通用户看「自己的」+「广场里已发布别人的」。广场那部分
+    存在的理由是跨页引用：对话切换器、「数字员工」列、小队档案页都需要把一支
+    别的小队显示成名字而不是裸 id。
+
+    **「我的小队」页不能用这个** —— 那里画的是「我拥有什么」，得用
+    ``_owned_dispatcher_rows``。两者混用过的真实事故：demo（member）打开
+    「我的小队」看到管理员发布的重庆项目助手，列表里还挂着编辑/删除按钮。
     """
     rows = db.exec(
         select(AgentProfile)
@@ -282,12 +287,43 @@ def _visible_dispatcher_rows(
     return [row for row in rows if _agent_visible_to_user(row, current_user)]
 
 
+def _owned_dispatcher_rows(
+    db: Session, tenant_id: str, current_user: User
+) -> list[AgentProfile]:
+    """「我的小队」口径：只认归属，不认广场可见性。
+
+    - 管理员：全租户的小队（代管是管理员的职责，列表也要能改错）；
+    - 普通成员：只有自己是创建人 / 属主的小队。
+
+    刻意不看 ``published_to_gallery``：别人把小队发布到广场，不代表它变成
+    「我的」。列表要能直接对应页面上的按钮，否则列出来的每一行都点不动。
+    """
+    rows = db.exec(
+        select(AgentProfile)
+        .where(
+            AgentProfile.tenant_id == tenant_id,
+            AgentProfile.kind == DISPATCH_KIND,
+        )
+        .order_by(AgentProfile.created_at.desc())  # type: ignore[attr-defined]
+    ).all()
+    if _is_admin_user(current_user):
+        return list(rows)
+    return [row for row in rows if _agent_owned_by_user(row, current_user)]
+
+
 @router.get("", response_model=list[DispatcherRead])
 def list_dispatchers(
     tenant_id: str = Query(...),
     gallery_only: bool = Query(
         False,
         description="只返回已发布到开放广场「员工小队」的（广场列表用，谁也不该看到别人未发布的入口）",
+    ),
+    mine_only: bool = Query(
+        False,
+        description=(
+            "只返回当前用户拥有的小队（「我的小队」页用）。与默认口径的差别："
+            "不看 published_to_gallery —— 别人发布到广场的小队不是「我的」。"
+        ),
     ),
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -310,7 +346,11 @@ def list_dispatchers(
             for row in rows
             if _published_to_gallery(row)
         ]
-    rows = _visible_dispatcher_rows(db, tenant_id, current_user)
+    rows = (
+        _owned_dispatcher_rows(db, tenant_id, current_user)
+        if mine_only
+        else _visible_dispatcher_rows(db, tenant_id, current_user)
+    )
     return [_read(db, tenant_id, row, current_user) for row in rows]
 
 
@@ -329,9 +369,12 @@ def dispatcher_overview(
     「还没发布到广场」不算问题 —— 大部分入口根本不需要对外发布。
     """
     _ensure_request_tenant(tenant_id, current_user)
+    # 概览只统计「我的小队」里的队：它渲染在「我的小队」页首屏，数字必须和
+    # 下面那张列表对得上。用可见口径会把别人发布的小队算进来，出现
+    # 「统计卡说 2 个、列表只有 1 个」的账对不上。
     reads = [
         _read(db, tenant_id, row, current_user)
-        for row in _visible_dispatcher_rows(db, tenant_id, current_user)
+        for row in _owned_dispatcher_rows(db, tenant_id, current_user)
     ]
 
     member_ids: set[str] = set()
