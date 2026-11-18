@@ -125,13 +125,13 @@ describe('chat history consumer contract', () => {
     expect(rendered.match(/<ol(?: start="\d+")?>/g)).toEqual(['<ol>', '<ol>']);
   });
 
-  it('renders bare HTTP links without changing existing Markdown links or inline code', () => {
+  it('renders bare HTTP links without changing existing Markdown links or real inline code', () => {
     const rendered = renderToStaticMarkup(
       createElement(
         'div',
         null,
         ...renderInlineMarkdown(
-          '详情见 https://example.com/docs?a=1。[官网](https://example.org) `https://internal.test`',
+          '详情见 https://example.com/docs?a=1。[官网](https://example.org) `npm i -D vitest`',
           'test',
         ),
       ),
@@ -145,7 +145,8 @@ describe('chat history consumer contract', () => {
     expect(rendered).toMatch(
       /<a[^>]*href="https:\/\/example\.org\/"[^>]*target="_blank"[^>]*rel="noreferrer"[^>]*>官网<\/a>/,
     );
-    expect(rendered).toContain('<code>https://internal.test</code>');
+    // 真正的代码片段（多 token）仍然是 code，不会被误判成链接。
+    expect(rendered).toContain('<code>npm i -D vitest</code>');
     expect(rendered.match(/href=/g)).toHaveLength(2);
   });
 
@@ -208,6 +209,64 @@ describe('chat history consumer contract', () => {
       expect(anchor).toMatch(/text-\[#0f766e\]/);
       expect(anchor).toContain('underline');
     }
+  });
+
+  /*
+   * 反引号里的裸 URL 必须渲染成链接。
+   *
+   * 线上真实形态：模型写「直接下载该 REG 文件：`https://…/Outlook处理.reg`」，
+   * 整段 URL 被反引号包住。`renderInlineMarkdown` 把 `` `…` `` 整体当 code
+   * token 直接吐 `<code>`，永远走不到 renderBareLinks —— 于是它成了灰底等宽
+   * 文字，看着像代码、完全点不动。之前只给 `<a>` 补 className 之所以没效果，
+   * 就是因为那个 `<a>` 根本没被创建。
+   */
+  it('turns an inline-code span that is nothing but a bare URL into a clickable link', () => {
+    const url =
+      'https://ai-staff.folidaymall.com/f/flqFw7qlBi_F/Outlook%E9%A2%91%E7%B9%81%E5%BC%B9.reg';
+    const rendered = renderToStaticMarkup(
+      createElement(
+        'div',
+        null,
+        ...renderInlineMarkdown(`直接下载并双击导入该 REG 文件后，重启 Outlook 验证：\`${url}\``, 'test-code-url'),
+      ),
+    );
+
+    expect(rendered).not.toContain('<code>');
+    expect(rendered).toMatch(
+      new RegExp(`<a[^>]*href="${url}"[^>]*target="_blank"[^>]*rel="noreferrer"[^>]*>${url}</a>`),
+    );
+  });
+
+  it('keeps real inline code as code even when it mentions a URL', () => {
+    const rendered = renderToStaticMarkup(
+      createElement(
+        'div',
+        null,
+        ...renderInlineMarkdown(
+          '用 `curl https://example.com/a -o out.txt` 下载，`https://example.com/b` 是链接',
+          'test-code-mixed',
+        ),
+      ),
+    );
+
+    // 带空格的多 token 代码片段仍是代码。
+    expect(rendered).toContain('<code>curl https://example.com/a -o out.txt</code>');
+    // 纯 URL 的代码片段已还原成链接。
+    expect(rendered).toMatch(/<a[^>]*href="https:\/\/example\.com\/b"[^>]*>/);
+    expect(rendered).not.toContain('<code>https://example.com/b</code>');
+  });
+
+  it('does not treat unsafe or relative inline code as a link', () => {
+    const rendered = renderToStaticMarkup(
+      createElement(
+        'div',
+        null,
+        ...renderInlineMarkdown('`javascript:alert(1)` 和 `/api/knowledge/x`', 'test-code-unsafe'),
+      ),
+    );
+
+    expect(rendered).not.toContain('<a');
+    expect(rendered).toContain('<code>javascript:alert(1)</code>');
   });
 
   it('renders safe Markdown images and keeps unsafe image targets as text', () => {

@@ -219,6 +219,25 @@ function safeExternalHttpUrl(value: string): string | null {
 }
 
 /**
+ * 行内代码里只放了一个裸 URL 时，它其实是个链接。
+ *
+ * 模型很爱用反引号强调下载地址（`` `https://…/Outlook处理.reg` ``），而
+ * `renderInlineMarkdown` 把 `` `…` `` 整体当 code token 直接吐 `<code>`，
+ * **根本不会走到 renderBareLinks** —— 于是那句 URL 渲染成灰底等宽文字，
+ * 看着像代码、完全点不了。用户报的"链接点不动"就是这条链路，之前只给
+ * `<a>` 补样式当然无效：那个 `<a>` 压根没被创建过。
+ *
+ * 这里只回收「整段就是一个 URL」的行内代码，带空格/换行的仍当真正的代码片段。
+ */
+function codeSpanUrl(content: string): string | null {
+  const text = content.trim();
+  if (!text) return null;
+  if (!/^(?:https?:\/\/|www\.)/i.test(text)) return null;
+  if (/[\s<>"'`]/.test(text)) return null;
+  return safeExternalHttpUrl(/^www\./i.test(text) ? `https://${text}` : text);
+}
+
+/**
  * 图片 src 的白名单。
  *
  * 除 http(s) 外链外，还要放行**站内相对路径**：知识库原文档的配图存在
@@ -287,7 +306,24 @@ export function renderInlineMarkdown(
     const token = match[0];
     const key = `${keyPrefix}-inline-${index}`;
     if (token.startsWith('`') && token.endsWith('`')) {
-      nodes.push(<code key={key}>{token.slice(1, -1)}</code>);
+      const codeContent = token.slice(1, -1);
+      const codeHref = codeSpanUrl(codeContent);
+      if (codeHref) {
+        // 反引号包的裸 URL 还原成链接（见 codeSpanUrl 的说明）。
+        nodes.push(
+          <a
+            key={key}
+            className={CHAT_MARKDOWN_LINK_CLASS}
+            href={codeHref}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {codeContent.trim()}
+          </a>,
+        );
+      } else {
+        nodes.push(<code key={key}>{codeContent}</code>);
+      }
     } else if (token.startsWith('**') && token.endsWith('**')) {
       nodes.push(<strong key={key}>{renderInlineMarkdown(token.slice(2, -2), key, options)}</strong>);
     } else {
