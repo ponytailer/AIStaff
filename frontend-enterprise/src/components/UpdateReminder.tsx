@@ -68,9 +68,8 @@ export function UpdateNotice({
   );
 }
 
-export default function UpdateReminder({ enabled }: { enabled: boolean }) {
+export default function UpdateReminder() {
   useEffect(() => {
-    if (!enabled) return undefined;
     let cancelled = false;
 
     void api.get<AppVersion>('/api/app/version').then((result) => {
@@ -105,7 +104,7 @@ export default function UpdateReminder({ enabled }: { enabled: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, []);
 
   return null;
 }

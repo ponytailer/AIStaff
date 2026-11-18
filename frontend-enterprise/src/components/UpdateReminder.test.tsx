@@ -55,14 +55,9 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('UpdateReminder', () => {
-  it('waits until the onboarding guides are complete', () => {
-    render(<UpdateReminder enabled={false} />);
-    expect(mocks.apiGet).not.toHaveBeenCalled();
-  });
-
   it('shows a release link and remembers the announced version', async () => {
     mocks.apiGet.mockResolvedValue(update);
-    render(<UpdateReminder enabled />);
+    render(<UpdateReminder />);
 
     await waitFor(() => expect(mocks.toastCustom).toHaveBeenCalledOnce());
     expect(mocks.apiGet).toHaveBeenCalledWith('/api/app/version');
@@ -84,7 +79,7 @@ describe('UpdateReminder', () => {
   it('does not repeat a version already announced in this browser', async () => {
     window.localStorage.setItem(REMINDED_VERSION_KEY, '0.3.0');
     mocks.apiGet.mockResolvedValue(update);
-    render(<UpdateReminder enabled />);
+    render(<UpdateReminder />);
 
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledOnce());
     expect(mocks.toastCustom).not.toHaveBeenCalled();
@@ -92,13 +87,13 @@ describe('UpdateReminder', () => {
 
   it('stays silent when checks are disabled or unavailable', async () => {
     mocks.apiGet.mockResolvedValue({ ...update, check_enabled: false, update_available: false });
-    const { rerender } = render(<UpdateReminder enabled />);
+    const { unmount } = render(<UpdateReminder />);
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledOnce());
     expect(mocks.toastCustom).not.toHaveBeenCalled();
+    unmount();
 
     mocks.apiGet.mockRejectedValue(new Error('offline'));
-    rerender(<UpdateReminder enabled={false} />);
-    rerender(<UpdateReminder enabled />);
+    render(<UpdateReminder />);
     await waitFor(() => expect(mocks.apiGet).toHaveBeenCalledTimes(2));
     expect(mocks.toastCustom).not.toHaveBeenCalled();
   });

@@ -1997,7 +1997,6 @@
   "立即添加": "Add Now",
   "上一步": "Previous",
   "下一步": "Next",
-  "关闭引导": "Close Guide",
   "请填写名称和 Model": "Enter a name and Model",
   "额外参数必须是合法的 JSON 对象": "Extra parameters must be a valid JSON object",
   "API 协议": "API Protocol",

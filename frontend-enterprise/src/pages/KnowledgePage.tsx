@@ -1372,7 +1372,6 @@ export default function KnowledgeManagePage({
             variant="outline"
             onClick={() => setApiGuideOpen(true)}
             className={OUTLINE_ACTION_BUTTON_CLASS}
-            data-guide-target="knowledge-api"
           >
             <CodeOutlined className="size-[14px]" />
             API 接入
@@ -1389,7 +1388,7 @@ export default function KnowledgeManagePage({
         </UIButton>
         {canManageCurrentScope && (
           <DropdownMenu>
-            <DropdownMenuTrigger data-guide-target="knowledge-create" className="flex h-[34px] items-center gap-[4px] rounded-[10px] bg-[#18181a] px-[20px] text-[12px] font-normal text-white outline-none transition-colors hover:bg-[#303030]">
+            <DropdownMenuTrigger className="flex h-[34px] items-center gap-[4px] rounded-[10px] bg-[#18181a] px-[20px] text-[12px] font-normal text-white outline-none transition-colors hover:bg-[#303030]">
               <IconAdd className="size-[14px]" />
               新增
               <IconChevronDown className="size-[12px]" />

@@ -145,8 +145,6 @@ beforeEach(() => {
   stubBrowserApis();
   resetDispatcherScopeCacheForTests();
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'token-1', user: authUser }));
-  window.localStorage.setItem('staffdeck_onboarding_guide_seen', '1');
-  window.localStorage.setItem('staffdeck_quick_start_guide_seen', '1');
 });
 
 afterEach(() => {

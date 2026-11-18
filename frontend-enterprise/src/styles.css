@@ -7147,7 +7147,7 @@ body,
    因此以下规则可在**不新增任何重要声明提升**的前提下覆盖 Tailwind 工具类
    （w-(--sidebar-width) / h-svh / border-r / backdrop-blur-* 等）。
    ⚠️ 严禁在此块加 transform / filter / contain / 常驻 will-change —— 会破坏
-   QuickStartGuide（position: fixed，:223/:234）的定位上下文。
+   position: fixed 浮层的定位上下文。
    ========================================================================== */
 
 /* T02 —— 侧边栏岛（挂点 = [data-slot="sidebar-container"]，由 SIDEBAR_SHELL_CLASS
