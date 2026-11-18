@@ -2516,6 +2516,181 @@ def download_harness_artifact(
     )
 
 
+@router.get("/sessions/{session_id}/attachments/{attachment_id}")
+def download_chat_attachment(
+    session_id: str,
+    attachment_id: str,
+    tenant_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+) -> StreamingResponse:
+    """下载会话里出现过的附件字节（用户上传的、人工回复带的都算）。
+
+    为什么需要这个接口：消息 metadata 里只存附件**描述符**（id/文件名/大小/
+    sha256），字节在服务端暂存目录。少这一层，用户侧看到文件胶囊却点不动，
+    人工回复带附件等于白回复——线上就是这个症状。
+
+    权限与「打开这个会话」一致（`_get_readable_chat_session`）：能看到会话的人
+    才能取其中的附件。附件 id 必须真的出现在该会话的消息里，否则拿到别人的
+    attachment_id 也能横向读取。
+
+    字节寻址是 (tenant, **uploader**, attachment)：上传者可能是会话属主（用户
+    自己发的），也可能是 owner（待回答里回的）。因此候选上传者要同时考虑会话
+    属主与所有 handoff 的处理人。
+    """
+
+    _ensure_request_tenant(tenant_id, current_user)
+    chat_session = _get_readable_chat_session(db, tenant_id, current_user, session_id)
+
+    attachment = _find_session_attachment(db, tenant_id, session_id, attachment_id)
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    data = _read_attachment_bytes(
+        db,
+        attachment,
+        tenant_id=tenant_id,
+        chat_session=chat_session,
+        current_user=current_user,
+    )
+    if data is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    filename = _safe_artifact_download_name(attachment.filename)
+    fallback_filename = re.sub(r"[^A-Za-z0-9._-]+", "_", filename).strip("._")
+    fallback_filename = (fallback_filename or "attachment")[:120]
+    media_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    headers = {
+        "Cache-Control": "private, no-store",
+        # 图片默认 inline（点开就能看），其它一律当附件下载。
+        "Content-Disposition": (
+            ("inline; " if attachment.kind == "image" else "attachment; ")
+            + f'filename="{fallback_filename}"; '
+            + f"filename*=UTF-8''{quote(filename, safe='')}"
+        ),
+        "Content-Length": str(len(data)),
+        "X-Content-Type-Options": "nosniff",
+    }
+    digest = str(attachment.sha256 or "").strip().lower()
+    if digest:
+        headers["ETag"] = f'"sha256:{digest}"'
+    return StreamingResponse(
+        iter([data]),
+        media_type=media_type,
+        headers=headers,
+    )
+
+
+def _find_session_attachment(
+    db: Session,
+    tenant_id: str,
+    session_id: str,
+    attachment_id: str,
+) -> ChatAttachmentRead | None:
+    """在该会话的消息与人工回复里找出这个附件描述符。
+
+    只按 id 命中不算数——必须真的是这条会话里出现过的附件，否则任意
+    attachment_id 都能被读走。
+    """
+
+    wanted = (attachment_id or "").strip()
+    if not wanted:
+        return None
+
+    rows = db.exec(
+        select(Message).where(
+            Message.tenant_id == tenant_id,
+            Message.session_id == session_id,
+        )
+    ).all()
+    for row in rows:
+        metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+        for attachment in _metadata_attachments(metadata):
+            if attachment.id == wanted:
+                return attachment
+
+    handoffs = db.exec(
+        select(HumanHandoffRequest).where(
+            HumanHandoffRequest.tenant_id == tenant_id,
+            HumanHandoffRequest.session_id == session_id,
+        )
+    ).all()
+    for handoff in handoffs:
+        for attachment in _handoff_reply_attachments(handoff):
+            if attachment.id == wanted:
+                return attachment
+    return None
+
+
+def _metadata_attachments(metadata: dict[str, Any]) -> list[ChatAttachmentRead]:
+    """从消息 metadata 里取附件描述符；脏数据逐条跳过，不整批失败。"""
+
+    raw = metadata.get("attachments")
+    if not isinstance(raw, list):
+        return []
+    attachments: list[ChatAttachmentRead] = []
+    for item in raw:
+        if isinstance(item, ChatAttachmentRead):
+            attachments.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        try:
+            attachments.append(ChatAttachmentRead.model_validate(item))
+        except Exception:  # noqa: BLE001 - 历史脏数据不该让整条下载链路 500
+            continue
+    return attachments
+
+
+def _read_attachment_bytes(
+    db: Session,
+    attachment: ChatAttachmentRead,
+    *,
+    tenant_id: str,
+    chat_session: ChatSession,
+    current_user: User,
+) -> bytes | None:
+    """按可能的各个上传者身份依次尝试读取暂存字节。
+
+    暂存 key 是 (tenant, user_id, attachment_id)。上传者可能是：
+    - 会话属主（用户自己发的消息）
+    - handoff 的处理人 / 提问人（owner 在待回答里回复带的附件）
+    读不到就逐个换下一个候选，全失败返回 None（调用方回 404）。
+    """
+
+    candidates: list[str] = []
+    for value in (
+        chat_session.user_id,
+        current_user.id,
+    ):
+        if value and value not in candidates:
+            candidates.append(value)
+
+    handoffs = db.exec(
+        select(HumanHandoffRequest).where(
+            HumanHandoffRequest.tenant_id == tenant_id,
+            HumanHandoffRequest.session_id == chat_session.id,
+        )
+    ).all()
+    for handoff in handoffs:
+        for value in (
+            (handoff.resume_payload_json or {}).get("answered_by_user_id"),
+            handoff.assignee_user_id,
+            handoff.requester_user_id,
+        ):
+            text = str(value or "").strip()
+            if text and text not in candidates:
+                candidates.append(text)
+
+    for user_id in candidates:
+        data = read_staged_chat_attachment(
+            attachment, tenant_id=tenant_id, user_id=user_id
+        )
+        if data is not None:
+            return data
+    return None
+
+
 @router.get("/sessions/{session_id}/events")
 def list_chat_session_events(
     session_id: str,

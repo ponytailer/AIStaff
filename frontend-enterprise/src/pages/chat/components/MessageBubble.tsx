@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 
 import EmployeeAvatar from '@/components/EmployeeAvatar';
+import { notify } from '@/components/ui/app-toast';
+import { api } from '@/api/client';
 import StaffdeckIcon from '@/components/StaffdeckIcon';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import IconThumbUp from '@/assets/icons/thumb-up.svg?react';
 import IconThumbDown from '@/assets/icons/thumb-down.svg?react';
 import { employeeDisplayName } from '@/employee';
+import { formatClientClock } from '@/lib/timezone';
 import { cn } from '@/lib/utils';
 import type {
   ChatAttachmentRead,
@@ -25,8 +28,10 @@ import {
   CHAT_ATTACHMENT_TILE_ERROR_CLASS,
   CHAT_ATTACHMENT_TILE_IMG_CLASS,
   CHAT_FILE_CHIP_BODY_CLASS,
+  CHAT_FILE_CHIP_BUTTON_CLASS,
   CHAT_FILE_CHIP_CLASS,
   CHAT_FILE_CHIP_ERROR_CLASS,
+  CHAT_FILE_CHIP_GLYPH_CLASS,
   CHAT_FILE_CHIP_ICON_CLASS,
   CHAT_FILE_CHIP_META_CLASS,
   CHAT_FILE_CHIP_NAME_CLASS,
@@ -155,16 +160,15 @@ type MessageBubbleProps = {
   turn?: { first: boolean; spaced: boolean; last: boolean };
 };
 
-/** 消息时间：24 小时制 HH:mm；解析不了就不显示（历史脏数据不占位）。 */
+/**
+ * 消息时间：24 小时制 HH:mm；解析不了就不显示（历史脏数据不占位）。
+ *
+ * 走 `formatClientClock`（内部 `parseBackendDateTime`）而不是裸 `new Date`：
+ * 后端落库是 naive UTC，`new Date('...T01:01:00')` 在东八区会被当成本地时间，
+ * 整条会话的时间戳都早 8 小时。
+ */
 function messageClock(iso: string | undefined): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  return formatClientClock(iso);
 }
 
 /**
@@ -186,18 +190,54 @@ function hasImagePreview(
  * （`content === ""`，只发了图/文件不写字）会渲成一个空气泡、附件完全不可见。
  * 大图预览的 Dialog 也收进组件内部：谁渲染附件谁负责预览，两个宿主不必各自
  * 维护一份 previewImage 状态。
+ *
+ * 下载：文件胶囊可点。消息 metadata 只有描述符，字节在服务端，必须走接口取
+ * （`/api/chat/sessions/{id}/attachments/{attachment_id}`）。没有下载入口时，
+ * 人工回复带的附件对用户来说等于不存在——线上就是这个症状。
  */
 function MessageAttachments({
   attachments,
   flush = false,
+  sessionId,
+  tenantId,
 }: {
   attachments: ChatAttachmentRead[];
   /** 上方没有正文时去掉 10px 顶间距，避免「空气泡里飘着一块缩略图」。 */
   flush?: boolean;
+  /** 下载附件需要会话与租户；缺省时文件胶囊降级成不可点（旧调用方兼容）。 */
+  sessionId?: string;
+  tenantId?: string;
 }) {
   // data: URL 不能新标签打开（浏览器禁止顶层导航到 data URL），所以走弹窗。
   const [previewImage, setPreviewImage] = useState<{ src: string; name: string } | null>(null);
+  const [downloadingId, setDownloadingId] = useState('');
   if (attachments.length === 0) return null;
+
+  const canDownload = Boolean(sessionId && tenantId);
+
+  async function downloadAttachment(attachment: ChatAttachmentRead) {
+    if (!canDownload || downloadingId) return;
+    setDownloadingId(attachment.id);
+    try {
+      const blob = await api.blob(
+        `/api/chat/sessions/${encodeURIComponent(sessionId as string)}/attachments/`
+          + `${encodeURIComponent(attachment.id)}?tenant_id=${encodeURIComponent(tenantId as string)}`,
+      );
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = attachment.filename || 'attachment';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : '附件下载失败');
+    } finally {
+      setDownloadingId('');
+    }
+  }
+
   const imageAttachments = attachments.filter(hasImagePreview);
   const fileAttachments = attachments.filter((attachment) => !hasImagePreview(attachment));
   return (
@@ -230,28 +270,58 @@ function MessageAttachments({
         )}
         {fileAttachments.length > 0 && (
           <div className={CHAT_ATTACHMENT_GRID_CLASS}>
-            {fileAttachments.map((attachment) => (
-              <span
-                className={cn(
-                  CHAT_FILE_CHIP_CLASS,
-                  attachment.error && CHAT_FILE_CHIP_ERROR_CLASS,
-                )}
-                key={attachment.id}
-                title={attachment.filename}
-              >
-                <span className={CHAT_FILE_CHIP_BODY_CLASS}>
-                  <span className={CHAT_FILE_CHIP_ICON_CLASS}>
-                    <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={14} />
+            {fileAttachments.map((attachment) => {
+              const isDownloading = downloadingId === attachment.id;
+              const chipClassName = cn(
+                CHAT_FILE_CHIP_CLASS,
+                attachment.error && CHAT_FILE_CHIP_ERROR_CLASS,
+                canDownload && !attachment.error && CHAT_FILE_CHIP_BUTTON_CLASS,
+                canDownload && attachment.error && 'cursor-not-allowed',
+              );
+              const body = (
+                <>
+                  <span className={CHAT_FILE_CHIP_BODY_CLASS}>
+                    <span className={CHAT_FILE_CHIP_ICON_CLASS}>
+                      <StaffdeckIcon name={attachment.kind === 'pdf' ? 'file' : 'folder'} size={14} />
+                    </span>
+                    <span className={CHAT_FILE_CHIP_NAME_CLASS} data-i18n-ignore>
+                      {attachment.filename}
+                    </span>
+                    <span className={CHAT_FILE_CHIP_META_CLASS} data-i18n-ignore>
+                      {isDownloading ? '下载中' : (attachment.error || attachmentTypeLabel(attachment))}
+                    </span>
                   </span>
-                  <span className={CHAT_FILE_CHIP_NAME_CLASS} data-i18n-ignore>
-                    {attachment.filename}
+                  {canDownload && !attachment.error ? (
+                    <span className={CHAT_FILE_CHIP_GLYPH_CLASS} aria-hidden="true">
+                      <StaffdeckIcon name="download" size={12} />
+                    </span>
+                  ) : null}
+                </>
+              );
+              // 有会话上下文才渲染成按钮：缺省时保持原来的静态胶囊，
+              // 避免在分享页 / 旧调用方里出现点了没反应的可点样式。
+              if (!canDownload || attachment.error) {
+                return (
+                  <span className={chipClassName} key={attachment.id} title={attachment.filename}>
+                    {body}
                   </span>
-                  <span className={CHAT_FILE_CHIP_META_CLASS} data-i18n-ignore>
-                    {attachment.error || attachmentTypeLabel(attachment)}
-                  </span>
-                </span>
-              </span>
-            ))}
+                );
+              }
+              return (
+                <button
+                  type="button"
+                  className={chipClassName}
+                  key={attachment.id}
+                  disabled={isDownloading}
+                  aria-busy={isDownloading}
+                  aria-label={`下载附件 ${attachment.filename}`}
+                  title={`${attachment.filename}（点击下载）`}
+                  onClick={() => void downloadAttachment(attachment)}
+                >
+                  {body}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -502,7 +572,12 @@ export default function MessageBubble({
               {visibleContent ? <MarkdownMessage content={visibleContent} /> : null}
               {/* 人工回复允许只发图片/附件不写字：此时 content 为空，附件是这条
                   消息的全部内容，去掉顶间距免得气泡里空出一截。 */}
-              <MessageAttachments attachments={attachments} flush={!visibleContent} />
+              <MessageAttachments
+                attachments={attachments}
+                flush={!visibleContent}
+                sessionId={chat.activeConversationId}
+                tenantId={chat.tenantId}
+              />
             </div>
           </div>
         </div>
@@ -667,7 +742,12 @@ export default function MessageBubble({
           ) : null}
 
           {!statusOnly && (
-            <MessageAttachments attachments={attachments} flush={!visibleContent} />
+            <MessageAttachments
+                attachments={attachments}
+                flush={!visibleContent}
+                sessionId={chat.activeConversationId}
+                tenantId={chat.tenantId}
+              />
           )}
 
           {item.role === 'assistant' && harnessArtifacts.length > 0 && (

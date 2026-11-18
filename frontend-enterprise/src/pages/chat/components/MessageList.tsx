@@ -27,6 +27,7 @@ import {
   traceSummary,
 } from '../chatHelpers';
 import { staffdeckDisplayText } from '@/employee';
+import { parseBackendDateTime } from '@/lib/timezone';
 import type { ChatMessage } from '@/types';
 import type { UseChatSession } from '../useChatSession';
 import ChatEmptyState from './ChatEmptyState';
@@ -42,20 +43,20 @@ function sameTurn(a: ChatMessage | undefined, b: ChatMessage | undefined): boole
   if (a.role !== b.role) return false;
   const day = dayKey(a.created_at);
   if (!day || day !== dayKey(b.created_at)) return false;
-  const delta = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  const delta = parseBackendDateTime(b.created_at).getTime() - parseBackendDateTime(a.created_at).getTime();
   return delta >= 0 && delta < TURN_GROUP_MS;
 }
 
 function dayKey(iso: string | undefined): string {
   if (!iso) return '';
-  const date = new Date(iso);
+  const date = parseBackendDateTime(iso);
   if (Number.isNaN(date.getTime())) return '';
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
 /** 日期分隔文案：今天 / 昨天 / 11月8日 / 2025年11月8日（跨年才带年份）。 */
 function dayLabel(iso: string): string {
-  const date = new Date(iso);
+  const date = parseBackendDateTime(iso);
   if (Number.isNaN(date.getTime())) return '';
   const today = new Date();
   const startOfDay = (value: Date) =>

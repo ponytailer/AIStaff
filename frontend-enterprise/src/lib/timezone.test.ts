@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  formatClientClock,
   formatClientDate,
   formatClientDateISO,
   formatClientDateTime,
+  formatClientMonthDayClock,
   formatClientMonthDayTime,
   formatClientYearMonthDayTime,
   parseBackendDateTime,
@@ -173,5 +175,63 @@ describe('formatClientDateISO', () => {
     expect(formatClientDateISO(undefined)).toBe('-');
     expect(formatClientDateISO(null, '')).toBe('');
     expect(formatClientDateISO('bad', '')).toBe('');
+  });
+});
+
+describe('formatClientClock', () => {
+  it('renders a naive UTC timestamp in the client time zone, not 8h earlier', () => {
+    // 回归：后端落库是 naive UTC，裸 new Date 在东八区会把 01:01 的回复
+    // 显示成 01:01（应为 09:01），整条会话时间戳早 8 小时。
+    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const rendered = formatClientClock('2026-11-18T01:01:00');
+    if (clientTz === 'Asia/Shanghai') {
+      expect(rendered).toBe('09:01');
+      // 与错误实现（裸 new Date 后取本地时分）形成对照
+      expect(new Date('2026-11-18T01:01:00').getHours()).toBe(1);
+    } else {
+      // 其它时区下只断言「等价于按 UTC 解析」，避开测试机时区差异
+      expect(rendered).toBe(
+        new Date('2026-11-18T01:01:00Z').toLocaleTimeString('zh-CN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: clientTz,
+        }),
+      );
+    }
+  });
+
+  it('respects an explicit offset when the backend provides one', () => {
+    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(formatClientClock('2026-11-18T09:01:00+08:00')).toBe(
+      new Date('2026-11-18T09:01:00+08:00').toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: clientTz,
+      }),
+    );
+  });
+
+  it('returns an empty string for missing or malformed values', () => {
+    expect(formatClientClock(undefined)).toBe('');
+    expect(formatClientClock(null)).toBe('');
+    expect(formatClientClock('not-a-date')).toBe('');
+  });
+});
+
+describe('formatClientMonthDayClock', () => {
+  it('shows month, day and clock in the client time zone', () => {
+    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const rendered = formatClientMonthDayClock('2026-11-18T01:01:00');
+    if (clientTz === 'Asia/Shanghai') {
+      expect(rendered).toBe('11月18日 09:01');
+    }
+    expect(rendered).toContain('09:01');
+  });
+
+  it('falls back to the caller-provided empty text', () => {
+    expect(formatClientMonthDayClock(null)).toBe('');
+    expect(formatClientMonthDayClock(null, '-')).toBe('-');
   });
 });

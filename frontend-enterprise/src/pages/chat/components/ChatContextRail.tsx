@@ -7,6 +7,7 @@ import { agentResourceCount, employeeDisplayName } from '@/employee';
 import { EnterpriseRoute } from '@/enums/routes';
 import { useAgentFaqCount } from '@/lib/agentFaq';
 import { persistSharedAgentScope } from '@/lib/agent-scope-storage';
+import { formatClientMonthDayClock } from '@/lib/timezone';
 import { cn } from '@/lib/utils';
 
 import {
@@ -130,12 +131,7 @@ function stepDuration(line: TraceLine): string {
 
 /** 右栏用的紧凑时间：11月16日 13:05。取不到就返回空串，行内直接不显示。 */
 function railTime(iso: string | undefined | null): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${hh}:${mm}`;
+  return formatClientMonthDayClock(iso);
 }
 
 /**

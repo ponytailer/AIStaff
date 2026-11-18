@@ -5,6 +5,7 @@ import EmployeeAvatar from '@/components/EmployeeAvatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { formatClientYearMonthDayTime } from '@/lib/timezone';
 import { employeeDisplayNameWithCreator, employeeProfile } from '@/employee';
 import type { EmployeeProfile } from '@/employee';
 import type { AgentProfileRead, HandoffBrief, HumanHandoffRead } from '@/types';
@@ -259,7 +260,7 @@ export default function HandoffCard({
             {handoff.created_at ? (
               <>
                 <span className={CHAT_HANDOFF_META_DOT_CLASS} />
-                <span>{new Date(handoff.created_at).toLocaleString('zh-CN', { hour12: false })}</span>
+                <span>{formatClientYearMonthDayTime(handoff.created_at)}</span>
               </>
             ) : null}
           </div>

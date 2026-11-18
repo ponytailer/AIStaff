@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { api } from '@/api/client';
 import type { AgentProfileRead, ChatMessage, ChatSlashCommand } from '@/types';
 
 import type { UseChatSession } from '../useChatSession';
@@ -88,6 +89,10 @@ describe('MessageBubble responsive sizing', () => {
 });
 
 describe('MessageBubble attachments', () => {
+  // 下面有「拿不到会话上下文时不该渲染下载按钮」这类负向断言，
+  // 前一个 it 的 DOM 必须清干净，否则会把上一条的按钮查出来。
+  afterEach(cleanup);
+
   it('keeps images in a thumbnail grid and files in chips', () => {
     const content = '看下这两份附件';
     const item: ChatMessage = {
@@ -146,6 +151,118 @@ describe('MessageBubble attachments', () => {
     // 文件走胶囊：文件名 + 类型/体积在同一行
     expect(screen.getByText('底稿.xlsx')).toBeTruthy();
     expect(screen.getByText('文件 · 1.2 MB')).toBeTruthy();
+  });
+
+  it('makes file chips downloadable with the session context', async () => {
+    // 线上症状：人工回复带了附件，用户只看到一个点不动的文件胶囊。
+    const item: ChatMessage = {
+      id: 'message-human-attachment',
+      role: 'user',
+      content: '参考文档',
+      metadata: { human_reply: true, handoff_id: 'h1' },
+      created_at: '2026-11-18T01:01:00Z',
+    };
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-human-attachment',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: '参考文档',
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [
+        {
+          id: 'att-docx',
+          filename: '未命名文档.docx',
+          content_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          size: 115_712,
+          kind: 'binary',
+          sha256: 'a'.repeat(64),
+        },
+      ],
+      harnessArtifacts: [],
+      statusOnly: false,
+    };
+    const chat = {
+      slashCommands: [],
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+      activeConversationId: 'session-human',
+    } as unknown as UseChatSession;
+
+    const blobSpy = vi.spyOn(api, 'blob').mockResolvedValue(new Blob(['x']));
+    // jsdom 没实现 createObjectURL，点下载会抛；挡掉即可验证请求与清理逻辑。
+    const createUrl = vi.fn(() => 'blob:mock');
+    const revokeUrl = vi.fn();
+    Object.defineProperty(window.URL, 'createObjectURL', { value: createUrl, configurable: true });
+    Object.defineProperty(window.URL, 'revokeObjectURL', { value: revokeUrl, configurable: true });
+
+    render(<MessageBubble chat={chat} item={item} render={messageRender} />);
+
+    const chip = screen.getByRole('button', { name: '下载附件 未命名文档.docx' });
+    fireEvent.click(chip);
+    await waitFor(() => expect(blobSpy).toHaveBeenCalledTimes(1));
+
+    // 走会话附件接口，且带上 attachment_id 与 tenant
+    expect(blobSpy).toHaveBeenCalledWith(
+      '/api/chat/sessions/session-human/attachments/att-docx?tenant_id=tenant_demo',
+    );
+    await waitFor(() => expect(revokeUrl).toHaveBeenCalledWith('blob:mock'));
+    blobSpy.mockRestore();
+  });
+
+  it('keeps the chip unclickable when no session context is available', () => {
+    // 分享页 / 旧调用方拿不到 session 时不能装作可点，否则点了没反应更糟。
+    const item: ChatMessage = {
+      id: 'message-no-session',
+      role: 'user',
+      content: '附件',
+      created_at: '2026-11-18T01:01:00Z',
+    };
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-no-session',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: '附件',
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [
+        {
+          id: 'att-orphan',
+          filename: '孤立附件.pdf',
+          content_type: 'application/pdf',
+          size: 2048,
+          kind: 'pdf',
+        },
+      ],
+      harnessArtifacts: [],
+      statusOnly: false,
+    };
+    const chat = {
+      slashCommands: [],
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+    } as unknown as UseChatSession;
+
+    render(<MessageBubble chat={chat} item={item} render={messageRender} />);
+
+    expect(screen.getByText('孤立附件.pdf')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /下载附件/ })).toBeNull();
   });
 });
 

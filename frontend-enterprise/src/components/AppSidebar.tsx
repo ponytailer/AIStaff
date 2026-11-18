@@ -19,6 +19,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ComponentType, SVGProps } from 'react';
 import { cn } from '@/lib/utils';
+import { parseBackendDateTime } from '@/lib/timezone';
 import EmployeeAvatar from './EmployeeAvatar';
 import BrandLogo from './BrandLogo';
 import StaffdeckIcon from './StaffdeckIcon';
@@ -1009,7 +1010,9 @@ type SessionGroupLabel = (typeof SESSION_GROUP_LABELS)[number];
 
 /** 会话按 `updated_at` 落到「今天 / 昨天 / 近 7 天 / 更早」。 */
 function sessionGroupLabel(updatedAt: string, now: Date = new Date()): SessionGroupLabel {
-  const date = new Date(updatedAt);
+  // 必须走 parseBackendDateTime：后端是 naive UTC，裸 new Date 在东八区会
+  // 把「今天 06:00」读成「昨天 22:00」，会话被分到「昨天」组。
+  const date = parseBackendDateTime(updatedAt);
   if (Number.isNaN(date.getTime())) return '更早';
   const startOf = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
   const diffDays = Math.round((startOf(now) - startOf(date)) / 86_400_000);

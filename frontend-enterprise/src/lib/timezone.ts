@@ -116,3 +116,52 @@ export function formatClientDate(value?: string, emptyText = '-'): string {
     timeZone: text.includes('T') ? getClientTimeZone() : 'UTC',
   });
 }
+
+/**
+ * 只要「时:分」（24 小时制）的紧凑格式化，给消息气泡、右栏这类窄位置用。
+ *
+ * 必须走 `parseBackendDateTime`：后端 `utc_now()` 写的是 naive UTC（无 Z 后缀），
+ * 裸 `new Date('2026-11-18T01:01:00')` 会按本地时间解析，东八区下整条消息
+ * 的时间戳都早 8 小时（线上：09:01 的回复显示成 01:01）。
+ *
+ * 解析不了返回空串：历史脏数据不该在气泡上占一个「--:--」。
+ */
+export function formatClientClock(value?: string | null): string {
+  if (!value) return '';
+  const date = parseBackendDateTime(String(value));
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(getDateLocale(), {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: getClientTimeZone(),
+  });
+}
+
+/**
+ * 「11月18日 09:01」这样的日期 + 时刻，给右栏、列表行这类需要日期上下文的位置。
+ *
+ * 与 `formatClientClock` 同源，同样必须走 `parseBackendDateTime`。
+ */
+export function formatClientMonthDayClock(value?: string | null, emptyText = ''): string {
+  if (!value) return emptyText;
+  const date = parseBackendDateTime(String(value));
+  if (Number.isNaN(date.getTime())) return emptyText;
+  // 拆成 parts 再自己拼「11月18日 09:01」：直接让 Intl 输出中文格式在不同
+  // 浏览器/ICU 版本下会漂成「11/18」（实测 zh-CN + month:numeric）。
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: getClientTimeZone(),
+  }).formatToParts(date);
+  const at = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value || '';
+  const month = at('month').replace(/^0/, '');
+  const day = at('day').replace(/^0/, '');
+  const hour = at('hour').padStart(2, '0');
+  const minute = at('minute').padStart(2, '0');
+  return `${month}月${day}日 ${hour}:${minute}`;
+}
