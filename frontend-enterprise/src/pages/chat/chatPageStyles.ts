@@ -384,6 +384,35 @@ export const CHAT_EMPTY_TAGS_CLASS =
 export const CHAT_EMPTY_STAT_CELL_CLASS =
   'flex flex-1 flex-col justify-center gap-[4px] px-[16px] py-[8px] capitalize text-[rgba(24,24,26,0.8)] [&:not(:first-child)]:border-l-[0.5px] [&:not(:first-child)]:border-[rgba(24,24,26,0.08)]';
 
+// 快捷提问（员工配置里的 1-3 条 suggested_prompts）
+//
+// 位置：统计卡下方的空白带。形态参考 tuffui PromptSuggestions 的 `cards`
+// 变体（图标 + 文本的点选卡），但底色跟本页走：纸底 #f7f7f6 上放**白面卡**，
+// 与上方两张 #e5e4e0 的灰卡形成层级 —— 上方是「这是谁」的信息卡，这里是
+// 「你可以做什么」的可点动作，两者视觉语言必须能分开。描边用 ring 而不是
+// border，理由同 CHAT_SURFACE_CARD_CLASS（不占盒模型，避免 1px 抖动）。
+export const CHAT_EMPTY_PROMPT_GRID_CLASS =
+  'grid w-full grid-cols-1 gap-[10px] sm:grid-cols-2';
+export const CHAT_EMPTY_PROMPT_CARD_CLASS =
+  'group flex w-full items-start gap-[9px] rounded-[14px] bg-white px-[13px] py-[11px] text-left ring-[0.5px] ring-[rgba(24,24,26,0.12)] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-[background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-[#f0efec] hover:ring-[rgba(24,24,26,0.28)] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-[#0f766e] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-white';
+export const CHAT_EMPTY_PROMPT_ICON_CLASS =
+  'mt-[1px] grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[rgba(15,118,110,0.10)] text-[#0f766e]';
+export const CHAT_EMPTY_PROMPT_TEXT_CLASS =
+  'line-clamp-2 min-w-0 flex-1 text-[12.5px] leading-[1.5] text-[#3d3d3f] group-hover:text-[#18181a] [overflow-wrap:anywhere]';
+
+// 空态开场白（员工配了 greeting_message 时，新会话的第一句）
+//
+// 为什么它长得像消息、却画在空态卡里：会话还没建（草稿态），没有 message 行
+// 可渲染；但用户此刻就该看到「我已经跟你打过招呼了」。等首轮发出去、后端把
+// 真实开场白落库后，这段预览会随空态一起消失，由消息列表接管 —— 文案格式
+// 前后完全一致（同一个 greetingPreviewText 与后端 greeting_text_for_user 对齐）。
+export const CHAT_EMPTY_GREETING_LINE_CLASS =
+  'w-full rounded-[16px] bg-[#e5e4e0] px-[14px] py-[11px]';
+export const CHAT_EMPTY_GREETING_AUTHOR_CLASS =
+  'mb-[3px] flex items-center gap-[6px] text-[11px] text-[#6d6d72]';
+export const CHAT_EMPTY_GREETING_BODY_CLASS =
+  'm-0 whitespace-pre-line text-[13px] leading-[1.65] text-[#18181a] [overflow-wrap:anywhere]';
+
 // ---------------------------------------------------------------------------
 // Composer
 // ---------------------------------------------------------------------------

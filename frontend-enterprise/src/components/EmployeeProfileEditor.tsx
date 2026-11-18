@@ -1,4 +1,4 @@
-import { IdcardOutlined } from '../icons';
+import { IdcardOutlined, PlusOutlined } from '../icons';
 import { Share2, X as XIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -21,7 +21,16 @@ import { toClientDateISO } from '@/lib/timezone';
 import { api, TENANT_ID } from '../api/client';
 import AgentShareDialog from './AgentShareDialog';
 import type { EnterpriseAuthUser } from '../auth';
-import { employeeDisplayName, employeeProfile } from '../employee';
+import {
+  GREETING_MESSAGE_MAX_LENGTH,
+  SUGGESTED_PROMPT_LIMIT,
+  SUGGESTED_PROMPT_MAX_LENGTH,
+  employeeDisplayName,
+  employeeProfile,
+  greetingPreviewText,
+  normalizeGreetingMessage,
+  normalizeSuggestedPrompts,
+} from '../employee';
 import type { AgentProfileRead } from '../types';
 import EmployeeAvatar from './EmployeeAvatar';
 
@@ -35,6 +44,10 @@ type EmployeeProfileFormValues = {
   workStyles: string[];
   expertiseTags: string[];
   workModes: string[];
+  /** 聊天空态展示的快捷提问（1-3 条），落到 metadata.suggested_prompts。 */
+  suggestedPrompts: string[];
+  /** 新建会话时主动发的开场白正文（不含抬头），落到 metadata.greeting_message。 */
+  greetingMessage: string;
   harnessMaxActions: number;
   status: 'active' | 'archived';
   publishedToGallery: boolean;
@@ -43,6 +56,13 @@ type EmployeeProfileFormValues = {
 const STYLE_OPTIONS = ['目标明确', '证据优先', '动作可追溯', '事实先行', '流程推进', '风险克制', '及时追问'];
 const EXPERTISE_OPTIONS = ['业务问答', 'SOP 执行', '工具调用', '代码检索', '报销核对', '事务跟进', '资料维护'];
 const WORK_MODE_OPTIONS = ['识别意图', '补齐信息', '调用 SOP', '查询资料', '执行并复盘', '确认后执行', '必要时转人工'];
+
+/** 快捷提问的占位符按行给引导，第一行示范「查资料」，后面示范「要产出」。 */
+const SUGGESTED_PROMPT_PLACEHOLDERS = [
+  '例如：帮我查一下最新的报销标准',
+  '例如：把这周的会议纪要整理成待办',
+  '例如：给我一份本周工作复盘提纲',
+];
 
 const BLANK_FORM: EmployeeProfileFormValues = {
   name: '',
@@ -54,6 +74,8 @@ const BLANK_FORM: EmployeeProfileFormValues = {
   workStyles: [],
   expertiseTags: [],
   workModes: [],
+  suggestedPrompts: [],
+  greetingMessage: '',
   harnessMaxActions: 32,
   status: 'active',
   publishedToGallery: false,
@@ -91,6 +113,8 @@ export default function EmployeeProfileEditor({
       workStyles: profile.workStyles,
       expertiseTags: profile.expertiseTags,
       workModes: profile.workModes,
+      suggestedPrompts: profile.suggestedPrompts,
+      greetingMessage: profile.greetingMessage,
       harnessMaxActions: Math.max(1, Math.min(100, agent.harness_max_actions || 32)),
       status: agent.status === 'archived' ? 'archived' : 'active',
       publishedToGallery: agent.metadata?.published_to_gallery === true,
@@ -117,6 +141,28 @@ export default function EmployeeProfileEditor({
         work_modes: compactTags(form.workModes),
         published_to_gallery: form.publishedToGallery,
       };
+      /*
+       * 快捷提问：空着就把 key 删掉，别留一个空数组。
+       * metadata 走的是「整体覆盖」，留 [] 会让「没配过」和「配过又清空」
+       * 这两种状态在数据里长得一样；删掉 key 才能让空态与配置页读到同一件事
+       * （没配 = 不显示这一块）。
+       */
+      const suggestedPrompts = normalizeSuggestedPrompts(form.suggestedPrompts);
+      if (suggestedPrompts.length) {
+        metadata.suggested_prompts = suggestedPrompts;
+      } else {
+        delete metadata.suggested_prompts;
+      }
+      /*
+       * 开场白同理：空着就删 key。后端判据是「取不到非空字符串 = 没配」，
+       * 留一个空串在库里只是脏数据。
+       */
+      const greetingMessage = normalizeGreetingMessage(form.greetingMessage);
+      if (greetingMessage) {
+        metadata.greeting_message = greetingMessage;
+      } else {
+        delete metadata.greeting_message;
+      }
       if (form.publishedToGallery && !wasPublished) {
         metadata.gallery_published_at = new Date().toISOString();
         metadata.gallery_published_by = currentUser?.username;
@@ -238,6 +284,87 @@ export default function EmployeeProfileEditor({
                 <LabeledField label="工作模式">
                   <TagsField value={form.workModes} options={WORK_MODE_OPTIONS} placeholder="输入后回车添加" onChange={(next) => update({ workModes: next })} />
                 </LabeledField>
+              </div>
+
+              {/*
+                开场白：新建会话时由后端主动落一条 assistant 消息。
+                抬头「你好，{用户显示名}。」是固定的，用户只写正文——所以这里
+                只收正文，并在下面给一段真实预览，避免「以为要自己写称呼」。
+              */}
+              <div className="rounded-[14px] border border-[#e6e4df] bg-[#f2f1ee] p-[14px]">
+                <LabeledField label="开场白">
+                  <Textarea
+                    rows={3}
+                    value={form.greetingMessage}
+                    maxLength={GREETING_MESSAGE_MAX_LENGTH}
+                    placeholder="例如：我可以帮你查制度、整理会议纪要，也可以直接起草邮件。"
+                    onChange={(event) => update({ greetingMessage: event.target.value })}
+                  />
+                </LabeledField>
+                <p className="m-0 mt-[6px] text-[11px] leading-[1.5] text-muted-foreground">
+                  新建会话时由我主动发出；留空则不发。抬头「你好，{'用户显示名'}。」自动生成。
+                </p>
+                {normalizeGreetingMessage(form.greetingMessage) && (
+                  <div className="mt-[10px] rounded-[10px] border border-[#e6e4df] bg-white px-[10px] py-[8px]">
+                    <span className="block text-[10px] uppercase tracking-[0.04em] text-[#9a9a9f]">效果预览</span>
+                    <p className="m-0 mt-[4px] whitespace-pre-line text-[12px] leading-[1.6] text-[#3d3d3f]">
+                      {greetingPreviewText(form.greetingMessage, currentUser?.display_name || currentUser?.username)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/*
+                快捷提问：配置端只负责「写 1-3 句话」，展示端在聊天空态。
+                放在标签组之后、发布开关之前——它属于「这个员工怎么被用」，
+                而不是「这个员工是谁」，紧挨着发布开关正好是同一类运营设置。
+              */}
+              <div className="rounded-[14px] border border-[#e6e4df] bg-[#f2f1ee] p-[14px]">
+                <div className="flex items-baseline justify-between gap-[8px]">
+                  <span className="text-[12px] font-medium text-[#3d3d3f]">快捷提问</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {form.suggestedPrompts.length}/{SUGGESTED_PROMPT_LIMIT}
+                  </span>
+                </div>
+                <p className="m-0 mt-[6px] text-[11px] leading-[1.5] text-muted-foreground">
+                  最多 3 条，会显示在对话空态；用户点一下就把这句话直接发给我。
+                </p>
+                <div className="mt-[10px] flex flex-col gap-[8px]">
+                  {form.suggestedPrompts.map((prompt, index) => (
+                    <div key={index} className="flex items-center gap-[6px]">
+                      <Input
+                        value={prompt}
+                        maxLength={SUGGESTED_PROMPT_MAX_LENGTH}
+                        placeholder={SUGGESTED_PROMPT_PLACEHOLDERS[index] || '例如：帮我把这周的报销单核对一遍'}
+                        onChange={(event) => {
+                          const next = [...form.suggestedPrompts];
+                          next[index] = event.target.value;
+                          update({ suggestedPrompts: next });
+                        }}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`删除第 ${index + 1} 条快捷提问`}
+                        onClick={() => update({
+                          suggestedPrompts: form.suggestedPrompts.filter((_item, idx) => idx !== index),
+                        })}
+                        className="grid size-[30px] shrink-0 place-items-center rounded-[8px] text-[#6d6d72] transition-colors hover:bg-white hover:text-[#18181a]"
+                      >
+                        <XIcon className="size-[13px]" />
+                      </button>
+                    </div>
+                  ))}
+                  {form.suggestedPrompts.length < SUGGESTED_PROMPT_LIMIT && (
+                    <button
+                      type="button"
+                      onClick={() => update({ suggestedPrompts: [...form.suggestedPrompts, ''] })}
+                      className="inline-flex h-[30px] w-fit items-center gap-[4px] rounded-[8px] border border-dashed border-[#d6d1c9] px-[10px] text-[12px] text-[#6d6d72] transition-colors hover:border-[#18181a] hover:text-[#18181a]"
+                    >
+                      <PlusOutlined className="size-[12px]" />
+                      添加快捷提问
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="employee-profile-publish">

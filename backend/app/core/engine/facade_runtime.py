@@ -16,6 +16,7 @@ from app.agents.branching import (
     visible_skill,
 )
 from app.agents.free_model import resolve_turn_default_model
+from app.agents.greeting import maybe_seed_greeting_message
 from app.agents.usage import bump_agent_usage
 from app.chat_pubsub import publish_relay_wake
 from app.core.converse.identity import AgentIdentityPrompt
@@ -128,6 +129,9 @@ class _TurnRuntimeMixin:
             self.db.add(chat_session)
             self.db.flush()
             self._bump_agent_usage(request.agent_id)
+            # 新会话落一条员工开场白（未配置则什么都不发生）。与会话创建同一个
+            # 事务，调用方随后的 commit 一起提交。
+            maybe_seed_greeting_message(self.db, chat_session)
         elif not chat_session.agent_id and request.agent_id:
             chat_session.agent_id = request.agent_id
         return chat_session

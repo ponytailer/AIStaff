@@ -558,3 +558,59 @@ describe('MessageBubble suggested actions', () => {
     expect(screen.queryByRole('button', { name: '转人工' })).toBeNull();
   });
 });
+
+describe('MessageBubble greeting message', () => {
+  afterEach(cleanup);
+
+  function renderGreeting(metadata: ChatMessage['metadata']) {
+    const content = '你好，王小名。\n我可以帮你查制度、整理会议纪要。';
+    const item: ChatMessage = {
+      id: 'msg_greeting',
+      role: 'assistant',
+      content,
+      created_at: '2026-11-18T01:00:00Z',
+      metadata,
+    };
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-greeting',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: content,
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [],
+      harnessArtifacts: [],
+      statusOnly: false,
+    };
+    const chat = {
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+      activeConversationId: 'session-1',
+    } as unknown as UseChatSession;
+    const { container } = render(<MessageBubble chat={chat} item={item} render={messageRender} />);
+    return container;
+  }
+
+  it('renders the greeting body without like/dislike buttons', () => {
+    // 开场白是员工主动说的问候，不是对提问的回答；给它挂点评等于在问
+    // 「这句寒暄答得好不好」，只会污染反馈数据。
+    const container = renderGreeting({ greeting: true });
+    expect(screen.getByText(/你好，王小名。/)).toBeTruthy();
+    expect(container.querySelector('button[aria-label="点赞"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="点踩"]')).toBeNull();
+  });
+
+  it('still rates a normal assistant reply', () => {
+    // 对照组：同样结构但不带 greeting 标记的消息，点评按钮必须还在。
+    const container = renderGreeting(undefined);
+    expect(container.querySelector('button[aria-label="点赞"]')).toBeTruthy();
+  });
+});

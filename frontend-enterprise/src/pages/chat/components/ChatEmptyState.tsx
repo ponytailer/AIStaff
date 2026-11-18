@@ -1,10 +1,13 @@
 import EmployeeAvatar from '@/components/EmployeeAvatar';
-import { employeeDisplayName } from '@/employee';
+import { employeeDisplayName, greetingPreviewText } from '@/employee';
 
 import {
   CHAT_EMPTY_CARD_CLASS,
   CHAT_EMPTY_CLASS,
+  CHAT_EMPTY_GREETING_AUTHOR_CLASS,
+  CHAT_EMPTY_GREETING_BODY_CLASS,
   CHAT_EMPTY_GREETING_CARD_CLASS,
+  CHAT_EMPTY_GREETING_LINE_CLASS,
   CHAT_EMPTY_ROLE_CLASS,
   CHAT_EMPTY_STAT_CELL_CLASS,
   CHAT_EMPTY_SUBTITLE_CLASS,
@@ -12,6 +15,7 @@ import {
   CHAT_EMPTY_TITLE_CLASS,
 } from '../chatPageStyles';
 import type { UseChatSession } from '../useChatSession';
+import ChatPromptSuggestions from './ChatPromptSuggestions';
 
 function greetingFontSize(displayName: string): number {
   const length = Array.from(displayName).length;
@@ -164,8 +168,29 @@ function DispatcherEmptyCard({ chat }: { chat: UseChatSession }) {
 }
 
 function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
-  const { displayedAgent, displayedProfile, emptyRoleSummary, emptyProfileTags, emptyStats } = chat;
+  const {
+    displayedAgent,
+    displayedProfile,
+    emptyRoleSummary,
+    emptyProfileTags,
+    emptyStats,
+    currentSessionRunning,
+    shareMode,
+    sendQuickText,
+    authUser,
+  } = chat;
   const displayName = displayedAgent ? employeeDisplayName(displayedAgent) : '';
+  // 只从 profile 取：配置端的规整（去空/限长/最多 3 条）都在
+  // `employeeProfile()` 与 `normalizeSuggestedPrompts()` 里做过一次，
+  // 这里再过滤会让「配了 3 条只显示 2 条」这类问题无从排查。
+  const suggestedPrompts = displayedProfile?.suggestedPrompts || [];
+  // 员工配了开场白就在空态里先显示出来。文案由 `greetingPreviewText` 拼，
+  // 与后端落库的正文同格式；首轮发出去之后这条预览随空态一起消失，
+  // 由消息列表里的真实消息接管（不会出现两条）。
+  const greetingPreview = greetingPreviewText(
+    displayedProfile?.greetingMessage || '',
+    authUser?.display_name || authUser?.username,
+  );
 
   return (
     <div className={CHAT_EMPTY_CLASS}>
@@ -216,6 +241,40 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
           ))}
         </div>
       </div>
+
+      {/*
+        开场白：员工在档案里配了 greeting_message 才会出现。
+        这里渲染的是**草稿态预览**——会话还没建，没有 message 行可读；等首轮
+        发出去、后端把真实开场白落库，这条随空态一起消失，由消息列表接管。
+      */}
+      {greetingPreview && (
+        <div className={CHAT_EMPTY_GREETING_LINE_CLASS}>
+          <div className={CHAT_EMPTY_GREETING_AUTHOR_CLASS}>
+            <EmployeeAvatar
+              profile={displayedProfile ?? undefined}
+              agent={displayedAgent ?? undefined}
+              size={16}
+              radius={8}
+              className="shrink-0"
+            />
+            <span className="truncate">{displayName}</span>
+          </div>
+          <p className={CHAT_EMPTY_GREETING_BODY_CLASS}>{greetingPreview}</p>
+        </div>
+      )}
+
+      {/*
+        快捷提问：员工在「编辑数字员工档案 → 快捷提问」里配的 1-3 句话。
+        点在统计卡下方的空白带上——这是空态里唯一一块「提示用户能做什么」
+        的位置，上方两张灰卡讲的是「我是谁 / 我有什么」，这里紧接着给动作。
+        没配就整块不渲染（组件内部返回 null），不留空档。
+      */}
+      <ChatPromptSuggestions
+        prompts={suggestedPrompts}
+        // 正在跑的一轮里再发会被推进队列，点了没反馈等于失灵；分享页只读。
+        disabled={Boolean(shareMode) || Boolean(currentSessionRunning)}
+        onSelect={(prompt) => sendQuickText(prompt)}
+      />
     </div>
   );
 }

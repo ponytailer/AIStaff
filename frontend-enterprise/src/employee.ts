@@ -33,6 +33,19 @@ export type EmployeeProfile = {
   workStyles: string[];
   expertiseTags: string[];
   workModes: string[];
+  /**
+   * 聊天空态展示的快捷提问（1-3 条）。存在 agent metadata 的
+   * `suggested_prompts`，用户在员工档案里配，聊天里点一下直接发。
+   *
+   * 只在 `employeeProfile()` 里做一次规整（去空、限长、截断到 3 条）：空态和
+   * 编辑器读同一份数据，任一处各自过滤迟早两边条数对不上。
+   */
+  suggestedPrompts: string[];
+  /**
+   * 新建会话时主动发送的开场白正文（不含「你好，XX。」抬头，抬头由展示侧拼）。
+   * 存在 metadata 的 `greeting_message`；没配就是空串，此时不发问候。
+   */
+  greetingMessage: string;
 };
 
 export type EmployeeAvatarPreset = {
@@ -329,6 +342,60 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
 }
 
+/** 快捷提问的条数上限。配置里多写的也会被截断，后端不再单独校验。 */
+export const SUGGESTED_PROMPT_LIMIT = 3;
+/** 单条快捷提问的长度上限：卡片最多显示两行，再长也读不完。 */
+export const SUGGESTED_PROMPT_MAX_LENGTH = 60;
+
+/**
+ * 规整 metadata 里的 `suggested_prompts`：去空白、去掉超长、最多留 3 条。
+ *
+ * 为什么在读取侧兜底而不是只在校验侧：这个字段可能由 API、导入、旧数据三路
+ * 进来，任一路写了 5 条或写了空串，空态就会渲染出一排空卡或溢出布局。
+ */
+export function normalizeSuggestedPrompts(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const text = item.trim().slice(0, SUGGESTED_PROMPT_MAX_LENGTH);
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    result.push(text);
+    if (result.length >= SUGGESTED_PROMPT_LIMIT) break;
+  }
+  return result;
+}
+
+/** 开场白正文长度上限，与后端 `app/agents/greeting.py::GREETING_MAX_LENGTH` 对齐。 */
+export const GREETING_MESSAGE_MAX_LENGTH = 500;
+
+/**
+ * 规整 metadata 里的 `greeting_message`：去首尾空白、超长截断、非字符串视为未配。
+ *
+ * 只有**真正配了内容**才算配置过：输入框里留几个空格不能算，否则新人一进会话
+ * 就收到一条「你好，王小名。」后面什么都没有的问候。
+ */
+export function normalizeGreetingMessage(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, GREETING_MESSAGE_MAX_LENGTH);
+}
+
+/**
+ * 把开场白拼成最终展示文案：「你好，{显示名}。」换行接正文。
+ *
+ * 与后端 `greeting_text_for_user()` 保持完全一致的格式 —— 这个函数只用于
+ * 会话创建前的本地预览，一旦服务端落库的真实消息到了就以它为准。两边不一致
+ * 的话，用户会看到文案发送前后"跳"一下。
+ */
+export function greetingPreviewText(greeting: string, displayName?: string | null): string {
+  const body = normalizeGreetingMessage(greeting);
+  if (!body) return '';
+  const name = (displayName || '').trim();
+  return name ? `你好，${name}。\n${body}` : `你好。\n${body}`;
+}
+
 function stringFromMeta(metadata: Record<string, unknown>, key: string): string {
   const value = metadata[key];
   return typeof value === 'string' ? value : '';
@@ -394,6 +461,8 @@ export function employeeProfile(agent?: AgentProfileRead | null): EmployeeProfil
     workStyles: asStringArray(metadata.work_styles),
     expertiseTags: asStringArray(metadata.expertise_tags),
     workModes: asStringArray(metadata.work_modes),
+    suggestedPrompts: normalizeSuggestedPrompts(metadata.suggested_prompts),
+    greetingMessage: normalizeGreetingMessage(metadata.greeting_message),
   };
 }
 

@@ -4081,6 +4081,11 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     auth,
     SHOW_DEBUG,
     lastTurn,
+    /**
+     * 分享页是只读的（`send` 里直接拦下发）。空态的快捷提问卡需要它来置灰：
+     * 渲染成可点、点下去什么都不发生，比不显示更糟。
+     */
+    shareMode,
     // 「知识来源」引用卡片：分享访客不展示（来源指向站内知识库，对外不可见），
     // 超级管理员在租户配置里关掉 show_knowledge_citations 后全租户也不展示。
     hideKnowledgeCitations: knowledgeCitationsHidden({

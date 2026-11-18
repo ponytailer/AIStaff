@@ -22,6 +22,7 @@ from sqlmodel import Session, select
 from starlette.background import BackgroundTask
 
 from app.agents.branching import visible_published_skills
+from app.agents.greeting import maybe_seed_greeting_message
 from app.agents.usage import bump_agent_usage
 from app.agents.free_model import (
     FREE_MODEL_DAILY_LIMIT,
@@ -2271,6 +2272,10 @@ def create_chat_session(
         title=title,
     )
     db.add(row)
+    db.flush()
+    # 显式建的空会话同样按配置发开场白：这条路径是「先建会话、再发第一句」的
+    # 客户端走的，不在这里落，空态里就永远看不到问候。
+    maybe_seed_greeting_message(db, row)
     db.commit()
     db.refresh(row)
     return session_read(row)
@@ -5050,6 +5055,9 @@ def _resolve_dispatch_session(db: Session, request: ChatTurnRequest) -> ChatSess
             # 与 _get_or_create_session 对齐：新建会话给员工 usage_count +1。
             # 调度入口没走 harness，不在这里补就永远不会有使用量。
             bump_agent_usage(db, agent.id)
+            # 开场白同理：调度入口的空会话也要能主动打招呼（员工小队本身也配了
+            # 自己的档案，开场白就是「先说明我能帮你分给谁」）。
+            maybe_seed_greeting_message(db, session)
             db.commit()
     db.refresh(session)
     if session.agent_id and session.agent_id != agent.id:

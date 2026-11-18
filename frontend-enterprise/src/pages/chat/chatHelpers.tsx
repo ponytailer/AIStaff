@@ -1987,6 +1987,9 @@ export function canRateMessage(item: ChatMessage): boolean {
     item.role === 'assistant'
     && !item.isStreaming
     && !item.isError
+    // 开场白是员工自己主动说的一句问候，不是对提问的回答；给它挂点赞/点踩
+    // 等于在问「这句寒暄答得好不好」，既没有语义也会污染反馈数据。
+    && item.metadata?.greeting !== true
     && !item.id.startsWith('__')
     && !item.id.startsWith('text_')
     && !item.id.startsWith('error_')
