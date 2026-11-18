@@ -35,6 +35,7 @@ from app.core.base.cancellation import cancel_chat_turn, is_chat_turn_cancelled
 from app.core.capability.manifest import CapabilityManifestBuilder
 from app.core.engine.session import harness_task_workspace_path
 from app.core.engine.session import HarnessTurnStore
+from app.core.engine.handoff_brief import HandoffBrief, build_handoff_briefs
 from app.core.plan.slash import SlashCommandRead, slash_command_catalog
 from app.db import engine, get_session
 from app.dispatch.service import is_dispatcher as _is_dispatcher_agent
@@ -184,6 +185,10 @@ class HumanHandoffRead(BaseModel):
     created_at: str
     updated_at: str
     answered_at: str | None = None
+    # 结构化上下文包：待回答卡片五段式的数据源。实时计算，不落库。
+    # 单独返回而不改 context_summary / pending_question 的语义，是因为
+    # 后两者仍被 FAQ 采纳等已有链路消费，改语义会连带影响它们。
+    brief: HandoffBrief | None = None
 
 
 class ChatTurnCancelRequest(BaseModel):
@@ -235,6 +240,7 @@ def human_handoff_read(
     row: HumanHandoffRequest,
     *,
     requester_display_name: str | None = None,
+    brief: HandoffBrief | None = None,
 ) -> HumanHandoffRead:
     return HumanHandoffRead(
         id=row.id,
@@ -254,6 +260,7 @@ def human_handoff_read(
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
         answered_at=row.answered_at.isoformat() if row.answered_at else None,
+        brief=brief,
     )
 
 
@@ -2606,7 +2613,16 @@ def list_human_handoffs(
     def _requester_name(row: HumanHandoffRequest) -> str | None:
         user = users.get(row.requester_user_id or session_owner_ids.get(row.session_id))
         return (user.display_name or user.username) if user else None
-    return [human_handoff_read(row, requester_display_name=_requester_name(row)) for row in rows]
+    # brief 一次批量算完：内部走 session_id.in_() 取消息，不会变成 N+1。
+    briefs = build_handoff_briefs(db, rows, tenant_id=tenant_id)
+    return [
+        human_handoff_read(
+            row,
+            requester_display_name=_requester_name(row),
+            brief=briefs.get(row.id),
+        )
+        for row in rows
+    ]
 
 
 @router.post("/handoffs/{handoff_id}/reply", response_model=HumanHandoffRead)
@@ -2647,6 +2663,7 @@ def reply_human_handoff(
     return human_handoff_read(
         row,
         requester_display_name=(requester_user.display_name or requester_user.username) if requester_user else None,
+        brief=build_handoff_briefs(db, [row], tenant_id=row.tenant_id).get(row.id),
     )
 
 
@@ -2713,6 +2730,7 @@ def dismiss_human_handoff(
         requester_display_name=(
             requester_user.display_name or requester_user.username
         ) if requester_user else None,
+        brief=build_handoff_briefs(db, [row], tenant_id=row.tenant_id).get(row.id),
     )
 
 

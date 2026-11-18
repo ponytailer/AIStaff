@@ -1347,3 +1347,162 @@ def test_handoff_resume_worker_projects_attachment_only_reply(monkeypatch):
         assert row.metadata_json["human_reply"] is True
         assert row.metadata_json["handoff_id"] == "handoff_attach_worker"
         assert row.metadata_json["attachments"][0]["filename"] == "账单截图.png"
+
+
+def test_handoff_list_includes_brief_and_keeps_legacy_fields():
+    """brief 是新增字段：老的 context_summary / pending_question 必须原样保留。
+
+    这两段文本仍被 FAQ 采纳等链路消费，改它们的语义会连带影响那些功能；
+    新信息一律走 brief。
+    """
+    engine = _test_engine()
+    with Session(engine) as db:
+        admin, user, _other = _seed_handoff_users(db)
+        db.add(
+            ChatSession(
+                id="session_brief",
+                tenant_id="tenant_demo",
+                user_id=user.id,
+                agent_id="agent_demo",
+                title="电脑outlook登陆总是显示用户名可能不正确",
+                status="handoff",
+            )
+        )
+        db.add_all(
+            [
+                Message(
+                    id="msg_q",
+                    tenant_id="tenant_demo",
+                    session_id="session_brief",
+                    role="user",
+                    content="电脑outlook登陆总是显示用户名可能不正确",
+                ),
+                Message(
+                    id="msg_a",
+                    tenant_id="tenant_demo",
+                    session_id="session_brief",
+                    role="assistant",
+                    content="请按顺序排查",
+                    metadata_json={"knowledge_citations": [{"title": "PDF 文档 / 第 1 页"}]},
+                ),
+                Message(
+                    id="msg_handoff",
+                    tenant_id="tenant_demo",
+                    session_id="session_brief",
+                    role="user",
+                    content="转人工",
+                ),
+                HumanHandoffRequest(
+                    id="handoff_brief",
+                    tenant_id="tenant_demo",
+                    session_id="session_brief",
+                    agent_id="agent_demo",
+                    requester_user_id=user.id,
+                    assignee_user_id=user.id,
+                    status="pending",
+                    context_summary="旧字段：assistant: 连的是 foliday 的 WiFi…",
+                    pending_question="转人工",
+                    metadata_json={
+                        "step": {},
+                        "step_reply": "已为您转接人工支持。\n\n- 已确认问题类型：Outlook 客户端登录失败。",
+                    },
+                    updated_at=utc_now(),
+                ),
+            ]
+        )
+        db.commit()
+
+        rows = chat_api.list_human_handoffs(
+            "tenant_demo", "pending", current_user=admin, db=db
+        )
+
+    assert len(rows) == 1
+    row = rows[0]
+    # 老字段不动
+    assert row.context_summary == "旧字段：assistant: 连的是 foliday 的 WiFi…"
+    assert row.pending_question == "转人工"
+    # 新字段带上
+    assert row.brief is not None
+    assert row.brief.topic == "电脑outlook登陆总是显示用户名可能不正确"
+    assert row.brief.reason == "user_requested"
+    assert [item.text for item in row.brief.findings] == ["已确认问题类型：Outlook 客户端登录失败。"]
+    assert [c.title for c in row.brief.citations] == ["PDF 文档 / 第 1 页"]
+    assert len(row.brief.transcript) == 3
+
+
+def test_handoff_list_brief_tolerates_missing_session():
+    """孤儿 handoff（会话已删）在列表里必须仍能返回，brief 走兜底。"""
+    engine = _test_engine()
+    with Session(engine) as db:
+        admin, user, _other = _seed_handoff_users(db)
+        db.add(
+            HumanHandoffRequest(
+                id="handoff_orphan",
+                tenant_id="tenant_demo",
+                session_id="session_missing",
+                agent_id="agent_demo",
+                requester_user_id=user.id,
+                assignee_user_id=user.id,
+                status="pending",
+                pending_question="转人工",
+                metadata_json={"step": {}, "step_reply": ""},
+                updated_at=utc_now(),
+            )
+        )
+        db.commit()
+
+        rows = chat_api.list_human_handoffs(
+            "tenant_demo", "pending", current_user=admin, db=db
+        )
+
+    assert [row.id for row in rows] == ["handoff_orphan"]
+    assert rows[0].brief is not None
+    assert rows[0].brief.topic == "该会话已无原始记录"
+    assert rows[0].brief.transcript == []
+
+
+def test_reply_human_handoff_response_carries_brief(monkeypatch):
+    engine = _test_engine()
+    with Session(engine) as db:
+        _admin, user, _other = _seed_handoff_users(db)
+        db.add(
+            ChatSession(
+                id="session_reply_brief",
+                tenant_id="tenant_demo",
+                user_id=user.id,
+                agent_id="agent_demo",
+                title="报销流程怎么走",
+                status="handoff",
+            )
+        )
+        db.add(
+            HumanHandoffRequest(
+                id="handoff_reply_brief",
+                tenant_id="tenant_demo",
+                session_id="session_reply_brief",
+                agent_id="agent_demo",
+                requester_user_id=user.id,
+                assignee_user_id="admin_user",
+                status="pending",
+                pending_question="报销流程怎么走",
+            )
+        )
+        db.commit()
+
+        monkeypatch.setattr(chat_api, "_resume_human_handoff_async", lambda _id: None)
+        result = chat_api.reply_human_handoff(
+            "handoff_reply_brief",
+            chat_api.HumanHandoffReplyRequest(tenant_id="tenant_demo", reply="走 OA 报销模块"),
+            current_user=User(
+                id="admin_user",
+                tenant_id="tenant_demo",
+                username="admin",
+                role="admin",
+                password_hash="x",
+            ),
+            db=db,
+        )
+
+    assert result.status == "answered"
+    assert result.brief is not None
+    assert result.brief.topic == "报销流程怎么走"

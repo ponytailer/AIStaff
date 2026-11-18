@@ -857,6 +857,37 @@ export type ChatSessionEventRead = {
   data: Record<string, unknown>;
 };
 
+/** 「待回答」卡片的五段式数据源，后端实时计算，不落库。 */
+export type HandoffBriefFinding = { text: string };
+
+export type HandoffBriefSlot = { key: string; label: string; value: string };
+
+export type HandoffBriefCitation = { title: string; count: number };
+
+export type HandoffBriefTurn = {
+  role: 'user' | 'assistant' | 'human_reply' | string;
+  text: string;
+  created_at: string;
+  citations: string[];
+};
+
+export type HandoffBrief = {
+  topic?: string | null;
+  /** user_requested / sop_step / bot_escalated */
+  reason: 'user_requested' | 'sop_step' | 'bot_escalated' | string;
+  ask?: string | null;
+  ask_source?: string;
+  findings: HandoffBriefFinding[];
+  slots: HandoffBriefSlot[];
+  transcript: HandoffBriefTurn[];
+  citations: HandoffBriefCitation[];
+  waiting_seconds: number;
+  rounds: number;
+  attempt_index: number;
+  total_messages: number;
+  transcript_truncated: boolean;
+};
+
 export type HumanHandoffRead = {
   id: string;
   tenant_id: string;
@@ -876,6 +907,8 @@ export type HumanHandoffRead = {
   created_at: string;
   updated_at: string;
   answered_at?: string | null;
+  /** 老数据没有这个字段，前端必须按可选处理。 */
+  brief?: HandoffBrief | null;
 };
 
 export type ScheduledTaskDraftRead = {

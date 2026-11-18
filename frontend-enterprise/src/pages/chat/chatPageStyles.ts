@@ -520,10 +520,6 @@ export const CHAT_DRAFT_FOOTER_CLASS = 'flex justify-end gap-[8px]';
 // ---------------------------------------------------------------------------
 export const CHAT_HANDOFF_LIST_CLASS = 'grid max-h-[60vh] gap-[14px] overflow-y-auto';
 export const CHAT_HANDOFF_CARD_CLASS = 'grid gap-[12px] rounded-[14px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] p-[16px]';
-export const CHAT_HANDOFF_HEAD_CLASS =
-  'flex items-center gap-[10px] [&_strong]:block [&_strong]:text-[14px] [&_strong]:font-semibold [&_strong]:text-[#18181a] [&_span]:text-[12px] [&_span]:text-[#6d6d72]';
-export const CHAT_HANDOFF_BLOCK_CLASS =
-  'grid gap-[4px] [&>span]:text-[12px] [&>span]:font-medium [&>span]:text-[#6d6d72] [&>p]:text-[13px] [&>p]:leading-[1.6] [&>p]:text-[rgba(24,24,26,0.8)]';
 export const CHAT_HANDOFF_ACTIONS_CLASS = 'flex justify-end gap-[8px]';
 /** 待回答卡片里的附件托盘：不像输入框那样是浮层，静态一行、自动换行。 */
 export const CHAT_HANDOFF_ATTACHMENTS_CLASS = 'flex flex-wrap items-center gap-[8px]';
@@ -531,6 +527,95 @@ export const CHAT_HANDOFF_ATTACHMENTS_CLASS = 'flex flex-wrap items-center gap-[
 export const CHAT_HANDOFF_ATTACHMENT_TILE_CLASS =
   'relative grid size-[48px] shrink-0 place-items-center overflow-hidden rounded-[10px] border border-[rgba(24,24,26,0.10)] bg-[#f2f1ee] text-[#6d6d72]';
 export const CHAT_HANDOFF_EMPTY_CLASS = 'py-[36px] text-center text-[13px] text-[#6d6d72]';
+
+// --- 五段式卡片（brief）---------------------------------------------------
+// 头部：身份 + reason 徽标 + 等待时长 + 折叠箭头
+export const CHAT_HANDOFF_TOP_CLASS = 'flex items-start gap-[11px]';
+export const CHAT_HANDOFF_WHO_CLASS = 'min-w-0 flex-1';
+export const CHAT_HANDOFF_NAME_CLASS =
+  'flex flex-wrap items-center gap-[7px] text-[13.5px] font-semibold text-[#18181a]';
+export const CHAT_HANDOFF_DEPT_CLASS = 'text-[11.5px] font-normal text-[#6d6d72]';
+export const CHAT_HANDOFF_META_CLASS =
+  'mt-[3px] flex flex-wrap items-center gap-[6px] text-[11.5px] text-[#6d6d72]';
+export const CHAT_HANDOFF_META_DOT_CLASS = 'size-[2px] rounded-full bg-[#6d6d72]';
+export const CHAT_HANDOFF_RIGHT_CLASS = 'grid shrink-0 justify-items-end gap-[6px]';
+export const CHAT_HANDOFF_BADGES_CLASS = 'flex flex-wrap justify-end gap-[5px]';
+const BADGE_BASE =
+  'h-[20px] rounded-[5px] border px-[8px] text-[11px] font-medium leading-[20px] whitespace-nowrap';
+/** 琥珀 = 给你的人工待办 */
+export const CHAT_HANDOFF_BADGE_AMBER_CLASS =
+  `${BADGE_BASE} border-[rgba(180,83,9,0.2)] bg-[rgba(180,83,9,0.055)] text-[#b45309]`;
+/** 青绿 = AI / SOP 产出 */
+export const CHAT_HANDOFF_BADGE_TEAL_CLASS =
+  `${BADGE_BASE} border-[rgba(15,118,110,0.2)] bg-[rgba(15,118,110,0.07)] text-[#0f766e]`;
+/** 砖红 = 风险信号（重复转人工 / 等待超时） */
+export const CHAT_HANDOFF_BADGE_DANGER_CLASS =
+  `${BADGE_BASE} border-[rgba(163,45,45,0.2)] bg-[rgba(163,45,45,0.07)] text-[#a32d2d]`;
+export const CHAT_HANDOFF_WAIT_CLASS = 'font-mono text-[11.5px] text-[#6d6d72]';
+export const CHAT_HANDOFF_WAIT_URGENT_CLASS = 'font-mono text-[11.5px] text-[#a32d2d]';
+export const CHAT_HANDOFF_FOLD_CLASS =
+  'grid size-[22px] shrink-0 place-items-center self-center rounded-[6px] text-[11px] text-[#6d6d72] transition-colors hover:bg-[rgba(24,24,26,0.04)] hover:text-[rgba(24,24,26,0.8)]';
+
+/** 「需要你处理」：琥珀底，和卡片里其他区块明确区分 */
+export const CHAT_HANDOFF_ASK_CLASS =
+  'mt-[12px] grid grid-cols-[auto_1fr] items-baseline gap-[11px] rounded-[10px] border border-[rgba(180,83,9,0.2)] bg-[rgba(180,83,9,0.055)] px-[13px] py-[11px]';
+export const CHAT_HANDOFF_ASK_LABEL_CLASS =
+  'whitespace-nowrap border-r border-[rgba(180,83,9,0.2)] pr-[10px] text-[11px] font-semibold tracking-[0.05em] text-[#b45309]';
+export const CHAT_HANDOFF_ASK_TEXT_CLASS = 'text-[13.5px] leading-[1.6] text-[#18181a]';
+
+export const CHAT_HANDOFF_BODY_CLASS = 'grid gap-[16px] mt-[15px]';
+/** 每个内容区块是白底卡，与卡片本身的 #f2f1ee 形成层次 */
+export const CHAT_HANDOFF_SECTION_CLASS =
+  'rounded-[12px] border border-[rgba(24,24,26,0.08)] bg-white px-[14px] py-[13px]';
+export const CHAT_HANDOFF_SECTION_HEAD_CLASS = 'mb-[9px] flex items-center gap-[9px]';
+export const CHAT_HANDOFF_SECTION_NO_CLASS = 'font-mono text-[10.5px] tracking-[0.04em] text-[#6d6d72]';
+export const CHAT_HANDOFF_SECTION_TITLE_CLASS =
+  'whitespace-nowrap text-[11px] font-semibold tracking-[0.06em] text-[#6d6d72]';
+export const CHAT_HANDOFF_SECTION_LINE_CLASS = 'h-px flex-1 bg-[rgba(24,24,26,0.08)]';
+
+export const CHAT_HANDOFF_TOPIC_CLASS =
+  'text-[14px] font-semibold leading-[1.5] tracking-[0.005em] text-[#18181a]';
+export const CHAT_HANDOFF_TAGS_CLASS = 'mt-[7px] flex flex-wrap items-center gap-[6px]';
+export const CHAT_HANDOFF_TAG_LABEL_CLASS = 'text-[11.5px] text-[#6d6d72]';
+export const CHAT_HANDOFF_TAG_CLASS =
+  'inline-flex h-[22px] items-center gap-[5px] rounded-[5px] bg-[rgba(24,24,26,0.04)] px-[8px] text-[11.5px] text-[rgba(24,24,26,0.6)]';
+
+export const CHAT_HANDOFF_FINDINGS_CLASS = 'grid list-none gap-[8px]';
+export const CHAT_HANDOFF_FINDING_CLASS =
+  'grid grid-cols-[13px_1fr] gap-[9px] text-[13px] leading-[1.62] text-[rgba(24,24,26,0.8)]';
+export const CHAT_HANDOFF_FINDING_CHECK_CLASS = 'pt-[2px] text-[11px] font-bold text-[#0f766e]';
+export const CHAT_HANDOFF_FINDING_EMPTY_CLASS =
+  'flex items-start gap-[9px] rounded-[9px] border border-dashed border-[rgba(180,83,9,0.32)] bg-[rgba(180,83,9,0.055)] px-[12px] py-[11px] text-[12.5px] leading-[1.6] text-[#6d6d72]';
+export const CHAT_HANDOFF_FINDING_EMPTY_ICON_CLASS = 'pt-[2px] text-[12px] text-[#b45309]';
+export const CHAT_HANDOFF_MORE_CLASS = 'mt-[9px] py-[2px] text-[11.5px] text-[#0f766e] hover:underline';
+
+/** SOP 已收集信息：两列 key-value 网格，用 1px 缝隙画出分隔线 */
+export const CHAT_HANDOFF_SLOTS_CLASS =
+  'grid grid-cols-2 gap-px overflow-hidden rounded-[9px] border border-[rgba(24,24,26,0.08)] bg-[rgba(24,24,26,0.08)] max-[520px]:grid-cols-1';
+export const CHAT_HANDOFF_SLOT_CLASS =
+  'flex items-baseline justify-between gap-[10px] bg-white px-[11px] py-[8px]';
+export const CHAT_HANDOFF_SLOT_KEY_CLASS = 'whitespace-nowrap text-[11.5px] text-[#6d6d72]';
+export const CHAT_HANDOFF_SLOT_VALUE_CLASS =
+  'text-right text-[12.5px] font-medium tabular-nums text-[#18181a] break-all';
+
+/** 对话经过 */
+export const CHAT_HANDOFF_TURN_CLASS =
+  'grid grid-cols-[46px_1fr] gap-[11px] border-b border-[rgba(24,24,26,0.08)] py-[8px] last:border-b-0 last:pb-0 first:pt-0';
+export const CHAT_HANDOFF_TURN_ROLE_CLASS =
+  'whitespace-nowrap pt-[3px] text-right text-[10.5px] tracking-[0.05em] text-[#6d6d72]';
+export const CHAT_HANDOFF_TURN_TEXT_CLASS =
+  'line-clamp-3 text-[12.5px] leading-[1.65] text-[#6d6d72]';
+export const CHAT_HANDOFF_TURN_TEXT_USER_CLASS = 'font-medium text-[#18181a]';
+export const CHAT_HANDOFF_TURN_TEXT_HUMAN_CLASS = 'text-[#18181a]';
+export const CHAT_HANDOFF_TURN_FOOT_CLASS =
+  'mt-[10px] flex items-center gap-[10px] border-t border-[rgba(24,24,26,0.08)] pt-[9px]';
+export const CHAT_HANDOFF_TURN_COUNT_CLASS = 'text-[11.5px] text-[#6d6d72]';
+
+/** 引用文档 chip */
+export const CHAT_HANDOFF_CHIPS_CLASS = 'flex flex-wrap gap-[5px]';
+export const CHAT_HANDOFF_CHIP_CLASS =
+  'inline-flex h-[23px] items-center gap-[5px] rounded-[5px] border border-[rgba(24,24,26,0.14)] bg-white px-[8px] text-[11.5px] text-[#6d6d72]';
+export const CHAT_HANDOFF_CHIP_ICON_CLASS = 'text-[10px] text-[#0f766e]';
 
 /**
  * 答案尾部的可点动作（如「转人工」）：胶囊按钮贴正文左侧，和点赞行同一条

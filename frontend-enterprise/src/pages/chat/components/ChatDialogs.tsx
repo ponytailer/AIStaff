@@ -1,5 +1,4 @@
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import EmployeeAvatar from '@/components/EmployeeAvatar';
 import StaffdeckIcon from '@/components/StaffdeckIcon';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,9 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { employeeDisplayNameWithCreator, employeeProfile } from '@/employee';
 import { useRef } from 'react';
 
 import {
@@ -26,11 +23,7 @@ import {
   CHAT_CITATION_DETAIL_NOTE_CLASS,
   CHAT_CITATION_DETAIL_SECTION_CLASS,
   CHAT_CITATION_DETAIL_TITLE_CLASS,
-  CHAT_HANDOFF_ACTIONS_CLASS,
-  CHAT_HANDOFF_BLOCK_CLASS,
-  CHAT_HANDOFF_CARD_CLASS,
   CHAT_HANDOFF_EMPTY_CLASS,
-  CHAT_HANDOFF_HEAD_CLASS,
   CHAT_HANDOFF_LIST_CLASS,
   CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS,
   CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS,
@@ -56,6 +49,7 @@ import {
 } from '../chatHelpers';
 import type { ComposerAttachment } from '../chatTypes';
 import type { UseChatSession } from '../useChatSession';
+import HandoffCard from './HandoffCard';
 import ModelSetupDialog from './ModelSetupDialog';
 
 export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
@@ -115,79 +109,38 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
             </div>
           ) : (
             <div className={CHAT_HANDOFF_LIST_CLASS}>
-              {handoffs.map((handoff) => {
+              {handoffs.map((handoff, index) => {
                 const handoffAgent = handoff.agent_id
                   ? agents.find((item) => item.id === handoff.agent_id) || null
                   : displayedAgent;
-                const profile = handoffAgent ? employeeProfile(handoffAgent) : displayedProfile;
                 return (
-                  <article className={CHAT_HANDOFF_CARD_CLASS} key={handoff.id}>
-                    <div className={CHAT_HANDOFF_HEAD_CLASS}>
-                      {profile ? <EmployeeAvatar profile={profile} size={36} radius={10} /> : null}
-                      <div>
-                        <strong>{handoffAgent ? employeeDisplayNameWithCreator(handoffAgent) : '数字员工'}</strong>
-                        <span>
-                          {handoff.requester_display_name
-                            ? `${handoff.requester_display_name} 发起的对话 · 需要人工接续`
-                            : '需要人工接续'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className={CHAT_HANDOFF_BLOCK_CLASS}>
-                      <span>上下文摘要</span>
-                      <p>{handoff.context_summary || '暂无上下文摘要'}</p>
-                    </div>
-                    <div className={CHAT_HANDOFF_BLOCK_CLASS}>
-                      <span>这一步需要你处理</span>
-                      <p>{handoff.pending_question || '请根据当前会话补充人工回复。'}</p>
-                    </div>
-                    <Textarea
-                      rows={3}
-                      value={handoffReplies[handoff.id] || ''}
-                      placeholder={
-                        handoff.trigger_skill_id || handoff.trigger_step_id
-                          ? '以当前数字员工的口吻回复。提交后，原会话会继续推进 SOP 流程。'
-                          : '以当前数字员工的口吻回复。提交后，用户会直接在会话中看到这条答复。'
-                      }
-                      onChange={(event) => setHandoffReplies((prev) => ({
-                        ...prev,
-                        [handoff.id]: event.target.value,
-                      }))}
-                      // 直接粘贴图片/截图也是常见动作（PDF 报错截图、界面截图），
-                      // 和对话输入框的行为保持一致。
-                      onPaste={(event) => {
-                        const files = Array.from(event.clipboardData?.files || []);
-                        if (!files.length) return;
-                        event.preventDefault();
-                        uploadHandoffFiles(handoff.id, files);
-                      }}
-                    />
-                    <HandoffAttachmentTray
-                      handoffId={handoff.id}
-                      attachments={handoffAttachments[handoff.id] || []}
-                      onPick={(files) => uploadHandoffFiles(handoff.id, files)}
-                      onRemove={(uploadKey) => removeHandoffAttachment(handoff.id, uploadKey)}
-                    />
-                    <div className={CHAT_HANDOFF_ACTIONS_CLASS}>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setShowHandoffInbox(false);
-                          openSession(handoff.session_id);
-                        }}
-                      >
-                        打开原会话
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="text-[#6d6d72] hover:text-[#18181a]"
-                        onClick={() => void dismissHandoff(handoff)}
-                      >
-                        无需回答
-                      </Button>
-                      <Button onClick={() => submitHandoffReply(handoff)}>回复并恢复</Button>
-                    </div>
-                  </article>
+                  <HandoffCard
+                    key={handoff.id}
+                    handoff={handoff}
+                    agent={handoffAgent}
+                    fallbackProfile={displayedProfile}
+                    // 首条展开、其余折叠：一次弹窗里可能十几条，全展开要滚三屏。
+                    defaultOpen={index === 0}
+                    reply={handoffReplies[handoff.id] || ''}
+                    attachments={handoffAttachments[handoff.id] || []}
+                    onReplyChange={(value) => setHandoffReplies((prev) => ({
+                      ...prev,
+                      [handoff.id]: value,
+                    }))}
+                    onPasteFiles={(files) => uploadHandoffFiles(handoff.id, files)}
+                    onPickFiles={(files) => uploadHandoffFiles(handoff.id, files)}
+                    onRemoveAttachment={(uploadKey) => removeHandoffAttachment(handoff.id, uploadKey)}
+                    onOpenSession={() => {
+                      setShowHandoffInbox(false);
+                      openSession(handoff.session_id);
+                    }}
+                    onDismiss={() => void dismissHandoff(handoff)}
+                    onSubmit={() => submitHandoffReply(handoff)}
+                    // 复用本文件里带上传进度/错误态的托盘，避免两套实现走偏。
+                    renderAttachmentTray={(props) => (
+                      <HandoffAttachmentTray handoffId={handoff.id} {...props} />
+                    )}
+                  />
                 );
               })}
             </div>
