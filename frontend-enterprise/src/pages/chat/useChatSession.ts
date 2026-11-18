@@ -693,9 +693,6 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       cancelled = true;
     };
   }, [displayedAgentId, displayedAgentIsDispatcher, tenantId]);
-  const emptyProfileTags = displayedProfile?.workStyles.length
-    ? displayedProfile.workStyles.slice(0, 3)
-    : ['结构化整理', '可追溯', '可追溯'];
   const emptyRoleSummary = displayedProfile
     ? `#角色：${displayedProfile.roleName}「${displayedAgent ? employeeDisplayName(displayedAgent) : '--'}」一名经验丰富的${displayedProfile.roleName}`
     : '--';
@@ -4110,7 +4107,6 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     /** 当前登录用户（消息列给用户发言署名用；分享访客为 null）。 */
     authUser: auth?.user ?? null,
     currentSession,
-    emptyProfileTags,
     emptyRoleSummary,
     emptyStats,
     // 多智能体专用的空状态数据（displayedAgentIsDispatcher 为 false 时不用）

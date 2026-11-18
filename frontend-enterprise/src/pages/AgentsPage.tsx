@@ -325,7 +325,6 @@ export default function AgentsPage({
       employeeDisplayNameWithCreator(item),
       profile.roleName,
       item.description || '',
-      profile.workStyles.join(' '),
     ].some((value) => value.toLowerCase().includes(keyword));
   });
 

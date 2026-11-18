@@ -621,9 +621,7 @@ def test_agent_persona_prompt_includes_employee_identity_and_metadata() -> None:
                 is_overall=False,
                 metadata_json={
                     "role_name": "研发",
-                    "work_styles": ["目标明确", "证据优先"],
-                    "expertise_tags": ["代码检索", "SOP 执行"],
-                    "work_modes": ["理解需求", "推进执行"],
+                    "department": "技术中心",
                     "owner_user_id": "user_demo",
                 },
             )
@@ -636,11 +634,48 @@ def test_agent_persona_prompt_includes_employee_identity_and_metadata() -> None:
         assert "员工名称：研发员工" in prompt
         assert "员工描述：负责研发资料查询、SOP 执行和交付记录沉淀。" in prompt
         assert "岗位：研发" in prompt
-        assert "工作风格：目标明确、证据优先" in prompt
-        assert "擅长领域：代码检索、SOP 执行" in prompt
-        assert "工作方式：理解需求、推进执行" in prompt
+        assert "部门：技术中心" in prompt
         assert "owner_user_id" not in prompt
         assert "user_demo" not in prompt
+
+
+def test_agent_persona_prompt_ignores_retired_soft_tags() -> None:
+    """work_styles / expertise_tags / work_modes 已废弃。
+
+    这三项曾经只作为人设描述拼进 prompt，容易被误读成「勾了就开通能力」，
+    因此整体下线。历史数据的 key 可能还在库里，必须确保它们不再出现在
+    prompt 中——否则等于删了 UI 但行为没变。
+    """
+
+    with _test_session() as db:
+        db.add(Tenant(id="tenant_demo", name="Demo"))
+        db.add(
+            AgentProfile(
+                id="agent_legacy",
+                tenant_id="tenant_demo",
+                name="遗留员工",
+                description="老数据里仍带着三个已废弃的软标签。",
+                is_overall=False,
+                metadata_json={
+                    "role_name": "研发",
+                    "work_styles": ["目标明确", "证据优先"],
+                    "expertise_tags": ["代码检索", "SOP 执行"],
+                    "work_modes": ["理解需求", "推进执行"],
+                },
+            )
+        )
+        db.commit()
+
+        prompt = AgentLoop(db)._get_persona_prompt("tenant_demo", "agent_legacy")
+
+        assert prompt is not None
+        assert "员工名称：遗留员工" in prompt
+        assert "岗位：研发" in prompt
+        assert "工作风格" not in prompt
+        assert "擅长领域" not in prompt
+        assert "工作方式" not in prompt
+        assert "代码检索" not in prompt
+        assert "理解需求" not in prompt
 
 
 def test_agent_persona_prompt_keeps_custom_prompt_with_identity() -> None:

@@ -43,7 +43,6 @@ function buildChat(agent: AgentProfileRead, extra: Record<string, unknown> = {})
     displayedProfile: employeeProfile(agent),
     displayedAgentIsDispatcher: false,
     emptyRoleSummary: 'role summary',
-    emptyProfileTags: ['结构化整理'],
     emptyStats: [
       { label: '资料', value: 1 },
       { label: '技能', value: 2 },

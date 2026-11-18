@@ -41,9 +41,6 @@ type EmployeeProfileFormValues = {
   description: string;
   personaPrompt: string;
   systemPromptSummary: string;
-  workStyles: string[];
-  expertiseTags: string[];
-  workModes: string[];
   /** 聊天空态展示的快捷提问（1-3 条），落到 metadata.suggested_prompts。 */
   suggestedPrompts: string[];
   /** 新建会话时主动发的开场白正文（不含抬头），落到 metadata.greeting_message。 */
@@ -52,10 +49,6 @@ type EmployeeProfileFormValues = {
   status: 'active' | 'archived';
   publishedToGallery: boolean;
 };
-
-const STYLE_OPTIONS = ['目标明确', '证据优先', '动作可追溯', '事实先行', '流程推进', '风险克制', '及时追问'];
-const EXPERTISE_OPTIONS = ['业务问答', 'SOP 执行', '工具调用', '代码检索', '报销核对', '事务跟进', '资料维护'];
-const WORK_MODE_OPTIONS = ['识别意图', '补齐信息', '调用 SOP', '查询资料', '执行并复盘', '确认后执行', '必要时转人工'];
 
 /** 快捷提问的占位符按行给引导，第一行示范「查资料」，后面示范「要产出」。 */
 const SUGGESTED_PROMPT_PLACEHOLDERS = [
@@ -71,9 +64,6 @@ const BLANK_FORM: EmployeeProfileFormValues = {
   description: '',
   personaPrompt: '',
   systemPromptSummary: '',
-  workStyles: [],
-  expertiseTags: [],
-  workModes: [],
   suggestedPrompts: [],
   greetingMessage: '',
   harnessMaxActions: 32,
@@ -110,9 +100,6 @@ export default function EmployeeProfileEditor({
       description: agent.description || '',
       personaPrompt: agent.persona_prompt || '',
       systemPromptSummary: typeof agent.metadata?.system_prompt_summary === 'string' ? agent.metadata.system_prompt_summary : '',
-      workStyles: profile.workStyles,
-      expertiseTags: profile.expertiseTags,
-      workModes: profile.workModes,
       suggestedPrompts: profile.suggestedPrompts,
       greetingMessage: profile.greetingMessage,
       harnessMaxActions: Math.max(1, Math.min(100, agent.harness_max_actions || 32)),
@@ -136,11 +123,16 @@ export default function EmployeeProfileEditor({
         role_name: form.roleName.trim() || '待补充岗位',
         onboarded_at: form.onboardedAt || toClientDateISO(new Date()),
         system_prompt_summary: form.systemPromptSummary.trim(),
-        work_styles: compactTags(form.workStyles),
-        expertise_tags: compactTags(form.expertiseTags),
-        work_modes: compactTags(form.workModes),
         published_to_gallery: form.publishedToGallery,
       };
+      /*
+       * 废弃的软标签（work_styles / expertise_tags / work_modes）在这里显式清掉。
+       * metadata 是整体覆盖，但基线是 `...agent.metadata`——不删的话，旧员工
+       * 存一次反而把这三个 key 原样写回去，等于永远退不掉。
+       */
+      for (const retiredKey of ['work_styles', 'expertise_tags', 'work_modes']) {
+        delete metadata[retiredKey];
+      }
       /*
        * 快捷提问：空着就把 key 删掉，别留一个空数组。
        * metadata 走的是「整体覆盖」，留 [] 会让「没配过」和「配过又清空」
@@ -272,18 +264,6 @@ export default function EmployeeProfileEditor({
                 <p className="m-0 mt-[6px] text-[11px] leading-[1.5] text-muted-foreground">
                   限制该员工在一轮对话中可自主执行的模型动作与能力调用总数，范围 1–100；达到上限后未完成任务会进入后续轮次。
                 </p>
-              </div>
-
-              <div className="employee-profile-form-grid is-tags">
-                <LabeledField label="掌握方向">
-                  <TagsField value={form.expertiseTags} options={EXPERTISE_OPTIONS} placeholder="输入后回车添加" onChange={(next) => update({ expertiseTags: next })} />
-                </LabeledField>
-                <LabeledField label="工作风格">
-                  <TagsField value={form.workStyles} options={STYLE_OPTIONS} placeholder="输入后回车添加" onChange={(next) => update({ workStyles: next })} />
-                </LabeledField>
-                <LabeledField label="工作模式">
-                  <TagsField value={form.workModes} options={WORK_MODE_OPTIONS} placeholder="输入后回车添加" onChange={(next) => update({ workModes: next })} />
-                </LabeledField>
               </div>
 
               {/*
@@ -424,85 +404,4 @@ function LabeledField({ label, children }: { label: string; children: React.Reac
       {children}
     </label>
   );
-}
-
-function TagsField({
-  value,
-  options,
-  placeholder,
-  onChange,
-}: {
-  value: string[];
-  options: string[];
-  placeholder?: string;
-  onChange: (next: string[]) => void;
-}) {
-  const [draft, setDraft] = useState('');
-  const addTags = (raw: string) => {
-    const parts = raw.split(/[,，]/).map((item) => item.trim()).filter(Boolean);
-    if (parts.length) onChange(Array.from(new Set([...value, ...parts])));
-    setDraft('');
-  };
-  const removeTag = (tag: string) => onChange(value.filter((item) => item !== tag));
-  const suggestions = options.filter((item) => !value.includes(item));
-
-  return (
-    <div className="flex flex-col gap-[8px]">
-      <div className="flex min-h-[34px] flex-wrap items-center gap-[6px] rounded-[10px] border-[0.5px] border-[#e6e4df] bg-white px-[8px] py-[5px] transition-colors focus-within:border-[#18181a]">
-        {value.map((tag) => (
-          <span
-            key={tag}
-            className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#f2f1ee] px-[8px] py-[2px] text-[12px] text-[#18181a]"
-          >
-            {tag}
-            <button
-              type="button"
-              aria-label={`移除 ${tag}`}
-              onClick={() => removeTag(tag)}
-              className="grid place-items-center text-[#6d6d72] hover:text-[#18181a]"
-            >
-              <XIcon className="size-[12px]" />
-            </button>
-          </span>
-        ))}
-        <input
-          autoComplete="off"
-          data-1p-ignore="true"
-          data-lpignore="true"
-          data-bwignore="true"
-          value={draft}
-          placeholder={value.length ? '' : placeholder}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ',' || event.key === '，') {
-              event.preventDefault();
-              addTags(draft);
-            } else if (event.key === 'Backspace' && !draft && value.length) {
-              removeTag(value[value.length - 1]);
-            }
-          }}
-          onBlur={() => draft.trim() && addTags(draft)}
-          className="h-[22px] min-w-[80px] flex-1 bg-transparent text-[12px] text-[#17191f] outline-none placeholder:text-[#d6d1c9]"
-        />
-      </div>
-      {suggestions.length > 0 && (
-        <div className="flex flex-wrap gap-[6px]">
-          {suggestions.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => addTags(item)}
-              className="rounded-[6px] border-[0.5px] border-[#e6e4df] px-[8px] py-[2px] text-[12px] text-[#6d6d72] hover:border-[#18181a] hover:text-[#18181a]"
-            >
-              + {item}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function compactTags(values: string[] | undefined): string[] {
-  return Array.from(new Set((values || []).map((item) => item.trim()).filter(Boolean))).slice(0, 12);
 }

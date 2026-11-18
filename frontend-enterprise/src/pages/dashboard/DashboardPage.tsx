@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Badge, Button as UiButton, Tabs, TabsList, TabsTrigger, notify } from '@/components/ui';
+import { Button as UiButton, Tabs, TabsList, TabsTrigger, notify } from '@/components/ui';
 import { EnterpriseRoute } from '../../enums/routes';
 import IconChat from '../../assets/icons/chat.svg?react';
 import IconEdit from '../../assets/icons/edit.svg?react';
@@ -505,17 +505,6 @@ export default function DashboardPage({
                 </span>
                 <span className="text-[12px] text-[#6d6d72]">创建者：{employeeCreator}</span>
                 <span className="text-[12px] text-[#6d6d72]">入职时间：{employee.onboardedAt}</span>
-                <div className="flex flex-wrap items-center gap-3">
-                  {employee.workStyles.slice(0, 3).map((item) => (
-                    <Badge
-                      key={item}
-                      variant="outline"
-                      className="h-auto rounded-[10px] border-[0.5px] border-[#e6e4df] px-4 py-1 text-[12px] font-normal text-[#6d6d72]"
-                    >
-                      {item}
-                    </Badge>
-                  ))}
-                </div>
               </div>
 
               <p className="m-0 line-clamp-2 max-w-[720px] text-[14px] leading-[22px] text-[#6d6d72]">

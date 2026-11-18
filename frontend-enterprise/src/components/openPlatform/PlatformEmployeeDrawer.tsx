@@ -18,7 +18,6 @@ export type PlatformEmployeeDrawerProps = {
   role: ReactNode;
   description: ReactNode;
   detailText: ReactNode;
-  workStyles: string[];
   stats: PlatformStat[];
   online?: boolean;
   canManage?: boolean;
@@ -77,7 +76,6 @@ export default function PlatformEmployeeDrawer({
   role,
   description,
   detailText,
-  workStyles,
   stats,
   online = true,
   canManage = false,
@@ -194,18 +192,6 @@ export default function PlatformEmployeeDrawer({
           <div className="flex min-h-0 flex-1 flex-col gap-[8px]">
             <span className="text-[12px] capitalize text-[#3d3d3f]">说明</span>
             <div className="flex min-h-0 flex-1 flex-col gap-[10px]">
-              {workStyles.length > 0 && (
-                <div className="flex flex-wrap gap-[10px]">
-                  {workStyles.slice(0, 3).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-[10px] bg-[#f2f1ee] px-[12px] py-[4px] text-[12px] text-[#6d6d72]"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
               <p className="text-[12px] leading-[20px] text-[#6d6d72]">
                 {detailText}
               </p>

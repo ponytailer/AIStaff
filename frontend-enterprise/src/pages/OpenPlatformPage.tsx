@@ -1090,7 +1090,6 @@ export default function OpenPlatformPage({
 
     if (detailItem.kind === 'agents' && item.agent) {
       const agent = item.agent;
-      const profile = employeeProfile(agent);
       const detailText = agent.persona_prompt
         || agent.description
         || config.detail;
@@ -1103,7 +1102,6 @@ export default function OpenPlatformPage({
           role={item.meta}
           description={item.description}
           detailText={detailText}
-          workStyles={profile.workStyles}
           stats={employeeStats(agent)}
           online={agent.status === 'active'}
           canManage={canManagePlatform}

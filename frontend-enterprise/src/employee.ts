@@ -30,9 +30,6 @@ export type EmployeeProfile = {
   avatarPreset: string;
   avatarImage: string;
   onboardedAt: string;
-  workStyles: string[];
-  expertiseTags: string[];
-  workModes: string[];
   /**
    * 聊天空态展示的快捷提问（1-3 条）。存在 agent metadata 的
    * `suggested_prompts`，用户在员工档案里配，聊天里点一下直接发。
@@ -62,9 +59,6 @@ export type EmployeeTemplate = {
   avatarTone: string;
   avatarPreset: string;
   description: string;
-  workStyles: string[];
-  expertiseTags: string[];
-  workModes: string[];
 };
 
 type EmployeeAgentLike = {
@@ -125,9 +119,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'teal',
     avatarPreset: 'service-orbit',
     description: '负责研发资料查询、代码任务拆解、SOP 执行和交付记录沉淀。',
-    workStyles: ['目标明确', '证据优先', '动作可追溯'],
-    expertiseTags: ['研发协作', '代码检索', 'SOP 执行'],
-    workModes: ['理解需求', '检索资料', '推进执行'],
   },
   {
     key: 'after-sales',
@@ -136,9 +127,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'copper',
     avatarPreset: 'after-sales-seal',
     description: '负责会议纪要、资料归档、跨部门事务跟进和结果同步。',
-    workStyles: ['流程推进', '及时追问', '留痕复盘'],
-    expertiseTags: ['资料归档', '会议纪要', '事务跟进'],
-    workModes: ['确认事项', '拆解步骤', '同步结果'],
   },
   {
     key: 'knowledge-operator',
@@ -147,9 +135,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'olive',
     avatarPreset: 'knowledge-node',
     description: '负责知识库检索、资料结构化归档、信息核对和答案沉淀。',
-    workStyles: ['证据优先', '结构清晰', '持续沉淀'],
-    expertiseTags: ['知识检索', '资料归档', '信息结构化'],
-    workModes: ['查资料', '做归档', '给答案'],
   },
   {
     key: 'commerce-guide',
@@ -158,9 +143,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'blue',
     avatarPreset: 'commerce-compass',
     description: '负责报销核对、预算口径、财务资料检索和风险提示。',
-    workStyles: ['证据优先', '口径统一', '风险克制'],
-    expertiseTags: ['报销核对', '预算口径', '数据复盘'],
-    workModes: ['查规则', '核凭证', '给结论'],
   },
   {
     key: 'sales-advisor',
@@ -169,9 +151,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'cobalt',
     avatarPreset: 'sales-handshake',
     description: '围绕客户需求澄清、商机推进和沟通准备提供结构化建议，帮助销售团队形成下一步行动，并在信息不足或需要承诺时明确提示人工确认。',
-    workStyles: ['目标清晰', '审慎承诺'],
-    expertiseTags: ['需求澄清', '商机推进', '客户沟通'],
-    workModes: ['问答', '流程引导'],
   },
   {
     key: 'marketing-planner',
@@ -180,9 +159,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'coral',
     avatarPreset: 'marketing-spark',
     description: '协助梳理市场目标、受众和渠道，形成内容策划简报与发布检查清单，避免虚构数据、未授权素材和未经确认的对外承诺。',
-    workStyles: ['受众导向', '事实审慎'],
-    expertiseTags: ['内容策划', '活动简报', '发布检查'],
-    workModes: ['问答', '内容规划'],
   },
   {
     key: 'procurement-coordinator',
@@ -191,9 +167,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'forest',
     avatarPreset: 'procurement-check',
     description: '帮助员工准备采购需求、供应商比较维度和审批材料，强调需求可比、职责分离与留痕，不替代有权限的采购或审批人员作出承诺。',
-    workStyles: ['合规优先', '信息可追溯'],
-    expertiseTags: ['采购需求', '供应商比较', '审批准备'],
-    workModes: ['问答', '流程引导'],
   },
   {
     key: 'project-manager',
@@ -202,9 +175,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'charcoal',
     avatarPreset: 'project-board',
     description: '协助团队拆解目标、里程碑、责任人和风险，输出可执行的推进清单，遇到跨团队冲突或范围变化时提示升级决策。',
-    workStyles: ['行动导向', '风险透明'],
-    expertiseTags: ['里程碑', '风险跟踪', '协作推进'],
-    workModes: ['问答', '项目梳理'],
   },
   {
     key: 'data-analyst',
@@ -213,9 +183,6 @@ export const EMPLOYEE_TEMPLATES: EmployeeTemplate[] = [
     avatarTone: 'navy',
     avatarPreset: 'data-insight',
     description: '帮助业务人员定义指标口径、分析周期和对比维度，给出可复核的分析框架，明确区分已知事实、计算结果与推测。',
-    workStyles: ['口径严谨', '结论可追溯'],
-    expertiseTags: ['指标口径', '趋势分析', '经营复盘'],
-    workModes: ['问答', '分析框架'],
   },
 ];
 
@@ -338,10 +305,6 @@ export function openGalleryImportSourceOptions(
   return agentId ? [{ value: agentId, label }] : [];
 }
 
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
-}
-
 /** 快捷提问的条数上限。配置里多写的也会被截断，后端不再单独校验。 */
 export const SUGGESTED_PROMPT_LIMIT = 3;
 /** 单条快捷提问的长度上限：卡片最多显示两行，再长也读不完。 */
@@ -458,9 +421,6 @@ export function employeeProfile(agent?: AgentProfileRead | null): EmployeeProfil
     avatarPreset: isOverall ? 'overall' : stringFromMeta(metadata, 'avatar_preset') || preset.key,
     avatarImage: isOverall ? '' : stringFromMeta(metadata, 'avatar_image'),
     onboardedAt: stringFromMeta(metadata, 'onboarded_at') || formatClientDateISO(agent?.created_at),
-    workStyles: asStringArray(metadata.work_styles),
-    expertiseTags: asStringArray(metadata.expertise_tags),
-    workModes: asStringArray(metadata.work_modes),
     suggestedPrompts: normalizeSuggestedPrompts(metadata.suggested_prompts),
     greetingMessage: normalizeGreetingMessage(metadata.greeting_message),
   };
@@ -519,10 +479,23 @@ export function activeResourceCount(resources: AgentResourceBindingRead[] | unde
   return (resources || []).filter((item) => item.status === 'active').length;
 }
 
+/*
+ * 已废弃的软标签字段（旧版本写入，曾拼进 prompt 的人设描述）。
+ * 前端不再读也不再写；但旧数据里可能还留着，所以模板/空白建档时顺手清掉，
+ * 让员工只要重新保存一次就自然收敛，不必单独跑数据迁移。
+ */
+const RETIRED_SOFT_TAG_KEYS = ['work_styles', 'expertise_tags', 'work_modes'] as const;
+
+function withoutRetiredSoftTags(metadata: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...metadata };
+  for (const key of RETIRED_SOFT_TAG_KEYS) delete next[key];
+  return next;
+}
+
 export function employeeMetadataFromTemplate(templateKey: string, currentMetadata: Record<string, unknown> = {}): Record<string, unknown> {
   const template = EMPLOYEE_TEMPLATES.find((item) => item.key === templateKey) || EMPLOYEE_TEMPLATES[0];
   return {
-    ...currentMetadata,
+    ...withoutRetiredSoftTags(currentMetadata),
     role_key: template.key,
     role_name: template.roleName,
     avatar_text: template.avatarText,
@@ -530,15 +503,12 @@ export function employeeMetadataFromTemplate(templateKey: string, currentMetadat
     avatar_kind: 'preset',
     avatar_preset: template.avatarPreset,
     onboarded_at: currentMetadata.onboarded_at || toClientDateISO(new Date()),
-    work_styles: template.workStyles,
-    expertise_tags: template.expertiseTags,
-    work_modes: template.workModes,
   };
 }
 
 export function employeeBlankMetadata(currentMetadata: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    ...currentMetadata,
+    ...withoutRetiredSoftTags(currentMetadata),
     blank_onboarding: true,
     role_key: stringFromMeta(currentMetadata, 'role_key'),
     role_name: stringFromMeta(currentMetadata, 'role_name') || '待补充职位',
@@ -547,8 +517,5 @@ export function employeeBlankMetadata(currentMetadata: Record<string, unknown> =
     avatar_kind: stringFromMeta(currentMetadata, 'avatar_kind') || 'preset',
     avatar_preset: stringFromMeta(currentMetadata, 'avatar_preset') || EMPLOYEE_AVATAR_PRESETS[0].key,
     onboarded_at: currentMetadata.onboarded_at || toClientDateISO(new Date()),
-    work_styles: asStringArray(currentMetadata.work_styles),
-    expertise_tags: asStringArray(currentMetadata.expertise_tags),
-    work_modes: asStringArray(currentMetadata.work_modes),
   };
 }

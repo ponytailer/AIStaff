@@ -172,7 +172,6 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
     displayedAgent,
     displayedProfile,
     emptyRoleSummary,
-    emptyProfileTags,
     emptyStats,
     currentSessionRunning,
     shareMode,
@@ -226,11 +225,6 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
       <div className={CHAT_EMPTY_CARD_CLASS}>
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-[8px] px-[4px]">
           <p className={CHAT_EMPTY_ROLE_CLASS}>{emptyRoleSummary}</p>
-          <div className={CHAT_EMPTY_TAGS_CLASS}>
-            {emptyProfileTags.map((tag, index) => (
-              <span key={`${tag}-${index}`}>{tag}</span>
-            ))}
-          </div>
         </div>
         <div className="flex flex-1 items-stretch">
           {emptyStats.map((item) => (

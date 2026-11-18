@@ -149,8 +149,6 @@ export default function EmployeeGalleryPage({
       employeeDisplayNameWithCreator(item),
       profile.roleName,
       item.description || '',
-      profile.workStyles.join(' '),
-      profile.expertiseTags.join(' '),
     ].some((value) => value.toLowerCase().includes(keyword));
   });
 

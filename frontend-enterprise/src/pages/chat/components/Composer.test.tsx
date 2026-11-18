@@ -28,7 +28,6 @@ function buildChat(): UseChatSession {
     displayedProfile: null,
     displayedAgent: null,
     emptyRoleSummary: '',
-    emptyProfileTags: [],
     emptyStats: [],
     enabledModelConfigs: [],
     selectedModelConfig: null,

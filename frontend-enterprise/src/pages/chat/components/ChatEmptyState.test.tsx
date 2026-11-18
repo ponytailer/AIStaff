@@ -189,7 +189,6 @@ describe('ChatEmptyState regular sessions', () => {
         displayedAgent: agent,
         displayedProfile: employeeProfile(agent),
         emptyRoleSummary: 'role summary',
-        emptyProfileTags: ['结构化整理'],
         emptyStats: [
           { label: '资料', value: 1 },
           { label: '技能', value: 2 },

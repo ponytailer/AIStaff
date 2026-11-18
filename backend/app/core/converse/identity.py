@@ -13,9 +13,6 @@ AGENT_PERSONA_METADATA_FIELDS: tuple[tuple[str, str], ...] = (
     ("title", "职务"),
     ("department", "部门"),
     ("team", "团队"),
-    ("work_styles", "工作风格"),
-    ("expertise_tags", "擅长领域"),
-    ("work_modes", "工作方式"),
 )
 
 

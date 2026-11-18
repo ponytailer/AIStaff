@@ -190,3 +190,57 @@ describe('EmployeeProfileEditor greeting message', () => {
     expect(save?.body.metadata as Record<string, unknown>).not.toHaveProperty('greeting_message');
   });
 });
+
+describe('EmployeeProfileEditor retired soft tags', () => {
+  /*
+   * work_styles / expertise_tags / work_modes 已下线：它们只是拼进 prompt 的
+   * 人设描述，却长得像「勾了就开通能力」，容易被误读。
+   *
+   * 关键风险是保存路径以 `...agent.metadata` 为基线——旧员工存一次就会把这三个
+   * key 原样写回去，等于永远退不掉。所以这里必须断言它们被显式删除。
+   */
+  it('strips retired soft-tag keys from metadata on save', async () => {
+    const legacy: AgentProfileRead = {
+      ...agent,
+      metadata: {
+        role_name: '研发',
+        work_styles: ['目标明确', '证据优先'],
+        expertise_tags: ['代码检索'],
+        work_modes: ['理解需求'],
+      },
+    };
+    const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+      requests.push({ url, body });
+      return jsonResponse({ ...legacy, metadata: body.metadata ?? {} });
+    }));
+
+    render(
+      <I18nProvider>
+        <EmployeeProfileEditor agent={legacy} open currentUser={undefined} onClose={vi.fn()} onSaved={vi.fn()} />
+      </I18nProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '保存' }));
+
+    await waitFor(() => expect(requests.some((item) => item.url.includes('/api/enterprise/agents/agent-1'))).toBe(true));
+    const save = requests.find((item) => item.url.includes('/api/enterprise/agents/agent-1'));
+    const metadata = save?.body.metadata as Record<string, unknown>;
+    expect(metadata).not.toHaveProperty('work_styles');
+    expect(metadata).not.toHaveProperty('expertise_tags');
+    expect(metadata).not.toHaveProperty('work_modes');
+    // 无关字段不能被误伤
+    expect(metadata.role_name).toBe('研发');
+  });
+
+  it('no longer renders the three tag editors', () => {
+    stubFetch();
+    renderEditor();
+
+    expect(screen.queryByText('掌握方向')).toBeNull();
+    expect(screen.queryByText('工作风格')).toBeNull();
+    expect(screen.queryByText('工作模式')).toBeNull();
+  });
+});

@@ -309,27 +309,17 @@ export default function EmployeeCard({
         {employee.description ? <span data-i18n-ignore>{displayDescription}</span> : displayDescription}
       </p>
 
-      {/* Work style tags */}
-      <div className="flex flex-wrap my-[8px] items-center gap-[10px]">
-        {/* 依赖提示优先于工作风格：它是「动手前必须知道」的信息，
-            不能被工作风格标签挤到换行之后看不见 */}
-        {!!referencedBy?.length && (
+      {/* 引用提示：没有引用时整行不渲染，避免留一段空白 */}
+      {!!referencedBy?.length && (
+        <div className="flex flex-wrap my-[8px] items-center gap-[10px]">
           <span
             title={`${referencedBy.map((item) => item.name).join('、')}`}
             className="rounded-[20px] border border-[#cfe7e2] bg-[#eef7f5] px-[8px] py-px text-[10px] leading-[13px] text-[#0f766e]"
           >
             被 {referencedBy.length} 个员工小队引用
           </span>
-        )}
-        {profile.workStyles.slice(0, 3).map((item) => (
-          <span
-            key={item}
-            className="rounded-[20px] px-[8px] py-px text-[10px] leading-[13px] text-[#6d6d72] border border-[#e6e4df]"
-          >
-            <span data-i18n-ignore>{item}</span>
-          </span>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Stats — pinned to the bottom of the card */}
       <div className="mt-auto grid grid-cols-4 rounded-[14px] border border-[#e6e4df] box-sizing: border-box">
