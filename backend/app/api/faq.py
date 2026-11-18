@@ -1,8 +1,14 @@
 """反馈自进化 / 员工 FAQ 的企业端 API。
 
-权限口径：员工创建人 + 租户管理员可见可操作（ensure_agent_scope_manager，
-permissions.agent_owned_by_user 已把 created_by_user_id 纳入 owner 判定）。
-其余成员对该模块完全不可见。
+权限口径分两层：
+
+- **写**（新建 / 修改 / 删除 / 忽略候选）：员工创建人或租户管理员
+  （``ensure_agent_scope_manager``，``agent_owned_by_user`` 已把
+  ``created_by_user_id`` 纳入 owner 判定）。
+- **读**（items / unanswered / handoffs / count）：能看见这个员工就能读
+  （``ensure_agent_scope_viewer``）。广场里已发布的员工对全租户可见，只给
+  「看得见但一个字都读不到」会让档案页的 FAQ 计数直接 403、tab 点进去一片
+  空白 —— 那不是「只读」，是坏页。只读用户拿到的是纯展示列表。
 """
 
 from __future__ import annotations
@@ -33,7 +39,7 @@ from app.core.plan.planner_fastpath import (
 )
 from app.faq.service import FaqService, suggest_keywords
 from app.security.auth import get_current_user
-from app.security.permissions import ensure_agent_scope_manager
+from app.security.permissions import ensure_agent_scope_manager, ensure_agent_scope_viewer
 from app.security.tenant import ensure_tenant
 
 router = APIRouter(prefix="/api/enterprise", tags=["enterprise:faq"])
@@ -164,7 +170,7 @@ def list_faq_items(
     db: Session = Depends(get_session),
 ) -> list[AgentFaqItemRead]:
     ensure_tenant(db, tenant_id)
-    ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
+    ensure_agent_scope_viewer(db, tenant_id, agent_id, current_user)
     return [_item_read(row) for row in FaqService(db).list_items(tenant_id, agent_id)]
 
 
@@ -178,7 +184,7 @@ def list_unanswered_queries(
     db: Session = Depends(get_session),
 ) -> list[AgentUnansweredRead]:
     ensure_tenant(db, tenant_id)
-    ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
+    ensure_agent_scope_viewer(db, tenant_id, agent_id, current_user)
     service = FaqService(db)
     return [
         AgentUnansweredRead(
@@ -205,7 +211,7 @@ def list_handoff_candidates(
     db: Session = Depends(get_session),
 ) -> list[AgentHandoffCandidateRead]:
     ensure_tenant(db, tenant_id)
-    ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
+    ensure_agent_scope_viewer(db, tenant_id, agent_id, current_user)
     ignored_ids = set(
         db.exec(
             select(AgentFaqIgnoredHandoff.handoff_id).where(
@@ -385,7 +391,7 @@ def faq_overview_count(
     """员工 FAQ 概览计数：员工档案头部指标 + 对话右栏「员工能力」用。"""
 
     ensure_tenant(db, tenant_id)
-    ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
+    ensure_agent_scope_viewer(db, tenant_id, agent_id, current_user)
     profile = db.get(AgentProfile, agent_id)
     if profile is None or profile.tenant_id != tenant_id:
         raise HTTPException(status_code=404, detail="Agent not found")

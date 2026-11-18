@@ -73,6 +73,7 @@ import {
   CHAT_STREAM_IDLE_CHECK_INTERVAL_MS,
   CHAT_STREAM_HEARTBEAT_GRACE_MS,
   CHAT_ZOMBIE_TURN_SILENCE_MS,
+  HANDOFF_PROJECTION_EVENTS,
   HIDDEN_GENERAL_SKILL_TRACE_PHASES,
   RUNNING_EVENT_RECOVERY_WINDOW_MS,
   SELECTED_AGENT_STORAGE_KEY,
@@ -3177,6 +3178,23 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     const request = api
       .get<ChatSessionEventRead[]>(`/api/chat/sessions/${id}/events?tenant_id=${tenantId}`)
       .then((events) => {
+        // 人工接管回复走独立通道：这些事件没有 turn_id，进不了下面的
+        // traceEvents（`eventTraceTurnId()` 返回空串就被整体丢掉），而它们
+        // 恰恰是「会话里多了一条消息」的唯一通知。所以先单独扫一遍，发现
+        // 没处理过的就把消息列表整份重拉。loadMessages 自己带 600ms 合并
+        // 窗口且是幂等覆盖，重复触发不会抖动。
+        const handoffEvents = events.filter((event) => HANDOFF_PROJECTION_EVENTS.has(event.event));
+        if (handoffEvents.length) {
+          const fresh = handoffEvents.filter((event) => !scheduledEventIdsRef.current.has(event.id));
+          if (fresh.length) {
+            fresh.forEach((event) => scheduledEventIdsRef.current.add(event.id));
+            void loadMessages(id);
+            void loadTraces(id);
+            // 会话列表那行摘要也跟着变（后端写了「最近回复：…」），
+            // 不刷的话侧栏还是上一条助手消息。
+            void loadSessions();
+          }
+        }
         const traceEvents = events.filter((event) => Boolean(eventTraceTurnId(event)));
         if (!traceEvents.length) return;
         hydrateRunningSessionFromEvents(id, traceEvents);
@@ -3328,6 +3346,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     hydrateRunningSessionFromEvents,
     isTerminalEvent,
     loadMessages,
+    loadSessions,
     loadTraces,
     notifyStore,
     notifyStream,
@@ -3416,8 +3435,11 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   // 当前会话是否「活跃」：本地有运行中轮次，或服务端状态仍在 running/executing。
   const currentSessionBusy = useMemo(() => {
     if (runningTurn?.sessionId === sessionId) return true;
+    // `handoff` 也算活跃：用户正等着 owner 在待回答里回话，这时候最需要紧跟。
+    // 不算进来的话，空闲降频到 30s，人工回复最长要等半分钟才出现 —— 体感跟
+    // 「没刷新」没区别。这块开销很小（一个会话的事件列表），换来的是秒级可见。
     return sessions.some((item) => item.id === sessionId
-      && (item.status === 'running' || item.status === 'executing'));
+      && (item.status === 'running' || item.status === 'executing' || item.status === 'handoff'));
   }, [runningTurn?.sessionId, sessionId, sessions]);
 
   useEffect(() => {

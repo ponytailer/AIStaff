@@ -34,6 +34,21 @@ const employee: AgentProfileRead = {
   updated_at: '2026-08-01T00:00:00Z',
 };
 
+/** 一行有内容的知识库 —— 用来验证「只读时整列操作收起、数据仍在」。 */
+const KB_ROW: KnowledgeBasePage['items'][number] = {
+  id: 'kb_1',
+  tenant_id: 'tenant_demo',
+  name: '制度汇编',
+  description: '公司制度',
+  status: 'active',
+  version: '1.0.0',
+  document_count: 1,
+  bucket_count: 0,
+  chunk_count: 3,
+  created_at: '2026-10-01T00:00:00Z',
+  updated_at: '2026-10-01T00:00:00Z',
+};
+
 function personalPage(rows: KnowledgeBasePage['items']): KnowledgeBasePage {
   return {
     items: rows,
@@ -302,4 +317,36 @@ describe('KnowledgeManagePage 只读用户的工作台', () => {
     // owner 不该看到只读提示
     expect(screen.queryByText(/但不能修改/)).toBeNull();
   });
+
+  it('只读时列表没有「操作」表头', async () => {
+    const readonlyCalls = mockFetch([KB_ROW]);
+    render(
+      <I18nProvider>
+        <TooltipProvider>
+          <MemoryRouter>
+            <KnowledgeManagePage mode="employee" currentUser={guest} />
+          </MemoryRouter>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+    await waitFor(() => {
+      expect(readonlyCalls.some((url) => url.includes('/api/enterprise/agents'))).toBe(true);
+    });
+
+    // 先确认数据行真的渲染出来了（否则「没有操作列」可能只是整表为空）
+    // 数据行要等两轮：先解析员工作用域，再按 agent_id 拉列表。
+    // 移动卡片与桌面表格各渲染一次，所以用 AllBy
+    expect((await screen.findAllByText('制度汇编', {}, { timeout: 8000 })).length).toBeGreaterThan(0);
+    // 只读用户那一列全是运维动作（详情 / 版本 / 导出 / 上线下线 / 移除），
+    // 一条也点不了 —— 连表头都不该留。
+    expect(screen.queryByText('操作')).toBeNull();
+  }, 20000);
+
+  it('owner 看得到「操作」表头', async () => {
+    mockFetch([KB_ROW]);
+    renderPage('employee');
+
+    expect((await screen.findAllByText('制度汇编', {}, { timeout: 8000 })).length).toBeGreaterThan(0);
+    expect(screen.getByText('操作')).toBeTruthy();
+  }, 20000);
 });

@@ -51,6 +51,31 @@ export const MODEL_CONFIG_STORAGE_PREFIX = 'skill_agent_selected_model_config';
 export const SESSION_READ_STORAGE_PREFIX = 'skill_agent_session_read_at';
 export const SIDEBAR_COLLAPSED_STORAGE_KEY = 'skill_agent_sidebar_collapsed';
 export const RUNNING_EVENT_RECOVERY_WINDOW_MS = 600 * 1000;
+/**
+ * 人工接管回复相关的事件名。
+ *
+ * 这些事件的 payload 只有 `handoff_id` / `agent_id`，**没有 turn_id /
+ * message_id**（`_apply_handoff_reply` 与 `_resume_human_handoff_worker` 写事件
+ * 时就没带），所以 `eventTraceTurnId()` 返回空串，整个事件在 `traceEvents`
+ * 那一步被当成「与轮次无关」丢掉 —— 线上表现是「owner 在待回答里回了，用户那边
+ * 会话一动不动，手动刷新才出现」。它们不参与流式回放，只作为「消息列表脏了」
+ * 的信号：出现没见过的就直接重拉消息。
+ */
+export const HANDOFF_PROJECTION_EVENTS: ReadonlySet<string> = new Set([
+  'human_handoff_answered',
+  'human_handoff_reply_projected',
+  'human_handoff_resume_skipped',
+]);
+
+/** 这批事件里有没有「本端还没处理过的」；有就说明该重拉会话消息了。 */
+export function hasUnseenHandoffProjection(
+  events: readonly ChatSessionEventRead[],
+  seenEventIds: ReadonlySet<string>,
+): boolean {
+  return events.some(
+    (event) => HANDOFF_PROJECTION_EVENTS.has(event.event) && !seenEventIds.has(event.id),
+  );
+}
 // 恢复轮询（syncTurnUntilAssistant / relay recovery）的总时长上限。
 // 历史 600s 曾导致服务重启掐断进行中轮次后，前端空转轮询 10 分钟的请求洪水。
 export const CHAT_STREAM_IDLE_TIMEOUT_MS = 60 * 1000;

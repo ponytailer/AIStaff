@@ -101,6 +101,37 @@ def ensure_agent_scope_manager(
     raise HTTPException(status_code=403, detail="Only the creator or administrator can manage this staff")
 
 
+def ensure_agent_scope_viewer(
+    db: Session,
+    tenant_id: str,
+    agent_id: str | None,
+    current_user: User,
+) -> AgentProfile | None:
+    """只读口径：能看见这个员工就能读它的内容。
+
+    与 ``ensure_agent_scope_manager`` 的区别只在最后一步 —— 广场里已发布的员工
+    对全租户可见，只读接口（FAQ 列表 / 计数 / 待沉淀候选）按「可见即可读」放行，
+    写接口仍然只认创建人或管理员。
+
+    非 owner 但能看见的员工如果不给读，前端只能整块隐藏：档案页连「这个员工
+    沉淀了多少 FAQ」都答不出来，tab 点进去一片空白，看起来像坏了。
+    """
+    ensure_current_user_tenant(tenant_id, current_user)
+    if not agent_id:
+        return None
+    row = db.get(AgentProfile, agent_id)
+    if not row or row.tenant_id != tenant_id:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if (
+        is_admin_user(current_user)
+        or row.is_overall
+        or agent_owned_by_user(row, current_user)
+        or (row.metadata_json or {}).get("published_to_gallery") is True
+    ):
+        return row
+    raise HTTPException(status_code=403, detail="Cannot access this staff")
+
+
 def agent_owned_by_user(row: AgentProfile, user: User) -> bool:
     metadata = row.metadata_json or {}
     # 创建人即 owner（反馈自进化等管理动作的授权基础）；显式移交过的

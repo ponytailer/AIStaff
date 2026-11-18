@@ -606,13 +606,18 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
         )
       ),
     },
-    {
-      key: 'actions',
-      title: '操作',
-      width: 70,
-      align: 'right',
-      render: (row) => renderActions(row),
-    },
+    // 「操作」列整列跟着管理权限走：renderActions 里每一项都是写操作
+    // （编辑 / 启停 / 测试 / 移除），只读用户那一列会是空的 —— 留个表头
+    // 却点不出任何东西，比没有更糟。
+    ...(canManageCurrentScope
+      ? [{
+          key: 'actions',
+          title: '操作',
+          width: 70,
+          align: 'right' as const,
+          render: (row: ToolRead) => renderActions(row),
+        }]
+      : []),
   ];
 
   const serverColumns: DataTableColumn<MCPServerRead>[] = [
@@ -682,36 +687,36 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
         <StatusBadge tone={row.enabled ? 'green' : 'gray'}>{row.enabled ? '已启用' : '已停用'}</StatusBadge>
       ),
     },
-    {
-      key: 'actions',
-      title: '操作',
-      width: 160,
-      align: 'right',
-      render: (row) => (
-        <div className="flex items-center justify-end gap-[8px]">
-          <UIButton
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/enterprise/tools/mcp/${row.id}/edit`)}
-            disabled={!canManageCurrentScope}
-            className={RETURN_BUTTON_CLASS}
-          >
-            <IconRefresh className="size-[14px] shrink-0" />
-            发现/同步
-          </UIButton>
-          {canManageCurrentScope && (
-            <UIButton
-              variant="outline"
-              size="sm"
-              onClick={() => setServerDeleteTarget(row)}
-              className={cn(RETURN_BUTTON_CLASS, 'text-[#e5484d] hover:text-[#e5484d]')}
-            >
-              {isOverallAgent ? '删除' : '移除'}
-            </UIButton>
-          )}
-        </div>
-      ),
-    },
+    // MCP 工具集这一列跟工具列表同口径：只读时收起。
+    ...(canManageCurrentScope
+      ? [{
+          key: 'actions',
+          title: '操作',
+          width: 160,
+          align: 'right' as const,
+          render: (row: MCPServerRead) => (
+            <div className="flex items-center justify-end gap-[8px]">
+              <UIButton
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/enterprise/tools/mcp/${row.id}/edit`)}
+                className={RETURN_BUTTON_CLASS}
+              >
+                <IconRefresh className="size-[14px] shrink-0" />
+                发现/同步
+              </UIButton>
+              <UIButton
+                variant="outline"
+                size="sm"
+                onClick={() => setServerDeleteTarget(row)}
+                className={cn(RETURN_BUTTON_CLASS, 'text-[#e5484d] hover:text-[#e5484d]')}
+              >
+                {isOverallAgent ? '删除' : '移除'}
+              </UIButton>
+            </div>
+          ),
+        }]
+      : []),
   ];
 
   const renderMobileCard = (row: ToolRead) => (
@@ -724,7 +729,7 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
           <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">{row.name}</span>
           <span className="mt-[2px] block truncate text-[12px] text-[#6d6d72]">创建者：{resourceCreatorName(row) || '-'}</span>
         </div>
-        {renderActions(row)}
+        {canManageCurrentScope && renderActions(row)}
       </div>
       <div className="mt-[8px] flex flex-wrap items-center gap-[6px]">
         <StatusBadge tone="gray">{toolGroup(row)}</StatusBadge>

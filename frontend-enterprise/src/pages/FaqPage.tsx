@@ -10,6 +10,7 @@ import { readEmployeeScope } from '../lib/agent-scope-storage';
 import { notify } from '@/components/ui/app-toast';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import ResourceReadOnlyNotice from '@/components/ResourceReadOnlyNotice';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,16 +118,9 @@ export default function FaqPage({
 
   const load = useCallback(async () => {
     if (!agentId) return;
-    // 后端三个读接口（items/unanswered/handoffs）都要求「创建人或管理员」，
-    // 非 owner 进来会连吃 3 个 403：页面既空又弹三条错误，等于坏页。
-    // 没有管理权限就不发请求，由下面的只读说明卡交代原因。
-    if (!canManage) {
-      setUnanswered([]);
-      setHandoffs([]);
-      setItems([]);
-      setLoading(false);
-      return;
-    }
+    // 读接口按「能看见这个员工就能读」放行（后端 ensure_agent_scope_viewer），
+    // 所以只读用户也要正常拉数据 —— 只读不等于什么都看不到。
+    // 写入口在渲染层按 canManage 收掉（编辑/删除/启停/手动新建/采纳）。
     setLoading(true);
     try {
       const base = `/api/enterprise/agents/${encodeURIComponent(agentId)}/faq`;
@@ -144,7 +138,7 @@ export default function FaqPage({
     } finally {
       setLoading(false);
     }
-  }, [agentId, canManage]);
+  }, [agentId]);
 
   useEffect(() => {
     if (!agentProp) setAgentId(readEmployeeScope());
@@ -348,36 +342,39 @@ export default function FaqPage({
       width: 150,
       render: (row) => (row.kind === 'unanswered' ? formatTime(row.row.updated_at) : formatTime(row.row.answered_at)),
     },
-    {
-      key: 'actions',
-      title: '操作',
-      width: 132,
-      align: 'right',
-      render: (row) => (
-        <div className="flex items-center justify-end gap-[4px]">
-          <button
-            onClick={() => openDrawer(row)}
-            className="rounded-[8px] px-[10px] py-[6px] text-[12.5px] font-medium text-[#1a71ff] transition-colors hover:bg-black/5 hover:text-[#4a8dff]"
-          >
-            采纳
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="更多操作"
-              className="grid size-7 place-items-center rounded-[8px] text-[#6d6d72] transition-colors outline-none hover:bg-black/5 hover:text-[#18181a]"
-            >
-              <IconMore className="size-3.5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className={MENU_CONTENT_CLASS}>
-              <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => setConfirmTarget(row)}>
-                <IconTrash />
-                删除
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
-    },
+    // 「操作」列跟着 canManage 走：采纳 = 新建 FAQ、删除 = 忽略候选，都是写操作。
+    ...(canManage
+      ? [{
+          key: 'actions',
+          title: '操作',
+          width: 132,
+          align: 'right' as const,
+          render: (row: CandidateRow) => (
+            <div className="flex items-center justify-end gap-[4px]">
+              <button
+                onClick={() => openDrawer(row)}
+                className="rounded-[8px] px-[10px] py-[6px] text-[12.5px] font-medium text-[#1a71ff] transition-colors hover:bg-black/5 hover:text-[#4a8dff]"
+              >
+                采纳
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label="更多操作"
+                  className="grid size-7 place-items-center rounded-[8px] text-[#6d6d72] transition-colors outline-none hover:bg-black/5 hover:text-[#18181a]"
+                >
+                  <IconMore className="size-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className={MENU_CONTENT_CLASS}>
+                  <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => setConfirmTarget(row)}>
+                    <IconTrash />
+                    删除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ),
+        }]
+      : []),
   ];
 
   const itemColumns: DataTableColumn<FaqItem>[] = [
@@ -412,40 +409,48 @@ export default function FaqPage({
       key: 'status',
       title: '状态',
       width: 84,
-      render: (row) => (
-        <button onClick={() => void toggleItem(row)} className="outline-none">
+      render: (row) => {
+        const badge = (
           <StatusBadge tone={row.status === 'active' ? 'green' : 'gray'}>
             {row.status === 'active' ? '已启用' : '已停用'}
           </StatusBadge>
-        </button>
-      ),
+        );
+        // 点状态＝启停，是写操作。只读时退化成纯展示，不做成「点了没反应」的按钮。
+        return canManage ? (
+          <button onClick={() => void toggleItem(row)} className="outline-none">{badge}</button>
+        ) : badge;
+      },
     },
-    {
-      key: 'actions',
-      title: '操作',
-      width: 96,
-      align: 'right',
-      render: (row) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="FAQ 操作"
-            className="ml-auto grid size-7 place-items-center rounded-[8px] text-[#6d6d72] transition-colors outline-none hover:bg-black/5 hover:text-[#18181a]"
-          >
-            <IconMore className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className={MENU_CONTENT_CLASS}>
-            <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => openDrawerForEdit(row)}>
-              <IconEdit />
-              编辑
-            </DropdownMenuItem>
-            <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => setConfirmTarget(row)}>
-              <IconTrash />
-              删除
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
+    // 「操作」列整个跟着 canManage 走：只读用户没有可执行的动作，
+    // 留一个只有「编辑/删除」的 … 菜单等于给了一个点了就 403 的假入口。
+    ...(canManage
+      ? [{
+          key: 'actions',
+          title: '操作',
+          width: 96,
+          align: 'right' as const,
+          render: (row: FaqItem) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="FAQ 操作"
+                className="ml-auto grid size-7 place-items-center rounded-[8px] text-[#6d6d72] transition-colors outline-none hover:bg-black/5 hover:text-[#18181a]"
+              >
+                <IconMore className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className={MENU_CONTENT_CLASS}>
+                <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => openDrawerForEdit(row)}>
+                  <IconEdit />
+                  编辑
+                </DropdownMenuItem>
+                <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => setConfirmTarget(row)}>
+                  <IconTrash />
+                  删除
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ),
+        }]
+      : []),
   ];
 
   return (
@@ -453,19 +458,13 @@ export default function FaqPage({
       className={embedded ? 'min-h-0' : 'min-h-full box-border px-[48px] pt-[32px] pb-[43px] max-[900px]:px-[16px]'}
       aria-busy={loading}
     >
-      {/* 无管理权限时整页降为只读说明：后端连读接口都要求「创建人或管理员」，
-          给表格也只会是三个 403。之前是在页尾补一行小字，用户已经看到空表了，
-          所以必须把说明放到最前面。 */}
+      {/* 只读提示：一句话说清「能看、不能改」。读接口已经按「能看见这个员工就能读」
+          放行（后端 ensure_agent_scope_viewer），所以下面两张表照常渲染真实数据，
+          只把写入口（编辑 / 删除 / 启停 / 采纳 / 手动新建）按 canManage 收掉。 */}
       {!canManage && (
-        <section className="mb-[24px] rounded-[14px] border border-[rgba(24,24,26,0.14)] bg-[#f2f1ee] px-[18px] py-[16px]">
-          <h3 className="m-0 text-[14px] font-semibold text-[#18181a]">FAQ 仅对员工创建人或管理员开放</h3>
-          <p className="m-0 mt-[6px] text-[12.5px] leading-[1.7] text-[#6d6d72]">
-            你在查看其他同事的数字员工，FAQ 的查看与维护属于管理动作。需要修改请联系该员工的创建人或租户管理员。
-          </p>
-        </section>
+        <ResourceReadOnlyNotice resource="FAQ" className="mb-[20px]" />
       )}
 
-      {canManage && (
       <>
       <section className="mb-[36px]">
         <div className="mb-[14px] flex items-center gap-[12px] text-[#6d6d72]">
@@ -487,7 +486,7 @@ export default function FaqPage({
           data={candidates}
           rowKey={(row) => row.key}
           loading={loading}
-          emptyText="暂无待沉淀的问答，员工这阵子状态不错。"
+          emptyText={canManage ? '暂无待沉淀的问答，员工这阵子状态不错。' : '暂无待沉淀的问答。'}
         />
       </section>
 
@@ -495,12 +494,14 @@ export default function FaqPage({
         <div className="mb-[14px] flex items-center gap-[12px] text-[#6d6d72]">
           <span className="text-[14px] leading-none">FAQ 库</span>
           <span className="text-[12px] text-[#9a9a9f]">命中规则：命中任意 1 个关键词即短路回答</span>
-          <button
-            onClick={openDrawerForNew}
-            className="ml-auto flex items-center gap-[5px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12.5px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
-          >
-            ＋ 手动新建
-          </button>
+          {canManage && (
+            <button
+              onClick={openDrawerForNew}
+              className="ml-auto flex items-center gap-[5px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12.5px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
+            >
+              ＋ 手动新建
+            </button>
+          )}
         </div>
         <DataTable
           aria-label="员工 FAQ 列表"
@@ -508,11 +509,10 @@ export default function FaqPage({
           data={items}
           rowKey={(row) => row.id}
           loading={loading}
-          emptyText="还没有 FAQ，从上面的待沉淀列表采纳第一条吧。"
+          emptyText={canManage ? '还没有 FAQ，从上面的待沉淀列表采纳第一条吧。' : '这个员工还没有 FAQ。'}
         />
       </section>
       </>
-      )}
 
       {drawer && (
         <>

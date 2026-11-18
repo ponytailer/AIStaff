@@ -2,17 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import type { ChatMessage } from '@/types';
+import type { ChatMessage, ChatSessionEventRead } from '@/types';
 
 import {
   STREAM_TERMINAL_EVENTS,
   MarkdownMessage,
   a2uiFormForMessage,
   canRateMessage,
+  eventTraceTurnId,
   formatTraceDuration,
   freeModelNotice,
   harnessEventTraceLine,
   harnessWorkspaceArtifacts,
+  hasUnseenHandoffProjection,
   knowledgeCitations,
   knowledgeCitationsHidden,
   messageAttachments,
@@ -944,5 +946,53 @@ describe('messageVisibleContent（正文可见文本口径）', () => {
   it('隐藏来源时正文编号与尾部清单一起去掉', () => {
     expect(messageVisibleContent(content, { hideCitations: true }))
       .toBe('MOKU 乐园部分设备有身高限制。');
+  });
+});
+
+describe('eventTraceTurnId 与人工回复事件', () => {
+  /**
+   * 线上 bug：owner 在「待回答」里回了一句，用户那边会话一动不动，必须手动刷新。
+   * 根因是后端写 human_handoff_* 事件时只带 handoff_id / agent_id，没有
+   * turn_id / message_id —— eventTraceTurnId 返回空串，事件在 traceEvents
+   * 过滤时被整体丢弃，前端永远不知道消息列表脏了。
+   */
+  it('人工回复事件没有 turn_id，所以 eventTraceTurnId 返回空串（这是 bug 的来源）', () => {
+    const answered = {
+      id: 'evt-1',
+      created_at: '2026-11-18T07:46:42Z',
+      event: 'human_handoff_answered',
+      data: { handoff_id: 'handoff_1', agent_id: 'agent_1', reply_preview: 'ok' },
+    } as ChatSessionEventRead;
+    expect(eventTraceTurnId(answered)).toBe('');
+  });
+
+  it('hasUnseenHandoffProjection 能把它挑出来，让调用方去重拉消息', () => {
+    const events = [
+      {
+        id: 'evt-1',
+        created_at: '2026-11-18T07:46:42Z',
+        event: 'human_handoff_answered',
+        data: { handoff_id: 'handoff_1' },
+      },
+      {
+        id: 'evt-2',
+        created_at: '2026-11-18T07:46:42Z',
+        event: 'human_handoff_reply_projected',
+        data: { handoff_id: 'handoff_1' },
+      },
+      // 普通的轮次事件不该触发重拉
+      {
+        id: 'evt-3',
+        created_at: '2026-11-18T07:46:42Z',
+        event: 'stream_delta',
+        data: { turn_id: 'msg_1', content: 'hi' },
+      },
+    ] as ChatSessionEventRead[];
+
+    expect(hasUnseenHandoffProjection(events, new Set())).toBe(true);
+    // 已经处理过的就不再重复触发
+    expect(hasUnseenHandoffProjection(events, new Set(['evt-1', 'evt-2']))).toBe(false);
+    // 只有普通事件时不该误判
+    expect(hasUnseenHandoffProjection([events[2]], new Set())).toBe(false);
   });
 });
