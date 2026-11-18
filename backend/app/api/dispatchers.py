@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.api.agents import (
+    _agent_owned_by_user,
     _agent_visible_to_user,
     _ensure_can_manage_agent,
     _ensure_request_tenant,
@@ -71,7 +72,10 @@ def _ensure_model(db: Session, tenant_id: str, model_config_id: str | None) -> s
 
 
 def _read(
-    db: Session, tenant_id: str, dispatcher: AgentProfile
+    db: Session,
+    tenant_id: str,
+    dispatcher: AgentProfile,
+    current_user: User | None = None,
 ) -> DispatcherRead:
     members = list_dispatcher_members(db, tenant_id, dispatcher.id)
     reads: list[DispatcherMemberRead] = []
@@ -119,6 +123,13 @@ def _read(
         usage_count=dispatcher.usage_count,
         published_to_gallery=_published_to_gallery(dispatcher),
         avatar_preset=dispatcher_avatar_preset(dispatcher),
+        can_manage=(
+            current_user is not None
+            and (
+                _is_admin_user(current_user)
+                or _agent_owned_by_user(dispatcher, current_user)
+            )
+        ),
         created_at=dispatcher.created_at.isoformat() if dispatcher.created_at else None,
         updated_at=dispatcher.updated_at.isoformat() if dispatcher.updated_at else None,
     )
@@ -247,7 +258,7 @@ def create_dispatcher(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _read(db, request.tenant_id, row)
+    return _read(db, request.tenant_id, row, current_user)
 
 
 def _visible_dispatcher_rows(
@@ -295,12 +306,12 @@ def list_dispatchers(
             .order_by(AgentProfile.created_at.desc())  # type: ignore[attr-defined]
         ).all()
         return [
-            _read(db, tenant_id, row)
+            _read(db, tenant_id, row, current_user)
             for row in rows
             if _published_to_gallery(row)
         ]
     rows = _visible_dispatcher_rows(db, tenant_id, current_user)
-    return [_read(db, tenant_id, row) for row in rows]
+    return [_read(db, tenant_id, row, current_user) for row in rows]
 
 
 @router.get("/overview", response_model=DispatcherOverviewRead)
@@ -319,7 +330,7 @@ def dispatcher_overview(
     """
     _ensure_request_tenant(tenant_id, current_user)
     reads = [
-        _read(db, tenant_id, row)
+        _read(db, tenant_id, row, current_user)
         for row in _visible_dispatcher_rows(db, tenant_id, current_user)
     ]
 
@@ -367,7 +378,7 @@ def get_dispatcher(
     # 写操作才要求创建者/管理员。
     if not _agent_visible_to_user(row, current_user):
         raise HTTPException(status_code=403, detail="Only the creator or administrator can view this dispatcher")
-    return _read(db, tenant_id, row)
+    return _read(db, tenant_id, row, current_user)
 
 
 @router.put("/{agent_id}", response_model=DispatcherRead)
@@ -425,7 +436,7 @@ def update_dispatcher(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _read(db, request.tenant_id, row)
+    return _read(db, request.tenant_id, row, current_user)
 
 
 @router.post("/{agent_id}/gallery:publish", response_model=DispatcherRead)
@@ -453,7 +464,7 @@ def publish_dispatcher_to_gallery(
         )
     metadata = dict(row.metadata_json or {})
     if metadata.get("published_to_gallery") is True:
-        return _read(db, tenant_id, row)
+        return _read(db, tenant_id, row, current_user)
     now = utc_now()
     metadata["published_to_gallery"] = True
     metadata["gallery_published_at"] = now.isoformat()
@@ -465,7 +476,7 @@ def publish_dispatcher_to_gallery(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _read(db, tenant_id, row)
+    return _read(db, tenant_id, row, current_user)
 
 
 @router.post("/{agent_id}/gallery:unpublish", response_model=DispatcherRead)
@@ -480,7 +491,7 @@ def unpublish_dispatcher_from_gallery(
     _ensure_can_manage_agent(row, current_user)
     metadata = dict(row.metadata_json or {})
     if metadata.get("published_to_gallery") is not True:
-        return _read(db, tenant_id, row)
+        return _read(db, tenant_id, row, current_user)
     now = utc_now()
     metadata["published_to_gallery"] = False
     metadata["gallery_unpublished_at"] = now.isoformat()
@@ -492,7 +503,7 @@ def unpublish_dispatcher_from_gallery(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return _read(db, tenant_id, row)
+    return _read(db, tenant_id, row, current_user)
 
 
 @router.delete("/{agent_id}")

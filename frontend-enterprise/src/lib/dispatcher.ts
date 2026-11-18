@@ -63,6 +63,11 @@ export type DispatcherRead = {
   published_to_gallery: boolean;
   /** 头像预设 key（DISPATCHER_AVATAR_PRESETS）；缺省时前端用默认图形。 */
   avatar_preset?: string | null;
+  /**
+   * 当前登录用户能否管理这个小队（创建人或租户管理员）。
+   * 广场里能看到别人发布的小队，档案页要靠它把「配置成员 / 兜底策略」降为只读。
+   */
+  can_manage?: boolean;
   created_at?: string | null;
   updated_at?: string | null;
 };

@@ -12,6 +12,8 @@ import type { AgentProfileRead, KnowledgeBasePage } from '@/types';
 import KnowledgeManagePage from './KnowledgePage';
 
 const member = { id: 'user-1', tenant_id: 'tenant_demo', username: 'demo', role: 'member' as const };
+/** 同名租户里的另一个人：能看到已发布员工，但不是它的创建人。 */
+const guest = { id: 'user-2', tenant_id: 'tenant_demo', username: 'guest', role: 'member' as const };
 
 const employee: AgentProfileRead = {
   id: 'agent-1',
@@ -19,7 +21,14 @@ const employee: AgentProfileRead = {
   name: '小艾',
   is_overall: false,
   status: 'active',
-  metadata: { owner_user_id: 'user-1', owner_username: 'demo' },
+  // 已发布到广场 + 已使用：这样租户里其他人也能选中它（只读场景的前提），
+  // 而归属仍是 user-1，guest 进来只能是只读。
+  metadata: {
+    owner_user_id: 'user-1',
+    owner_username: 'demo',
+    published_to_gallery: true,
+    used_by_current_user: true,
+  },
   resources: [],
   created_at: '2026-08-01T00:00:00Z',
   updated_at: '2026-08-01T00:00:00Z',
@@ -253,5 +262,47 @@ describe('KnowledgeManagePage 员工知识库的「从我的知识库导入」',
     await waitFor(() => {
       expect(calls.some((url) => url.includes('mine=1') && url.includes('/api/enterprise/knowledge-bases?'))).toBe(true);
     });
+  });
+});
+
+describe('KnowledgeManagePage 只读用户的工作台', () => {
+  /**
+   * 非 owner 进别人的知识库页时，「知识图谱」（文档卡片 / 目录索引 / 引用来源）
+   * 和「渐进检索调试」都不该出现：前者会把内部原文切片摊在屏幕上，后者还会拿
+   * 员工自己的模型真跑一遍召回。只读用户保留列表与统计即可。
+   */
+  it('非 owner 看不到知识图谱与渐进检索调试两块内容区', async () => {
+    const calls = mockFetch([]);
+    render(
+      <I18nProvider>
+        <TooltipProvider>
+          <MemoryRouter>
+            <KnowledgeManagePage mode="employee" currentUser={guest} />
+          </MemoryRouter>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+
+    // guest 不是 agent-1 的 owner，页面会解析到员工并落到只读态
+    await waitFor(() => {
+      expect(calls.some((url) => url.includes('/api/enterprise/agents'))).toBe(true);
+    });
+
+    expect(await screen.findByText(/你可以查看这个员工的知识库，但不能修改/)).toBeTruthy();
+    expect(screen.queryByText('知识图谱')).toBeNull();
+    expect(screen.queryByText('渐进检索调试')).toBeNull();
+    // 列表本身要保留 —— 只读不等于看不到
+    expect(await screen.findByText('知识库列表')).toBeTruthy();
+  });
+
+  it('owner 自己看得到这两块', async () => {
+    mockFetch([]);
+    renderPage('employee');
+
+    await screen.findByText('知识库列表');
+    expect(await screen.findByText('知识图谱')).toBeTruthy();
+    expect(await screen.findByText('渐进检索调试')).toBeTruthy();
+    // owner 不该看到只读提示
+    expect(screen.queryByText(/但不能修改/)).toBeNull();
   });
 });

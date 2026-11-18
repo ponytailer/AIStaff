@@ -212,7 +212,7 @@ export default function PlatformEmployeeDrawer({
                     )}
                   </span>
                   <span className="text-[10px] leading-[14px] text-[#6d6d72]">
-                    成员没有自己的模型时自动用全局模型，每人每天 10 问
+                    成员没有自己的模型时自动用全局模型，每人每天 20 问
                   </span>
                 </div>
                 <Switch

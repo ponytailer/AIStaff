@@ -88,6 +88,7 @@ import {
   visibleEmployeeAgents,
 } from '../employee';
 import { renderMarkdownBlocks } from './chat/chatHelpers';
+import ResourceReadOnlyNotice from '../components/ResourceReadOnlyNotice';
 import { getDateLocale } from '@/i18n';
 import { formatClientMonthDayTime } from '@/lib/timezone';
 import type {
@@ -1218,12 +1219,12 @@ export default function KnowledgeManagePage({
             <AuditOutlined />
             知识图谱检查
           </DropdownMenuItem>
-          {!isOverallAgent && (
+          {canManageCurrentScope && !isOverallAgent && (
             <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => void syncKnowledgeBaseFromOverall(item)}>
               从广场同步
             </DropdownMenuItem>
           )}
-          {!isOverallAgent && (
+          {canManageCurrentScope && !isOverallAgent && (
             <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => void promoteKnowledgeBaseToOverall(item)}>
               发布到广场
             </DropdownMenuItem>
@@ -1361,6 +1362,10 @@ export default function KnowledgeManagePage({
       />
       )}
 
+      {!isPersonalScope && !canManageCurrentScope && (
+        <ResourceReadOnlyNotice resource="知识库" className="mt-[20px]" />
+      )}
+
       <div className="mt-[20px] mb-[16px] flex flex-wrap items-center justify-end gap-[12px]">
         {isPersonalScope && (
           <UIButton
@@ -1489,6 +1494,12 @@ export default function KnowledgeManagePage({
         </div>
       </div>
 
+      {/* 「知识图谱」和「渐进检索调试」只给能管理这个库的人看。
+          前者是文档卡片 / 目录索引 / 引用来源的深挖入口，后者是拿员工自己的模型
+          跑一遍召回、把命中的原文切片摊开 —— 都是运维知识库的动作，不是「看一眼
+          有哪些库」。只读用户保留上面的列表和统计就够，多出来的两块既点不开也
+          只是把别人的内部资料铺在屏幕上。 */}
+      {canManageCurrentScope && (
       <div className="mt-[16px] flex flex-col gap-[16px]">
         <KCard title="知识图谱">
           {!selectedDocument ? (
@@ -1551,6 +1562,7 @@ export default function KnowledgeManagePage({
           </div>
         </KCard>
       </div>
+      )}
 
       <ResourceImportDialog
         open={importOpen}
@@ -1845,7 +1857,7 @@ export default function KnowledgeManagePage({
               title: '操作',
               width: 96,
               render: (row) =>
-                !isOverallAgent && !row.is_head ? (
+                canManageCurrentScope && !isOverallAgent && !row.is_head ? (
                   <UIButton variant="outline" size="sm" onClick={() => void rollbackKnowledgeBaseVersion(row)}>
                     回滚
                   </UIButton>
@@ -2020,6 +2032,11 @@ export function KnowledgeAddPage({ currentUser }: KnowledgePageProps = {}) {
   const [jobs, setJobs] = useState<Record<string, KnowledgeIngestJobRead>>({});
   const [agentId, setAgentId] = useState(readEmployeeScope);
   const [agentScopeLoaded, setAgentScopeLoaded] = useState(isPersonalScope);
+  /**
+   * 当前作用域是否可写。个人库恒为 true（自有空间）；员工库要创建人或管理员。
+   * 上传文档就是给这个员工新建知识库 —— 属于写操作，非 owner 必须挡住。
+   */
+  const [canWriteScope, setCanWriteScope] = useState(isPersonalScope);
   const [checkedDiscoveryJobIds, setCheckedDiscoveryJobIds] = useState<string[]>([]);
   const [pendingDiscoveries, setPendingDiscoveries] = useState<KnowledgeDiscoveryRead[]>([]);
   const [discoveryModalOpen, setDiscoveryModalOpen] = useState(false);
@@ -2080,6 +2097,33 @@ export function KnowledgeAddPage({ currentUser }: KnowledgePageProps = {}) {
       active = false;
     };
   }, [currentUser?.id, isPersonalScope]);
+
+  // 作用域确定了才知道该员工能不能写：单独算一遍，避免在 agents 拉取回调里
+  // 塞太多职责（那段已经负责 scope 纠正与事件广播）。
+  useEffect(() => {
+    if (isPersonalScope) {
+      setCanWriteScope(true);
+      return;
+    }
+    if (!agentId) {
+      setCanWriteScope(false);
+      return;
+    }
+    let active = true;
+    api
+      .get<AgentProfileRead[]>(`/api/enterprise/agents?tenant_id=${TENANT_ID}`)
+      .then((agentRows) => {
+        if (!active) return;
+        const row = agentRows.find((item) => item.id === agentId);
+        setCanWriteScope(Boolean(row && canManageEmployeeAgent(row, currentUser)));
+      })
+      .catch(() => {
+        if (active) setCanWriteScope(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [agentId, currentUser, isPersonalScope]);
 
   useEffect(() => {
     if (!agentScopeLoaded) return;
@@ -2160,6 +2204,11 @@ export function KnowledgeAddPage({ currentUser }: KnowledgePageProps = {}) {
   async function uploadFile(file: File) {
     if (!isPersonalScope && !isEnterpriseAdmin(currentUser) && !agentId) {
       notify.warning('请先选择一个数字员工');
+      return;
+    }
+    // 非 owner 不能给别人的员工建知识库：前端先拦，别等后端 403 才提示。
+    if (!canWriteScope) {
+      notify.warning('没有该员工的管理权限，无法新建知识库');
       return;
     }
     try {
@@ -2286,15 +2335,22 @@ export function KnowledgeAddPage({ currentUser }: KnowledgePageProps = {}) {
             resourceType="knowledge_base"
           />
         )}
+        {!isPersonalScope && !canWriteScope && (
+          <ResourceReadOnlyNotice
+            resource="知识库"
+            className="mb-0"
+          />
+        )}
         <FileDropzone
           multiple
+          disabled={!canWriteScope}
           accept=".doc,.docx,.txt,.md,.markdown,.html,.htm,.pdf"
           onFiles={(files) => files.forEach((file) => void uploadFile(file))}
         >
           <div className="knowledge-upload-inner">
             <InboxOutlined />
             <div>
-              <strong>拖拽文档到这里，或点击上传</strong>
+              <strong>{canWriteScope ? '拖拽文档到这里，或点击上传' : '没有该员工的管理权限，无法上传'}</strong>
               <span>支持 docx/txt/md/html/pdf；旧版 doc 请自行转换为 docx</span>
             </div>
           </div>
@@ -2929,14 +2985,16 @@ function 目录索引Overview({
                           {bucket.title || bucket.bucket_key || '引用来源'}
                         </h5>
                       </div>
-                      <UIButton
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEditBucket(bucket)}
-                      >
-                        <EditOutlined />
-                        编辑
-                      </UIButton>
+                      {canEdit && (
+                        <UIButton
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onEditBucket(bucket)}
+                        >
+                          <EditOutlined />
+                          编辑
+                        </UIButton>
+                      )}
                     </div>
                     {bucket.summary ? (
                       <p className="my-[6px] text-[13px] leading-[1.65] text-[#6d6d72]">{bucket.summary}</p>
@@ -3000,17 +3058,19 @@ function 目录索引Overview({
                           </div>
                           <h5 className="mt-[6px] mb-0 text-[15px] font-semibold text-foreground">{concept.title || concept.concept_id}</h5>
                         </div>
-                        <UIButton
-                          variant="outline"
-                          size="sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onEditConcept(concept);
-                          }}
-                        >
-                          <EditOutlined />
-                          编辑
-                        </UIButton>
+                        {canEdit && (
+                          <UIButton
+                            variant="outline"
+                            size="sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onEditConcept(concept);
+                            }}
+                          >
+                            <EditOutlined />
+                            编辑
+                          </UIButton>
+                        )}
                       </div>
                       <p className="my-[6px] text-[13px] text-[#6d6d72]">{concept.description || conceptSummary(concept)}</p>
                       <div className="flex flex-wrap items-center gap-[6px]">

@@ -108,12 +108,25 @@ export default function FaqPage({
   const canManage = useMemo(() => {
     if (!currentUser) return false;
     if (isEnterpriseAdmin(currentUser)) return true;
+    // 只认传进来的 agent：拿不到就按「无权限」处理。
+    // 这里曾经 `return true` 兜底，等于「没传 agent 就谁都能改 FAQ」——
+    // 而档案页的 FAQ tab 恰恰可能不带 agent 进来。
     if (agentProp) return canManageEmployeeAgent(agentProp, currentUser);
-    return true;
+    return false;
   }, [agentProp, currentUser]);
 
   const load = useCallback(async () => {
     if (!agentId) return;
+    // 后端三个读接口（items/unanswered/handoffs）都要求「创建人或管理员」，
+    // 非 owner 进来会连吃 3 个 403：页面既空又弹三条错误，等于坏页。
+    // 没有管理权限就不发请求，由下面的只读说明卡交代原因。
+    if (!canManage) {
+      setUnanswered([]);
+      setHandoffs([]);
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const base = `/api/enterprise/agents/${encodeURIComponent(agentId)}/faq`;
@@ -131,7 +144,7 @@ export default function FaqPage({
     } finally {
       setLoading(false);
     }
-  }, [agentId]);
+  }, [agentId, canManage]);
 
   useEffect(() => {
     if (!agentProp) setAgentId(readEmployeeScope());
@@ -440,6 +453,20 @@ export default function FaqPage({
       className={embedded ? 'min-h-0' : 'min-h-full box-border px-[48px] pt-[32px] pb-[43px] max-[900px]:px-[16px]'}
       aria-busy={loading}
     >
+      {/* 无管理权限时整页降为只读说明：后端连读接口都要求「创建人或管理员」，
+          给表格也只会是三个 403。之前是在页尾补一行小字，用户已经看到空表了，
+          所以必须把说明放到最前面。 */}
+      {!canManage && (
+        <section className="mb-[24px] rounded-[14px] border border-[rgba(24,24,26,0.14)] bg-[#f2f1ee] px-[18px] py-[16px]">
+          <h3 className="m-0 text-[14px] font-semibold text-[#18181a]">FAQ 仅对员工创建人或管理员开放</h3>
+          <p className="m-0 mt-[6px] text-[12.5px] leading-[1.7] text-[#6d6d72]">
+            你在查看其他同事的数字员工，FAQ 的查看与维护属于管理动作。需要修改请联系该员工的创建人或租户管理员。
+          </p>
+        </section>
+      )}
+
+      {canManage && (
+      <>
       <section className="mb-[36px]">
         <div className="mb-[14px] flex items-center gap-[12px] text-[#6d6d72]">
           <span className="text-[14px] leading-none">待沉淀</span>
@@ -484,6 +511,8 @@ export default function FaqPage({
           emptyText="还没有 FAQ，从上面的待沉淀列表采纳第一条吧。"
         />
       </section>
+      </>
+      )}
 
       {drawer && (
         <>
@@ -602,12 +631,6 @@ export default function FaqPage({
           else void deleteItem(confirmTarget);
         }}
       />
-
-      {!canManage && (
-        <div className="mt-8 rounded-xl border border-[rgba(24,24,26,0.14)] bg-white px-5 py-4 text-[13px] text-[#6d6d72]">
-          当前账号对该员工没有管理权限（仅员工创建人或租户管理员可以编辑 FAQ）。
-        </div>
-      )}
     </div>
   );
 }

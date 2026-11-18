@@ -98,6 +98,7 @@ import type {
   GeneralSkillRunResponse,
   ModelConfigRead,
 } from '../types';
+import ResourceReadOnlyNotice from '../components/ResourceReadOnlyNotice';
 
 const GENERAL_SKILL_PAGE_SIZE = 10;
 const GENERAL_SKILL_RUN_MODEL_STORAGE_KEY = 'general-skill-run-model';
@@ -717,10 +718,15 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
     const published = row.status === 'published';
     // 广场作用域：编辑/启停/删除等管理操作仅对管理员或创建者可见（全员可发布，但管理受限）；
     // 「下载」对所有能看到该技能的人开放，所以菜单本身不再整体隐藏。
-    const canManage =
-      !isOverallAgent ||
-      isEnterpriseAdmin(currentUser) ||
-      row.metadata?.owner_user_id === currentUser?.id;
+    // 员工作用域：整段跟随 canManageCurrentScope —— 之前写 `!isOverallAgent || …`
+    // 在员工态下恒为 true，非 owner 会看到完整的编辑/移除菜单。
+    const canManage = isOverallAgent
+      ? (isEnterpriseAdmin(currentUser) || row.metadata?.owner_user_id === currentUser?.id)
+      : canManageCurrentScope;
+    // 下载技能包＝把这份技能整套拷走（含 SKILL.md 和脚本），员工私有技能不能对
+    // 只读用户开放 —— 那是别人的资产。广场技能除外：广场本身就是「人人可拿」的
+    // 分发面，只读用户下载广场技能是设计内的行为。
+    const canDownload = isOverallAgent || canManage;
     return (
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -730,14 +736,16 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
           <IconMore className="size-3.5" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className={MENU_CONTENT_CLASS}>
-          <DropdownMenuItem
-            className={MENU_ITEM_CLASS}
-            onSelect={() => void downloadSkillPackage(row)}
-          >
-            <Download />
-            下载
-          </DropdownMenuItem>
-          {published && (
+          {canDownload && (
+            <DropdownMenuItem
+              className={MENU_ITEM_CLASS}
+              onSelect={() => void downloadSkillPackage(row)}
+            >
+              <Download />
+              下载
+            </DropdownMenuItem>
+          )}
+          {published && canDownload && (
             <DropdownMenuItem
               className={MENU_ITEM_CLASS}
               onSelect={() => void requestSkillShare(row)}
@@ -903,6 +911,10 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
   return (
     <div className={embedded ? undefined : 'min-h-full box-border px-[48px] pt-[32px] pb-[43px] max-[900px]:px-[16px]'}>
       {!embedded && <AppHeader onLogout={onLogout} userName={currentUser?.username} title={pageTitle} />}
+
+      {!isOverallAgent && !canManageCurrentScope && (
+        <ResourceReadOnlyNotice resource="技能" className="mt-[20px]" />
+      )}
       {/* embedded（数字员工档案页 skills tab）也要有添加/刷新入口：员工作用域下的
           「从广场复制」就是“把已有技能绑到该员工身上”的唯一路径 */}
       <div className={embedded ? 'mb-[16px] flex items-center justify-end gap-[12px]' : 'mt-[20px] mb-[16px] flex items-center justify-end gap-[12px]'}>

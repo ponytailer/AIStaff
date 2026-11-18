@@ -197,6 +197,9 @@ describe('DashboardPage dispatcher profile tabs', () => {
     model_name: 'deepseek-v4-flash',
     usage_count: 3,
     published_to_gallery: false,
+    // 后端 DispatcherRead 的写权限判定位：档案页据此决定「配置成员/调整兜底」
+    // 是否可见。测试里用 admin 身份，所以为 true（非 owner 场景另有专门用例）。
+    can_manage: true,
     members: [
       {
         member_agent_id: 'agent-1',
@@ -285,6 +288,52 @@ describe('DashboardPage dispatcher profile tabs', () => {
     // 切回档案总览仍然可用
     await user.click(within(tablist).getByText('档案总览'));
     expect(await screen.findByText(/成员与路由规则/)).toBeTruthy();
+  });
+
+  /**
+   * 回归（用户反馈「很多都可以参与编辑」）：小队档案也必须区分归属。
+   *
+   * 广场里能看到别人发布的小队，此时后端把 can_manage 算成 false。页面必须
+   * 只读：不出现「配置成员 / 调整」这类写入口，也不能把编辑弹窗挂出来。
+   * 之前这三个入口对所有人开放，非创建人点进去能直接改别人的成员与兜底。
+   */
+  it('非 owner 的小队档案只读：不出现配置成员/调整兜底入口', async () => {
+    const readOnlyDispatcher = { ...dispatcher, can_manage: false };
+    window.localStorage.setItem(ENTERPRISE_AGENT_STORAGE_KEY, dispatcher.id);
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/enterprise/dispatchers')) return jsonResponse([readOnlyDispatcher]);
+      if (url.includes('/api/enterprise/agents')) return jsonResponse([agent]);
+      if (url.includes('/api/enterprise/knowledge-bases')) {
+        return jsonResponse({ items: [], total: 0, page: 1, page_size: 200 });
+      }
+      if (url.includes('/api/enterprise/feedback/summary')) {
+        return jsonResponse({ total_feedback: 0, up_count: 0, down_count: 0, bucket_counts: [] });
+      }
+      return jsonResponse([]);
+    }));
+    render(
+      <I18nProvider>
+        <TooltipProvider>
+          <MemoryRouter>
+            <DashboardPage
+              currentUser={{ id: 'user-2', tenant_id: 'tenant_demo', username: 'other', role: 'member' }}
+            />
+          </MemoryRouter>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+
+    // 档案主体仍然可见（只读 ≠ 看不到）
+    expect(await screen.findByText(/成员与路由规则/)).toBeTruthy();
+    expect(screen.getByText('小安')).toBeTruthy();
+
+    // 三个写入口全部消失
+    expect(screen.queryByRole('button', { name: '配置成员' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '去配置' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '调整' })).toBeNull();
+    // 「去对话」是读路径上的正常动作，必须留着
+    expect(screen.getByRole('button', { name: /去对话/ })).toBeTruthy();
   });
 
   /**

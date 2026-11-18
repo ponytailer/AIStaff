@@ -171,6 +171,41 @@ def test_published_dispatcher_is_readable_by_others(db) -> None:
     assert [item["id"] for item in listed.json()] == [DISPATCHER_ID]
 
 
+def test_can_manage_flag_reflects_ownership(db) -> None:
+    """``can_manage`` 是前端档案页「只读 / 可配置」的唯一依据。
+
+    用户反馈「非 owner 通过左下角进员工档案，很多都能编辑」—— 广场里能看到
+    别人发布的小队，前端此前没有归属信息，只能默认放开。这里锁死口径：
+    创建人与管理员为 True，其他同租户同事即使能看到也必须为 False。
+    """
+    _seed_dispatcher(db)
+    row = db.get(AgentProfile, DISPATCHER_ID)
+    metadata = dict(row.metadata_json or {})
+    metadata["published_to_gallery"] = True
+    row.metadata_json = metadata
+    db.add(row)
+    db.commit()
+
+    owner_view = _install(db, OWNER_ID).get(
+        f"{BASE}/{DISPATCHER_ID}", params={"tenant_id": TENANT}
+    )
+    assert owner_view.status_code == 200, owner_view.text
+    assert owner_view.json()["can_manage"] is True
+
+    # 同租户、非创建者、非管理员：能看（已发布到广场），但不能管
+    other_view = _install(db, OTHER_ID).get(
+        f"{BASE}/{DISPATCHER_ID}", params={"tenant_id": TENANT}
+    )
+    assert other_view.status_code == 200, other_view.text
+    payload = other_view.json()
+    assert payload["published_to_gallery"] is True
+    assert payload["can_manage"] is False
+
+    # 列表里同样带这个位，侧栏/列表页才能一致地降级
+    listed = _install(db, OTHER_ID).get(BASE, params={"tenant_id": TENANT}).json()
+    assert [item["can_manage"] for item in listed] == [False]
+
+
 def test_cross_tenant_is_forbidden(db) -> None:
     _seed_dispatcher(db)
     client = _install(db, OWNER_ID)

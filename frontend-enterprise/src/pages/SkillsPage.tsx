@@ -60,6 +60,7 @@ import { isTeamScope, readEmployeeScope } from '../lib/agent-scope-storage';
 import { StatusBadge } from './scheduled-tasks/StatusBadge';
 import type { BadgeTone } from './scheduled-tasks/shared';
 import type { AgentProfileRead, SkillRead, SkillVersionRead } from '../types';
+import ResourceReadOnlyNotice from '../components/ResourceReadOnlyNotice';
 
 const SKILL_PAGE_SIZE = 10;
 const RANKING_PAGE_SIZE = 10;
@@ -289,7 +290,10 @@ export default function SkillsPage({
   ];
 
   function renderActions(row: SkillRead) {
-    if (isOverallAgent && !canManageCurrentScope) {
+    // 无管理权限一律只读：只能看版本，不能编辑/启停/移除。
+    // 这里原来写的是 `isOverallAgent && !canManageCurrentScope`，只挡住了广场
+    // 作用域 —— 员工作用域下非 owner 进来会拿到完整的编辑/删除菜单。
+    if (!canManageCurrentScope) {
       return (
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -621,6 +625,10 @@ export default function SkillsPage({
       <AppHeader onLogout={onLogout} userName={currentUser?.username} title="SOP" />
       )}
 
+      {!isOverallAgent && !canManageCurrentScope && (
+        <ResourceReadOnlyNotice resource=" SOP" className="mt-[20px]" />
+      )}
+
       <div className="mt-[20px] mb-[16px] flex items-center justify-end gap-[12px]">
         <UIButton
           variant="outline"
@@ -827,6 +835,7 @@ export default function SkillsPage({
         skill={versionSkill}
         rows={versionRows}
         loading={loading}
+        canManage={canManageCurrentScope}
         onDetail={(row) => void showVersionDetail(row)}
         onRollback={(row) => setRollbackTarget(row)}
         onClose={() => {
@@ -1076,6 +1085,7 @@ function VersionsDialog({
   skill,
   rows,
   loading,
+  canManage,
   onDetail,
   onRollback,
   onClose,
@@ -1084,6 +1094,8 @@ function VersionsDialog({
   skill: SkillRead | null;
   rows: SkillVersionRead[];
   loading: boolean;
+  /** 回滚是写操作，要创建人或管理员；只读用户只能看版本历史。 */
+  canManage: boolean;
   onDetail: (row: SkillVersionRead) => void;
   onRollback: (row: SkillVersionRead) => void;
   onClose: () => void;
@@ -1129,14 +1141,16 @@ function VersionsDialog({
                 <Eye />
                 查看详情
               </DropdownMenuItem>
-              <DropdownMenuItem
-                className={MENU_ITEM_CLASS}
-                disabled={isCurrent}
-                onSelect={() => onRollback(row)}
-              >
-                <RotateCcw />
-                {isCurrent ? '当前版本' : '回滚到此版本'}
-              </DropdownMenuItem>
+              {canManage && (
+                <DropdownMenuItem
+                  className={MENU_ITEM_CLASS}
+                  disabled={isCurrent}
+                  onSelect={() => onRollback(row)}
+                >
+                  <RotateCcw />
+                  {isCurrent ? '当前版本' : '回滚到此版本'}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );

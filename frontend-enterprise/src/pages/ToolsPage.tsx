@@ -82,6 +82,7 @@ import type {
   MCPTransport,
   MCPDiscoveredTool,
 } from '../types';
+import ResourceReadOnlyNotice from '../components/ResourceReadOnlyNotice';
 
 type ToolPageProps = {
   currentUser?: EnterpriseAuthUser;
@@ -500,7 +501,9 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
               编辑
             </DropdownMenuItem>
           )}
-          {!isOverallAgent && (
+          {/* 启停是写操作（PUT /tools/{id}/binding），必须跟着管理权限走；
+              原来只看 !isOverallAgent，非 owner 进来也能把别人的工具停掉。 */}
+          {canManageCurrentScope && !isOverallAgent && (
             toolBindingEnabled(row) ? (
               <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => void setToolEnabled(row, false)}>
                 <Ban />
@@ -513,10 +516,14 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
               </DropdownMenuItem>
             )
           )}
-          <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => navigate(`/enterprise/tools/${row.id}/test`)}>
-            <FlaskConical />
-            测试
-          </DropdownMenuItem>
+          {/* 「测试」会带真实参数打一次工具接口（可能真的开权限、真的建工单），
+              不是纯读。只读用户不该拿别人的员工去触发外部副作用。 */}
+          {canManageCurrentScope && (
+            <DropdownMenuItem className={MENU_ITEM_CLASS} onSelect={() => navigate(`/enterprise/tools/${row.id}/test`)}>
+              <FlaskConical />
+              测试
+            </DropdownMenuItem>
+          )}
           {canManageCurrentScope && !isMcpChild && (
             <>
               <DropdownMenuSeparator className="my-[2px] bg-[#ecebe7]" />
@@ -747,6 +754,10 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
   const pageBody = (
     <>
       {!embedded && <AppHeader onLogout={onLogout} userName={currentUser?.username} title={pageTitle} />}
+
+      {!isOverallAgent && !canManageCurrentScope && (
+        <ResourceReadOnlyNotice resource="工具" className="mt-[20px]" />
+      )}
 
       <div className={cn('mb-[16px] flex items-center justify-end gap-[12px]', embedded ? 'mt-0' : 'mt-[20px]')}>
         <UIButton

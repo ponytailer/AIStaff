@@ -147,6 +147,10 @@ class DispatcherRead(BaseModel):
     published_to_gallery: bool = False
     # 小队头像预设；缺省时前端用默认图形。
     avatar_preset: Optional[str] = None
+    # 当前登录用户能否管理这个小队（创建人或租户管理员）。
+    # 前端档案页要据此把「配置成员 / 兜底策略」这类写入口降为只读 —— 广场里
+    # 能看到别人发布的小队，没有这个字段就只能靠前端猜，结果谁都点得进去。
+    can_manage: bool = False
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

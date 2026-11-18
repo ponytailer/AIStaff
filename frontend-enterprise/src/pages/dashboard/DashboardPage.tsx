@@ -321,6 +321,9 @@ export default function DashboardPage({
           sessions={sessions}
           feedbackSummary={feedbackSummary}
           activityEvents={activityEvents}
+          // 小队也有归属：广场里能看到别人发布的小队，非创建人进来必须是只读。
+          // 后端已经算好 can_manage（创建人或管理员），前端不再自己拼规则。
+          canManage={Boolean(selectedDispatcher.can_manage)}
           onOpenChat={() => navigate(`/workspace/chat/draft/${selectedDispatcher.id}`)}
           // 就地打开编辑器，不跳走。曾经试过两版跳转（裸 /enterprise/agents、
           // ?edit=&focus=#dispatchers 深链到 AgentsPage），用户都反馈落点不对：
@@ -330,7 +333,7 @@ export default function DashboardPage({
           userName={currentUser?.username}
         />
         <DispatcherEditorDialog
-          open={Boolean(dispatcherConfigSection)}
+          open={Boolean(dispatcherConfigSection) && Boolean(selectedDispatcher.can_manage)}
           dispatcher={selectedDispatcher}
           agents={agents}
           models={models}
@@ -556,7 +559,10 @@ export default function DashboardPage({
       {activeTab === 'tools' && (
         <ToolsPage embedded currentUser={currentUser} onLogout={onLogout} />
       )}
-      {activeTab === 'faq' && canEditSelectedAgent && (
+      {/* FAQ 不能跟着 canEditSelectedAgent 一起藏：没管理权限的人点进这个 tab
+          曾经是整页空白（tab 高亮着、下面什么都没有），看起来像页面坏了。
+          FaqPage 自己已经有 canManage 判定，只读时隐藏写操作并给出说明。 */}
+      {activeTab === 'faq' && (
         <FaqPage embedded currentUser={currentUser} agent={selectedAgent} />
       )}
       {activeTab === 'scheduled' && <ScheduledTasksTab />}
@@ -592,6 +598,7 @@ function DispatcherProfileView({
   sessions,
   feedbackSummary,
   activityEvents,
+  canManage,
   onOpenChat,
   onConfigure,
   onLogout,
@@ -603,6 +610,8 @@ function DispatcherProfileView({
   feedbackSummary: FeedbackSummaryRead | null;
   /** 小队自己的活动事件（对话/转接），复用员工那套时间线渲染 */
   activityEvents: AgentWorkRecordEventRead[];
+  /** 创建人或租户管理员才能改成员/规则/兜底；广场里别人发布的小队是只读的。 */
+  canManage: boolean;
   onOpenChat: () => void;
   /** 打开配置弹窗并定位到对应段：members=成员与路由规则 / fallback=兜底策略 */
   onConfigure: (section?: 'members' | 'fallback') => void;
@@ -654,14 +663,16 @@ function DispatcherProfileView({
                   去对话
                   <span aria-hidden className="ml-[1px] text-[15px] leading-none">→</span>
                 </UiButton>
-                <UiButton
-                  variant="outline"
-                  className={HERO_SECONDARY_BUTTON_CLASS}
-                  onClick={() => onConfigure('members')}
-                >
-                  <IconEdit className="size-[14px]" />
-                  配置成员
-                </UiButton>
+                {canManage && (
+                  <UiButton
+                    variant="outline"
+                    className={HERO_SECONDARY_BUTTON_CLASS}
+                    onClick={() => onConfigure('members')}
+                  >
+                    <IconEdit className="size-[14px]" />
+                    配置成员
+                  </UiButton>
+                )}
               </div>
             </div>
 
@@ -746,10 +757,15 @@ function DispatcherProfileView({
             <DispatcherMembersCard
               members={members}
               maxMembers={MAX_DISPATCH_MEMBERS}
+              canManage={canManage}
               onConfigure={() => onConfigure('members')}
             />
             <div className="flex flex-col gap-[12px]">
-              <DispatcherFallbackCard dispatcher={dispatcher} onConfigure={() => onConfigure('fallback')} />
+              <DispatcherFallbackCard
+                dispatcher={dispatcher}
+                canManage={canManage}
+                onConfigure={() => onConfigure('fallback')}
+              />
               <DispatcherMetaCard dispatcher={dispatcher} />
             </div>
           </div>
@@ -893,17 +909,19 @@ function DispatcherActivityCard({
 function DispatcherMembersCard({
   members,
   maxMembers,
+  canManage,
   onConfigure,
 }: {
   members: DispatcherRead['members'];
   maxMembers: number;
+  canManage: boolean;
   onConfigure: () => void;
 }) {
   return (
     <DispatcherCardShell
       title="成员与路由规则"
       count={`${members.length}/${maxMembers}`}
-      action={(
+      action={canManage ? (
         <button
           type="button"
           onClick={onConfigure}
@@ -911,7 +929,7 @@ function DispatcherMembersCard({
         >
           去配置
         </button>
-      )}
+      ) : undefined}
     >
       {members.length === 0 && (
         <span className="text-[12.5px] leading-[1.6] text-[#8a5a12]">
@@ -976,9 +994,11 @@ function DispatcherMembersCard({
 /** 「无法匹配时怎么办」的完整兜底策略：模式 + 固定话术 + 置信度门槛。 */
 function DispatcherFallbackCard({
   dispatcher,
+  canManage,
   onConfigure,
 }: {
   dispatcher: DispatcherRead;
+  canManage: boolean;
   onConfigure: () => void;
 }) {
   const config = dispatcher.config;
@@ -988,7 +1008,7 @@ function DispatcherFallbackCard({
   return (
     <DispatcherCardShell
       title="兜底策略"
-      action={(
+      action={canManage ? (
         <button
           type="button"
           onClick={onConfigure}
@@ -996,7 +1016,7 @@ function DispatcherFallbackCard({
         >
           调整
         </button>
-      )}
+      ) : undefined}
     >
       <div className="flex flex-col gap-[2px]">
         <span className="text-[11.5px] leading-none text-[#9a9a9f]">无法匹配时</span>
