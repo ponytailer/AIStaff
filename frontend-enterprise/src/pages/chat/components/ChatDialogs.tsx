@@ -1,3 +1,5 @@
+import { Bell } from 'lucide-react';
+
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import StaffdeckIcon from '@/components/StaffdeckIcon';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,8 @@ import {
   CHAT_CITATION_DETAIL_SECTION_CLASS,
   CHAT_CITATION_DETAIL_TITLE_CLASS,
   CHAT_HANDOFF_EMPTY_CLASS,
+  CHAT_HANDOFF_NOTIFY_ACTION_CLASS,
+  CHAT_HANDOFF_NOTIFY_BAR_CLASS,
   CHAT_HANDOFF_LIST_CLASS,
   CHAT_COMPOSER_ATTACHMENT_LABEL_CLASS,
   CHAT_COMPOSER_ATTACHMENT_PROGRESS_CLASS,
@@ -65,6 +69,8 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
     removeHandoffAttachment,
     submitHandoffReply,
     dismissHandoff,
+    handoffNotificationState,
+    enableHandoffNotifications,
     agents,
     displayedAgent,
     displayedProfile,
@@ -103,6 +109,36 @@ export default function ChatDialogs({ chat }: { chat: UseChatSession }) {
           <DialogHeader>
             <DialogTitle>待回答</DialogTitle>
           </DialogHeader>
+          {/*
+            桌面提醒开关。放在这里而不是设置页：这是用户唯一会主动关心
+            「有没有新问题」的地方，也是他愿意点授权的地方——浏览器要求
+            权限申请必须来自用户手势，轮询路径偷偷申请会被静默拒绝。
+          */}
+          {handoffNotificationState !== 'unsupported' && (
+            <div className={CHAT_HANDOFF_NOTIFY_BAR_CLASS}>
+              <Bell aria-hidden className="size-[13px] shrink-0" strokeWidth={1.8} />
+              {handoffNotificationState === 'granted' ? (
+                <span>已开启桌面提醒：切到其他标签页也会收到系统通知。</span>
+              ) : handoffNotificationState === 'denied' ? (
+                <span>
+                  桌面提醒被浏览器拒绝。请点地址栏左侧的站点图标，把「通知」改为允许。
+                </span>
+              ) : (
+                <>
+                  <span className="min-w-0 flex-1">
+                    开启后，出现新的待回答会弹出系统通知，切到其他标签页也能收到。
+                  </span>
+                  <button
+                    type="button"
+                    className={CHAT_HANDOFF_NOTIFY_ACTION_CLASS}
+                    onClick={() => void enableHandoffNotifications()}
+                  >
+                    开启提醒
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           {handoffs.length === 0 ? (
             <div className={CHAT_HANDOFF_EMPTY_CLASS}>
               {handoffsLoading ? '正在加载待回答消息' : '暂无待回答消息'}

@@ -37,6 +37,12 @@ import {
 } from '@/lib/dispatcher';
 import { getClientTimeZone } from '@/lib/timezone';
 import {
+  handoffNotificationSupport,
+  notifyNewHandoffs,
+  requestHandoffNotificationPermission,
+} from '@/lib/handoffNotifications';
+import type { HandoffNotificationSupport } from '@/lib/handoffNotifications';
+import {
   agentResourceCount,
   employeeDisplayName,
   employeeProfile,
@@ -164,6 +170,12 @@ const STREAM_RELAY_RECOVERY_POLL_INTERVAL_MS = 5 * 1000;
 const SESSIONS_ACTIVE_POLL_INTERVAL_MS = 2500;
 const SESSIONS_IDLE_POLL_INTERVAL_MS = 15000;
 const SESSION_EVENTS_IDLE_POLL_INTERVAL_MS = 30000;
+// 「待回答」轮询：页面可见时 15s，切到后台降到 60s。
+//
+// 后台必须继续轮询，否则桌面通知永远不会触发——而「切走了没人看红标」正是
+// 最需要提醒的时刻。降频是为了别让后台标签页常驻一个 15s 的请求。
+const HANDOFF_POLL_INTERVAL_MS = 15000;
+const HANDOFF_POLL_INTERVAL_HIDDEN_MS = 60000;
 // 突发请求合并窗口：发送一条消息会在同一秒内触发多个刷新源（流结束处理、
 // terminal turn 同步、轮询 effect 重建），对同一会话的 messages/trace/sessions
 // 重复请求。窗口内的重复调用复用同一个在途 Promise；窗口必须明显小于最小
@@ -1649,7 +1661,13 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     setHandoffsLoading(true);
     return api
       .get<HumanHandoffRead[]>(`/api/chat/handoffs?tenant_id=${tenantId}&status=pending`)
-      .then(setHandoffs)
+      .then((rows) => {
+        setHandoffs(rows);
+        // 新出现的待回答弹桌面通知。内部按 handoff id 去重（localStorage），
+        // 所以每 15s 的重复轮询不会反复弹；未授权时它自己会安静返回 0。
+        // 点通知直接打开待回答弹窗——用户此刻要处理的就是这些条目。
+        notifyNewHandoffs(rows, () => setShowHandoffInbox(true));
+      })
       .catch((error) => {
         notifyRequestError('handoffs', error, '待回答加载失败');
       })
@@ -1802,6 +1820,24 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   const openHandoffInbox = useCallback(() => {
     setShowHandoffInbox(true);
     void loadHandoffs();
+  }, [loadHandoffs]);
+
+  // 桌面通知权限。浏览器只允许在用户手势里申请，所以申请动作挂在「待回答」
+  // 弹窗的按钮上；轮询路径绝不自己弹权限框（会被静默拒绝且不再给机会）。
+  const [handoffNotificationState, setHandoffNotificationState] = useState<HandoffNotificationSupport>(
+    () => handoffNotificationSupport(),
+  );
+  const enableHandoffNotifications = useCallback(async () => {
+    const next = await requestHandoffNotificationPermission();
+    setHandoffNotificationState(next);
+    if (next === 'granted') {
+      notify.success('已开启待回答提醒：切到别的标签也会收到系统通知');
+      // 立刻把当前已有但还没提醒过的补一遍，免得「开了却没反应」。
+      void loadHandoffs();
+    } else if (next === 'denied') {
+      notify.warning('浏览器已拒绝通知权限，请在地址栏左侧的站点设置里手动允许');
+    }
+    return next;
   }, [loadHandoffs]);
 
   const appendRealtime = useCallback((id: string, messageItem: ChatMessage) => {
@@ -2056,11 +2092,13 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   }, [auth, documentVisible, loadSessions, runningTurn]);
 
   useEffect(() => {
-    if (!auth || !documentVisible) return;
+    if (!auth) return;
+    // 后台也要继续轮询（降频），否则切走标签时桌面通知永远不触发。
+    // 不用 documentVisible 做守卫：那会让「最该提醒的时刻」恰好失效。
     void loadHandoffs();
     const timer = window.setInterval(() => {
       void loadHandoffs();
-    }, 15000);
+    }, documentVisible ? HANDOFF_POLL_INTERVAL_MS : HANDOFF_POLL_INTERVAL_HIDDEN_MS);
     return () => window.clearInterval(timer);
   }, [auth, documentVisible, loadHandoffs]);
 
@@ -4206,6 +4244,8 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     showHandoffInbox,
     setShowHandoffInbox,
     openHandoffInbox,
+    handoffNotificationState,
+    enableHandoffNotifications,
     handoffReplies,
     setHandoffReplies,
     handoffAttachments,

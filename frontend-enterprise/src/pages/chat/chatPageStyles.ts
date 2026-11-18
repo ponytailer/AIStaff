@@ -574,6 +574,16 @@ export const CHAT_HANDOFF_ATTACHMENTS_CLASS = 'flex flex-wrap items-center gap-[
 export const CHAT_HANDOFF_ATTACHMENT_TILE_CLASS =
   'relative grid size-[48px] shrink-0 place-items-center overflow-hidden rounded-[10px] border border-[rgba(24,24,26,0.10)] bg-[#f2f1ee] text-[#6d6d72]';
 export const CHAT_HANDOFF_EMPTY_CLASS = 'py-[36px] text-center text-[13px] text-[#6d6d72]';
+/**
+ * 桌面提醒开关条。
+ *
+ * 文案长（要解释「切走也能收到」和「被拒绝了怎么补救」），所以整体用浅色柔底
+ * 与卡片区分开，别和下面的待回答卡片抢注意力；青绿只留给「开启提醒」按钮。
+ */
+export const CHAT_HANDOFF_NOTIFY_BAR_CLASS =
+  'flex flex-wrap items-center gap-[8px] rounded-[10px] bg-[#f4f6f5] px-[11px] py-[8px] text-[12.5px] leading-[1.6] text-[#4b4b50]';
+export const CHAT_HANDOFF_NOTIFY_ACTION_CLASS =
+  'shrink-0 rounded-[7px] bg-[#0f766e] px-[10px] py-[3px] text-[12px] font-medium text-white transition hover:bg-[#0b5f58]';
 
 // --- 五段式卡片（brief）---------------------------------------------------
 // 头部：身份 + reason 徽标 + 等待时长 + 折叠箭头
