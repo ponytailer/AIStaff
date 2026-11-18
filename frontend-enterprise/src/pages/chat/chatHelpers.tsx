@@ -22,6 +22,7 @@ import {
   CHAT_MARKDOWN_IMAGE_CLASS,
   CHAT_MARKDOWN_IMAGE_LINK_CLASS,
   CHAT_MARKDOWN_IMAGE_MISSING_CLASS,
+  CHAT_MARKDOWN_LINK_CLASS,
   CHAT_MD_TABLE_CLASS,
   CHAT_MD_TABLE_SCROLL_CLASS,
 } from './chatPageStyles';
@@ -180,7 +181,13 @@ function renderBareLinks(text: string, keyPrefix: string): ReactNode[] {
     if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
     if (href) {
       nodes.push(
-        <a key={`${keyPrefix}-url-${index}`} href={href} target="_blank" rel="noreferrer">
+        <a
+          key={`${keyPrefix}-url-${index}`}
+          className={CHAT_MARKDOWN_LINK_CLASS}
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+        >
           {label}
         </a>,
       );
@@ -306,7 +313,13 @@ export function renderInlineMarkdown(
         const safeHref = safeExternalHttpUrl(href);
         if (safeHref) {
           nodes.push(
-            <a key={key} href={safeHref} target="_blank" rel="noreferrer">
+            <a
+              key={key}
+              className={CHAT_MARKDOWN_LINK_CLASS}
+              href={safeHref}
+              target="_blank"
+              rel="noreferrer"
+            >
               {label}
             </a>,
           );

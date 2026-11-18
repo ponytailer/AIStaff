@@ -199,6 +199,16 @@ export const CHAT_MARKDOWN_CLASS = cn(
   '[&_code]:rounded-[5px] [&_code]:bg-[#f0efec] [&_code]:px-[5px] [&_code]:py-[1px] [&_code]:font-mono [&_code]:text-[12.5px]',
   '[&_.code-block-vscode]:my-[10px]',
 );
+/**
+ * 正文里的链接。
+ *
+ * 颜色/下划线原先只靠 `CHAT_MARKDOWN_CLASS` 上的 `[&_a]:` 任意变体继承：
+ * 一旦容器 class 因重构被换掉、或样式优先级被下游覆盖，链接就退化成一段
+ * 普通文字——看起来能读，但用户不知道能点。所以这里给链接自己一份样式，
+ * 不再依赖父容器，谁渲染它都是青绿带下划线。
+ */
+export const CHAT_MARKDOWN_LINK_CLASS =
+  'text-[#0f766e] underline underline-offset-2 break-words hover:text-[#0b5f58]';
 export const CHAT_MARKDOWN_IMAGE_LINK_CLASS =
   'my-[10px] block w-full max-w-full overflow-hidden rounded-[12px] border border-[rgba(24,24,26,0.08)] bg-[#f2f1ee] no-underline shadow-[0_8px_24px_rgba(30,45,70,0.08)] transition hover:border-[rgba(24,24,26,0.12)] hover:shadow-[0_10px_28px_rgba(30,45,70,0.12)]';
 /**

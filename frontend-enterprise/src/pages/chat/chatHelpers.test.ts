@@ -137,11 +137,13 @@ describe('chat history consumer contract', () => {
       ),
     );
 
-    expect(rendered).toContain(
-      '<a href="https://example.com/docs?a=1" target="_blank" rel="noreferrer">https://example.com/docs?a=1</a>。',
+    // 断言用属性正则而不是整串 HTML：链接现在带了自己的 className（颜色/下划线
+    // 不再靠父容器的 `[&_a]` 变体继承），把整串写死会让这类纯样式改动天天挂测试。
+    expect(rendered).toMatch(
+      /<a[^>]*href="https:\/\/example\.com\/docs\?a=1"[^>]*target="_blank"[^>]*rel="noreferrer"[^>]*>https:\/\/example\.com\/docs\?a=1<\/a>。/,
     );
-    expect(rendered).toContain(
-      '<a href="https://example.org/" target="_blank" rel="noreferrer">官网</a>',
+    expect(rendered).toMatch(
+      /<a[^>]*href="https:\/\/example\.org\/"[^>]*target="_blank"[^>]*rel="noreferrer"[^>]*>官网<\/a>/,
     );
     expect(rendered).toContain('<code>https://internal.test</code>');
     expect(rendered.match(/href=/g)).toHaveLength(2);
@@ -156,8 +158,8 @@ describe('chat history consumer contract', () => {
       ),
     );
 
-    expect(rendered).toContain(
-      '<a href="https://www.baidu.com/" target="_blank" rel="noreferrer">www.baidu.com</a>。',
+    expect(rendered).toMatch(
+      /<a[^>]*href="https:\/\/www\.baidu\.com\/"[^>]*target="_blank"[^>]*rel="noreferrer"[^>]*>www\.baidu\.com<\/a>。/,
     );
   });
 
@@ -175,9 +177,37 @@ describe('chat history consumer contract', () => {
 
     expect(rendered).not.toContain('href="javascript:');
     expect(rendered).not.toContain('href="https://[invalid');
-    expect(rendered).toContain(
-      '<a href="https://example.com/docs" target="_blank" rel="noreferrer">safe</a>',
+    expect(rendered).toMatch(
+      /<a[^>]*href="https:\/\/example\.com\/docs"[^>]*target="_blank"[^>]*rel="noreferrer"[^>]*>safe<\/a>/,
     );
+  });
+
+  /*
+   * 链接必须自带给色与下划线。
+   *
+   * 早先只靠 `CHAT_MARKDOWN_CLASS` 上的 `[&_a]:` 任意变体继承：容器 class 一旦
+   * 被重构换掉，<a> 仍然可点，但长得和正文一模一样——用户根本不知道能点。
+   * 这条测试盯住「链接自己有样式」，不依赖父容器。
+   */
+  it('gives links their own visible styling instead of relying on the container', () => {
+    const rendered = renderToStaticMarkup(
+      createElement(
+        'div',
+        null,
+        ...renderInlineMarkdown(
+          '裸链接 https://example.com/a 和 [文字链接](https://example.com/b)',
+          'test-link-style',
+        ),
+      ),
+    );
+
+    const anchors = rendered.match(/<a[^>]*>/g) || [];
+    expect(anchors).toHaveLength(2);
+    for (const anchor of anchors) {
+      expect(anchor).toContain('class="');
+      expect(anchor).toMatch(/text-\[#0f766e\]/);
+      expect(anchor).toContain('underline');
+    }
   });
 
   it('renders safe Markdown images and keeps unsafe image targets as text', () => {
