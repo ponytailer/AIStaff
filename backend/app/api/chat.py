@@ -79,7 +79,7 @@ from app.session.attachment_store import (
     stage_chat_attachment,
 )
 from app.session.attachments import (
-    parse_chat_attachment,
+    parse_chat_attachment_with_bytes,
     validate_chat_turn_attachments,
 )
 from app.session.cleanup import (
@@ -1149,7 +1149,9 @@ async def upload_chat_attachments(
         data = await file.read()
         if len(data) > MAX_CHAT_ATTACHMENT_BYTES:
             raise HTTPException(status_code=413, detail=f"{file.filename or '文件'} 超过上传大小限制")
-        attachment = parse_chat_attachment(
+        # 用 with_bytes 版本：图片会被压缩，落盘/算 sha 必须用压缩后的那份，
+        # 否则 turn 回程的 sha256 校验会跟 data_url 对不上。
+        attachment, staged_bytes = parse_chat_attachment_with_bytes(
             file.filename or "uploaded-file",
             file.content_type,
             data,
@@ -1157,7 +1159,7 @@ async def upload_chat_attachments(
         )
         staged = stage_chat_attachment(
             attachment,
-            data,
+            staged_bytes,
             tenant_id=tenant_id,
             user_id=current_user.id,
         )

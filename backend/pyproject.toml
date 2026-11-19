@@ -24,6 +24,9 @@ dependencies = [
   "pypdf>=4.2.0",
   "python-multipart>=0.0.9",
   "python-docx>=1.1.2",
+  # 图片附件上传压缩（app/session/image_compress.py）。此前只是 python-pptx 的
+  # 间接依赖，直接 import 它会随上游依赖树变动而断裂，必须显式声明。
+  "pillow>=10.0.0",
   # Agent 广场「AI 幻灯片生成」导出 .pptx（与 python-docx 同一类文档生成依赖）
   "python-pptx>=1.0.2",
   "python-dotenv>=1.0.1",

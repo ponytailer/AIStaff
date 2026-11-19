@@ -13,8 +13,8 @@ from typing import Any
 
 from app.db.models import new_id
 from app.session.attachment_store import sandbox_attachment_path
+from app.session.image_compress import compress_image_for_upload
 from app.session.session_schema import ChatAttachmentRead
-
 
 MAX_EXTRACTED_TEXT_CHARS = 24_000
 MAX_PREVIEW_CHARS = 600
@@ -52,21 +52,67 @@ def parse_chat_attachment(
     *,
     extract_text: bool = True,
 ) -> ChatAttachmentRead:
+    return parse_chat_attachment_with_bytes(
+        filename,
+        content_type,
+        data,
+        extract_text=extract_text,
+    )[0]
+
+
+def parse_chat_attachment_with_bytes(
+    filename: str,
+    content_type: str | None,
+    data: bytes,
+    *,
+    extract_text: bool = True,
+) -> tuple[ChatAttachmentRead, bytes]:
+    """解析附件，并把**最终会被落库的那份 bytes** 一并返回。
+
+    为什么需要返回 bytes：图片上传会做压缩（``image_compress``），压缩后的
+    bytes 才是事实源。调用方 ``stage_chat_attachment`` 用它算 sha256 并落盘，
+    而 turn 回程的 ``validate_chat_turn_attachments`` 又要求
+    ``sha256(sha256(data_url 解出的 bytes))`` 完全相等——两边必须用同一份
+    bytes，否则直接抛「图片 data URL 与上传文件不一致」。
+
+    只返回 attachment 的旧签名保留为薄封装，既有调用方无需改动。
+    """
+
     safe_name = _safe_filename(filename)
     detected_type = content_type or mimetypes.guess_type(safe_name)[0] or "application/octet-stream"
     lower_name = safe_name.lower()
     if _is_supported_image_file(lower_name, detected_type):
         detected_type = _image_content_type_for(lower_name, detected_type)
-        return _image_attachment(safe_name, detected_type, data)
+        attachment = _image_attachment(safe_name, detected_type, data)
+        # 压缩可能换了格式（PNG→JPEG），所以 bytes 要按 attachment 的实际形态
+        # 重新取：不能假设「没变」。
+        return attachment, _attachment_payload_bytes(attachment, data)
     if lower_name.endswith(".pdf") or detected_type == "application/pdf":
         if not extract_text:
-            return _path_only_attachment(safe_name, detected_type, data, kind="pdf")
-        return _pdf_attachment(safe_name, detected_type, data)
+            return _path_only_attachment(safe_name, detected_type, data, kind="pdf"), data
+        return _pdf_attachment(safe_name, detected_type, data), data
     if _is_text_file(lower_name, detected_type):
         if not extract_text:
-            return _path_only_attachment(safe_name, detected_type, data, kind="text")
-        return _text_attachment(safe_name, detected_type, data)
-    return _path_only_attachment(safe_name, detected_type, data, kind="binary")
+            return _path_only_attachment(safe_name, detected_type, data, kind="text"), data
+        return _text_attachment(safe_name, detected_type, data), data
+    return _path_only_attachment(safe_name, detected_type, data, kind="binary"), data
+
+
+def _attachment_payload_bytes(attachment: ChatAttachmentRead, original: bytes) -> bytes:
+    """从 attachment 的 data_url 取回压缩后的 bytes；没有 data_url 就用原图。
+
+    超限（>4MB）的图仍然没有 data_url —— 那是压缩也没救下来的极端情况，
+    此时落盘原图，行为与改动前一致（视觉不可用，但文件可下载）。
+    """
+
+    data_url = attachment.data_url
+    if not data_url or ";base64," not in data_url:
+        return original
+    _, _, encoded = data_url.partition(",")
+    try:
+        return base64.b64decode(encoded, validate=True)
+    except Exception:  # noqa: BLE001 - 解不回来就退回原图，绝不让上传失败
+        return original
 
 
 def attachment_context_lines(attachments: Iterable[ChatAttachmentRead | dict[str, Any]]) -> list[str]:
@@ -341,6 +387,16 @@ def _pdf_attachment(filename: str, content_type: str, data: bytes) -> ChatAttach
 
 
 def _image_attachment(filename: str, content_type: str, data: bytes) -> ChatAttachmentRead:
+    # 上传上限 12MB，但 data URL 上限只有 4MB。超过就不生成 data_url，
+    # 于是 4~12MB 的图片「传上去了、模型看不见」——用户看到缩略图正常，
+    # 却收到「我没看到图」。压缩把这一段区间救回来。
+    # 压缩失败一律原样返回（compress_image_for_upload 内部兜住所有异常）。
+
+    compressed = compress_image_for_upload(data, content_type)
+    if compressed.changed:
+        data = compressed.data
+        content_type = compressed.content_type
+
     data_url = None
     if len(data) <= IMAGE_DATA_URL_LIMIT_BYTES:
         encoded = base64.b64encode(data).decode("ascii")
