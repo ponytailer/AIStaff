@@ -2039,7 +2039,7 @@ export function freeModelNotice(options: {
   const remaining = typeof options.remaining === 'number'
     ? `，今日剩余 ${options.remaining} 问`
     : '';
-  return `你还没有自己的模型，发送后将使用「${agentName}」的免费模型（每人每天 10 问${remaining}）。`;
+  return `你还没有自己的模型，发送后将使用「${agentName}」的免费模型（每人每天 20 问${remaining}）。`;
 }
 
 export function traceSummary(trace: TurnTrace, lines: TraceLine[]): { text: string; state: TraceLine['state'] } {
