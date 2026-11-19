@@ -10,7 +10,6 @@ import { readEmployeeScope } from '../lib/agent-scope-storage';
 import { notify } from '@/components/ui/app-toast';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
-import ResourceReadOnlyNotice from '@/components/ResourceReadOnlyNotice';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -458,12 +457,9 @@ export default function FaqPage({
       className={embedded ? 'min-h-0' : 'min-h-full box-border px-[48px] pt-[32px] pb-[43px] max-[900px]:px-[16px]'}
       aria-busy={loading}
     >
-      {/* 只读提示：一句话说清「能看、不能改」。读接口已经按「能看见这个员工就能读」
-          放行（后端 ensure_agent_scope_viewer），所以下面两张表照常渲染真实数据，
-          只把写入口（编辑 / 删除 / 启停 / 采纳 / 手动新建）按 canManage 收掉。 */}
-      {!canManage && (
-        <ResourceReadOnlyNotice resource="FAQ" className="mb-[20px]" />
-      )}
+      {/* 只读态只收掉写入口（编辑 / 删除 / 启停 / 采纳 / 手动新建），
+          不再给「你能看不能改」的提示条。读接口已按「能看见这个员工就能读」
+          放行（后端 ensure_agent_scope_viewer），两张表照常渲染真实数据。 */}
 
       <>
       <section className="mb-[36px]">

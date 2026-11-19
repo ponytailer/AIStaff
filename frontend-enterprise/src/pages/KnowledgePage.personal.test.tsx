@@ -302,7 +302,10 @@ describe('KnowledgeManagePage 只读用户的工作台', () => {
       expect(calls.some((url) => url.includes('/api/enterprise/agents'))).toBe(true);
     });
 
-    expect(await screen.findByText(/你可以查看这个员工的知识库，但不能修改/)).toBeTruthy();
+    // 2026-11-19 起不再显示「你能看不能改」的提示条，改为断言页面没有该提示、
+    // 且知识图谱（内部原文切片）对非 owner 依然收起。
+    expect(screen.queryByRole('note')).toBeNull();
+    expect(screen.queryByText(/但不能修改/)).toBeNull();
     expect(screen.queryByText('知识图谱')).toBeNull();
     // 列表本身要保留 —— 只读不等于看不到
     expect(await screen.findByText('知识库列表')).toBeTruthy();
@@ -314,8 +317,6 @@ describe('KnowledgeManagePage 只读用户的工作台', () => {
 
     await screen.findByText('知识库列表');
     expect(await screen.findByText('知识图谱')).toBeTruthy();
-    // owner 不该看到只读提示
-    expect(screen.queryByText(/但不能修改/)).toBeNull();
   });
 
   it('只读时列表没有「操作」表头', async () => {

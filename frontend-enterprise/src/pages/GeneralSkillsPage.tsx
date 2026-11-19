@@ -98,7 +98,6 @@ import type {
   GeneralSkillRunResponse,
   ModelConfigRead,
 } from '../types';
-import ResourceReadOnlyNotice from '../components/ResourceReadOnlyNotice';
 
 const GENERAL_SKILL_PAGE_SIZE = 10;
 const GENERAL_SKILL_RUN_MODEL_STORAGE_KEY = 'general-skill-run-model';
@@ -912,9 +911,6 @@ export default function GeneralSkillsPage({ embedded = false, currentUser, onLog
     <div className={embedded ? undefined : 'min-h-full box-border px-[48px] pt-[32px] pb-[43px] max-[900px]:px-[16px]'}>
       {!embedded && <AppHeader onLogout={onLogout} userName={currentUser?.username} title={pageTitle} />}
 
-      {!isOverallAgent && !canManageCurrentScope && (
-        <ResourceReadOnlyNotice resource="技能" className="mt-[20px]" />
-      )}
       {/* embedded（数字员工档案页 skills tab）也要有添加/刷新入口：员工作用域下的
           「从广场复制」就是“把已有技能绑到该员工身上”的唯一路径 */}
       <div className={embedded ? 'mb-[16px] flex items-center justify-end gap-[12px]' : 'mt-[20px] mb-[16px] flex items-center justify-end gap-[12px]'}>

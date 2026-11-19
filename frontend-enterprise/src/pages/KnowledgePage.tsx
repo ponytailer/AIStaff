@@ -87,7 +87,6 @@ import {
   visibleEmployeeAgents,
 } from '../employee';
 import { renderMarkdownBlocks } from './chat/chatHelpers';
-import ResourceReadOnlyNotice from '../components/ResourceReadOnlyNotice';
 import { getDateLocale } from '@/i18n';
 import { formatClientMonthDayTime } from '@/lib/timezone';
 import type {
@@ -1305,10 +1304,6 @@ export default function KnowledgeManagePage({
       />
       )}
 
-      {!isPersonalScope && !canManageCurrentScope && (
-        <ResourceReadOnlyNotice resource="知识库" className="mt-[20px]" />
-      )}
-
       <div className="mt-[20px] mb-[16px] flex flex-wrap items-center justify-end gap-[12px]">
         {isPersonalScope && (
           <UIButton
@@ -2230,12 +2225,6 @@ export function KnowledgeAddPage({ currentUser }: KnowledgePageProps = {}) {
             value={capabilityScope}
             onChange={setCapabilityScope}
             resourceType="knowledge_base"
-          />
-        )}
-        {!isPersonalScope && !canWriteScope && (
-          <ResourceReadOnlyNotice
-            resource="知识库"
-            className="mb-0"
           />
         )}
         <FileDropzone

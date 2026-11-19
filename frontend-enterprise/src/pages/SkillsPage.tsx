@@ -60,7 +60,6 @@ import { isTeamScope, readEmployeeScope } from '../lib/agent-scope-storage';
 import { StatusBadge } from './scheduled-tasks/StatusBadge';
 import type { BadgeTone } from './scheduled-tasks/shared';
 import type { AgentProfileRead, SkillRead, SkillVersionRead } from '../types';
-import ResourceReadOnlyNotice from '../components/ResourceReadOnlyNotice';
 
 const SKILL_PAGE_SIZE = 10;
 const RANKING_PAGE_SIZE = 10;
@@ -623,10 +622,6 @@ export default function SkillsPage({
     <div className={cn('min-h-full box-border px-[48px] pt-[32px] pb-[43px] max-[900px]:px-[16px]', embedded && 'min-h-0 px-0 pt-0 pb-0')} aria-busy={loading}>
       {!embedded && (
       <AppHeader onLogout={onLogout} userName={currentUser?.username} title="SOP" />
-      )}
-
-      {!isOverallAgent && !canManageCurrentScope && (
-        <ResourceReadOnlyNotice resource=" SOP" className="mt-[20px]" />
       )}
 
       <div className="mt-[20px] mb-[16px] flex items-center justify-end gap-[12px]">

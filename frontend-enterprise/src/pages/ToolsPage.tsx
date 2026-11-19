@@ -82,7 +82,6 @@ import type {
   MCPTransport,
   MCPDiscoveredTool,
 } from '../types';
-import ResourceReadOnlyNotice from '../components/ResourceReadOnlyNotice';
 
 type ToolPageProps = {
   currentUser?: EnterpriseAuthUser;
@@ -759,10 +758,6 @@ export default function ToolsPage({ currentUser, onLogout, embedded }: ToolPageP
   const pageBody = (
     <>
       {!embedded && <AppHeader onLogout={onLogout} userName={currentUser?.username} title={pageTitle} />}
-
-      {!isOverallAgent && !canManageCurrentScope && (
-        <ResourceReadOnlyNotice resource="工具" className="mt-[20px]" />
-      )}
 
       <div className={cn('mb-[16px] flex items-center justify-end gap-[12px]', embedded ? 'mt-0' : 'mt-[20px]')}>
         <UIButton
