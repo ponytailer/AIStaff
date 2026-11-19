@@ -612,3 +612,109 @@ describe('DashboardPage dispatcher profile tabs', () => {
     expect(window.localStorage.getItem(ENTERPRISE_AGENT_STORAGE_KEY)).toBe(teamScope);
   });
 });
+
+describe('DashboardPage 小队配置深链', () => {
+  /**
+   * 侧栏「成员与路由规则」传 `?config=members` 进来（详见 AppSidebar 的
+   * DISPATCHER_STRUCTURE_NAV）。它必须**一进来就打开配置弹窗**，并定位到成员段。
+   *
+   * 这条链子断过的现场：那个侧栏项原先指向 `/enterprise/squads`（我的小队列表页），
+   * 用户点完看到的是列表，以为跳错了页（截图反馈）。
+   */
+  const dispatcher = {
+    id: 'agent_disp_deeplink',
+    tenant_id: 'tenant_demo',
+    name: '测试Multi',
+    description: '',
+    kind: 'dispatcher',
+    status: 'active',
+    model_config_id: 'model-1',
+    model_name: 'deepseek-v4-flash',
+    usage_count: 0,
+    published_to_gallery: false,
+    can_manage: true,
+    members: [
+      {
+        member_agent_id: 'agent-1',
+        routing_rule: '安全相关',
+        example_queries: [],
+        sort_order: 0,
+        status: 'active',
+        agent_name: '小安',
+        agent_status: 'active',
+        free_model_enabled: false,
+        has_own_model: false,
+      },
+    ],
+    config: {
+      fallback_mode: 'clarify',
+      fallback_reply: '',
+      default_member_agent_id: null,
+      offer_candidates: true,
+      min_confidence: 0.5,
+    },
+  };
+
+  function stubFetch() {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/enterprise/dispatchers')) return jsonResponse([dispatcher]);
+      if (url.includes('/api/enterprise/agents')) return jsonResponse([agent]);
+      if (url.includes('/api/enterprise/knowledge-bases')) {
+        return jsonResponse({ items: [], total: 0, page: 1, page_size: 200 });
+      }
+      if (url.includes('/api/enterprise/feedback/summary')) {
+        return jsonResponse({ total_feedback: 0, up_count: 0, down_count: 0, bucket_counts: [] });
+      }
+      return jsonResponse([]);
+    }));
+  }
+
+  it('带 config=members 进档案页即打开配置弹窗，并把参数从地址栏摘掉', async () => {
+    window.localStorage.setItem(ENTERPRISE_AGENT_STORAGE_KEY, dispatcher.id);
+    stubFetch();
+    function LocationEcho() {
+      const location = useLocation();
+      return <div data-testid="nav-target">{`${location.pathname}${location.search}`}</div>;
+    }
+    render(
+      <I18nProvider>
+        <TooltipProvider>
+          <MemoryRouter initialEntries={['/enterprise/dashboard?config=members']}>
+            <LocationEcho />
+            <Routes>
+              <Route
+                path="/enterprise/dashboard"
+                element={<DashboardPage currentUser={{ id: 'user-1', tenant_id: 'tenant_demo', username: 'demo', role: 'admin' }} isAdmin />}
+              />
+            </Routes>
+          </MemoryRouter>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.getAttribute('data-focus-section')).toBe('members');
+    // 参数消费后立即摘掉：否则关掉弹窗再刷新，弹窗会被残留参数反复拉起来
+    await waitFor(() => {
+      expect(screen.getByTestId('nav-target').textContent).toBe('/enterprise/dashboard');
+    });
+  });
+
+  it('非小队作用域时忽略该参数（员工档案不该被这条深链拉出小队弹窗）', async () => {
+    window.localStorage.setItem(ENTERPRISE_AGENT_STORAGE_KEY, 'agent-1');
+    stubFetch();
+    render(
+      <I18nProvider>
+        <TooltipProvider>
+          <MemoryRouter initialEntries={['/enterprise/dashboard?config=members']}>
+            <DashboardPage currentUser={{ id: 'user-1', tenant_id: 'tenant_demo', username: 'demo', role: 'admin' }} isAdmin />
+          </MemoryRouter>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+
+    expect((await screen.findAllByText('小艾')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});

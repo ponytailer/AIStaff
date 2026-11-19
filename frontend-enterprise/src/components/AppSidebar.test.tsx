@@ -119,14 +119,14 @@ beforeEach(() => {
 });
 
 describe('AppSidebar dispatcher scope', () => {
-  function renderDispatcherSidebar() {
+  function renderDispatcherSidebar(onNavigate: (route: string) => void = () => {}) {
     return render(
       <I18nProvider>
         <TooltipProvider>
           <SidebarProvider>
             <AppSidebar
               selected="/enterprise/dashboard"
-              onNavigate={() => {}}
+              onNavigate={onNavigate}
               isAdmin={false}
               sidebarDispatcher={dispatcher}
               scopeAgents={[agent]}
@@ -163,6 +163,18 @@ describe('AppSidebar dispatcher scope', () => {
     expect(screen.getByText('成员与路由规则')).toBeTruthy();
     // 员工档案这个名字也不该出现（它不是一个员工）
     expect(screen.queryByText('员工档案')).toBeNull();
+  });
+
+  it('「成员与路由规则」落到小队档案并带上 config=members 深链', async () => {
+    // 它表达的是「改这支小队的成员和路由」，不是「看所有小队」。
+    // 曾经指向 /enterprise/squads（我的小队列表页）—— 点下去是列表，
+    // 列表里没有「当前这支」的概念，用户以为跳错了（截图反馈）。
+    const onNavigate = vi.fn();
+    renderDispatcherSidebar(onNavigate);
+
+    await userEvent.click(screen.getByText('成员与路由规则'));
+
+    expect(onNavigate).toHaveBeenCalledWith('/enterprise/dashboard?config=members');
   });
 
   it('切换器下拉里把员工小队单独分组，副标题是成员数而不是岗位名', async () => {

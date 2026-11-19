@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ComponentType, ReactNode, SVGProps } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button as UiButton, Tabs, TabsList, TabsTrigger, notify } from '@/components/ui';
 import { EnterpriseRoute } from '../../enums/routes';
 import IconChat from '../../assets/icons/chat.svg?react';
@@ -94,6 +94,7 @@ export default function DashboardPage({
   onLogout?: () => void;
 }) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [agents, setAgents] = useState<AgentProfileRead[]>([]);
   const [skills, setSkills] = useState<SkillRead[]>([]);
   const [generalSkills, setGeneralSkills] = useState<GeneralSkillRead[]>([]);
@@ -120,6 +121,31 @@ export default function DashboardPage({
   const [dispatcherConfigSection, setDispatcherConfigSection] = useState<
     'members' | 'fallback' | null
   >(null);
+  /**
+   * `?config=members|fallback` 深链：侧栏「成员与路由规则」用它一进来就打开配置弹窗。
+   *
+   * 为什么需要这条参数：那个侧栏项表达的是「改这支小队的成员和路由」，而
+   * `/enterprise/dashboard` 单独一个路径只能表达「打开档案页」—— 点下去停在
+   * 档案总览，用户会以为跳错了页（截图反馈「跳到了我的小队」）。
+   *
+   * 参数消费完立刻从地址栏摘掉（replace，不进历史）：否则关掉弹窗再刷新、
+   * 或从别处点回档案页时，弹窗会被同一条残留参数反复拉起来。
+   * 依赖里带上 dispatchers / 作用域：深链通常是「新开页面」，此时小队列表还在
+   * 远程 PG 上飞（冷启动 3~8s），没等到它就没法判断「当前作用域是不是一支小队」。
+   */
+  const deepLinkConfig = searchParams.get('config');
+  useEffect(() => {
+    if (deepLinkConfig !== 'members' && deepLinkConfig !== 'fallback') return;
+    if (!dispatchers) return;
+    const isDispatcherScope =
+      isDispatcherScopeId(agentId) || dispatchers.some((item) => item.id === agentId);
+    if (!isDispatcherScope) return;
+    setDispatcherConfigSection(deepLinkConfig);
+    const next = new URLSearchParams(searchParams);
+    next.delete('config');
+    setSearchParams(next, { replace: true });
+  }, [agentId, deepLinkConfig, dispatchers, searchParams, setSearchParams]);
+
   const [loaded, setLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTabKey>(profileTab);
   useEffect(() => setActiveTab(profileTab), [profileTab]);

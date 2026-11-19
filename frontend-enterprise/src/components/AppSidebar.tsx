@@ -77,11 +77,20 @@ type NavItem = {
    * 名不副实 —— 带上 hash 让 AgentsPage 直接切到目标 tab。
    */
   hash?: string;
+  /**
+   * 同路由下的查询串（不带 `?`）。
+   *
+   * 「成员与路由规则」需要的是**档案页里那段配置**，不是小队列表页 —— 光有
+   * 路径表达不了「进去就打开弹窗」，只能带参数（`config=members`）。
+   */
+  query?: string;
 };
 
 /** 带 tab 深链的导航目标：`/enterprise/agents#dispatchers`。 */
 function navTarget(item: NavItem): string {
-  return item.hash ? `${item.route}#${item.hash}` : item.route;
+  const search = item.query ? `?${item.query}` : '';
+  const hash = item.hash ? `#${item.hash}` : '';
+  return `${item.route}${search}${hash}`;
 }
 
 // 主菜单分组：组间以细分隔线区隔（与系统组的分隔样式一致）
@@ -131,12 +140,16 @@ const DISPATCHER_PROFILE_NAV: NavItem[] = [
 /**
  * 员工小队作用域下的「结构」块。
  *
- * 小队已升为一级菜单「我的小队」（`/enterprise/squads`），不再挂在「我的数字员工」
- * 的页内 tab 上；这里直接给一级页面的落点，不再用 `#dispatchers` 深链
- * （旧深链仍由 AgentsPage 重定向兼容）。
+ * 这一项要的是**当前小队的成员与路由规则本身**，也就是档案页 Hero 下方那个
+ * 「配置成员」的能力，不是「所有小队的列表」。
+ *
+ * 历史：这里原本指向 `EnterpriseRoute.Squads`（`/enterprise/squads`，即「我的小队」
+ * 一级菜单页）—— 点下去是列表页，而列表页里没有「当前这支小队」的概念，看起来
+ * 就像「点了没反应」（用户截图反馈）。现在落到档案页并带上 `config=members`，
+ * 由 DashboardPage 进去直接打开配置弹窗、定位到成员段。
  */
 const DISPATCHER_STRUCTURE_NAV: NavItem[] = [
-  { route: EnterpriseRoute.Squads, label: '成员与路由规则', Icon: IconSquads },
+  { route: EnterpriseRoute.Dashboard, label: '成员与路由规则', Icon: IconSquads, query: 'config=members' },
 ];
 
 const SYSTEM_NAV: NavItem[] = [
