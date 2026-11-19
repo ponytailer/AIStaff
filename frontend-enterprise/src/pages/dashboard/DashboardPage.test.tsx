@@ -178,6 +178,77 @@ describe('DashboardPage hero metrics', () => {
   });
 });
 
+describe('DashboardPage hero summary source', () => {
+  /**
+   * 真实现场：Jerry Hu 胡鹏飞 的档案页头部显示的是
+   * 「对于包含暴力、侮辱、色情、政治等敏感话题，需要予以拒绝回答，并警告
+   * 对方。如果问题无法回复，那么就转人工给 owner」。
+   *
+   * 那是 persona_prompt（岗位执行约束，写给模型的安全护栏），不是给同事看的
+   * 岗位介绍。根因是头部把 persona_prompt 排在了优先级第一位。
+   *
+   * 这条用例钉住：头部展示岗位描述（description），且内部提示词不能漏出来。
+   */
+  function renderWithAgent(patch: Partial<AgentProfileRead>) {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/work-record')) {
+        return jsonResponse({ reply_stats: { total: 0, today: 0, by_day: {} }, events: [] });
+      }
+      if (url.includes('/api/enterprise/agents')) return jsonResponse([{ ...agent, ...patch }]);
+      if (url.includes('/api/enterprise/knowledge-bases')) {
+        return jsonResponse({ items: [], total: 0, page: 1, page_size: 200 });
+      }
+      if (url.includes('/api/enterprise/feedback/summary')) {
+        return jsonResponse({ total_feedback: 0, up_count: 0, down_count: 0, bucket_counts: [] });
+      }
+      return jsonResponse([]);
+    }));
+
+    return render(
+      <I18nProvider>
+        <TooltipProvider>
+          <MemoryRouter>
+            <DashboardPage
+              currentUser={{ id: 'user-1', tenant_id: 'tenant_demo', username: 'demo', role: 'admin' }}
+              isAdmin
+            />
+          </MemoryRouter>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+  }
+
+  it('shows the job description instead of the internal persona prompt', async () => {
+    const jobDescription = 'Talents、VPN、outlook、会议室预定等相关的问题';
+    const internalGuardrail = '对于包含暴力、侮辱、色情、政治等敏感话题，需要予以拒绝回答，并警告对方。';
+
+    renderWithAgent({
+      description: jobDescription,
+      persona_prompt: internalGuardrail,
+    });
+
+    expect((await screen.findByText('小艾')).textContent).toBeTruthy();
+    // 岗位描述上位
+    expect(await screen.findByText(jobDescription)).toBeTruthy();
+    // 内部提示词一个字都不能出现在档案页
+    expect(screen.queryByText(new RegExp(internalGuardrail.slice(0, 12)))).toBeNull();
+  });
+
+  it('falls back to the dashboard summary when there is no job description', async () => {
+    const dashboardSummary = '用于档案页顶部展示的摘要';
+
+    renderWithAgent({
+      description: '',
+      persona_prompt: '内部护栏，不应展示',
+      metadata: { system_prompt_summary: dashboardSummary },
+    });
+
+    expect((await screen.findByText('小艾')).textContent).toBeTruthy();
+    expect(await screen.findByText(dashboardSummary)).toBeTruthy();
+  });
+});
+
 describe('DashboardPage dispatcher profile tabs', () => {
   /**
    * 真实反馈：「他的档案页面没法查看对话日志和定时任务」。

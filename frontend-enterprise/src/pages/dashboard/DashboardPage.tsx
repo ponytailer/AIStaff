@@ -438,8 +438,29 @@ export default function DashboardPage({
   const systemPromptSummary = typeof selectedAgent.metadata?.system_prompt_summary === 'string'
     ? selectedAgent.metadata.system_prompt_summary
     : '';
+  /*
+   * 档案页头部的这句介绍展示的是**岗位描述**（agent.description），与配置端
+   * 「编辑资料 → 岗位描述」是同一个字段，也就是对话空态里问候语下方那句话。
+   *
+   * 这里原来的顺序是 persona_prompt → system_prompt_summary → description，
+   * 于是只要员工填了「岗位执行约束」，头部就会把那段内部提示词原样展示出来。
+   * 实际后果（现场截图）：Jerry Hu 胡鹏飞 的头部显示的是
+   * 「对于包含暴力、侮辱、色情、政治等敏感话题，需要予以拒绝回答，并警告
+   * 对方……否则转人工给 owner」——那是写给模型的安全护栏，不是给同事看的
+   * 岗位介绍，而且它恰好出现在「创建者 / 入职时间」正下方，读起来像是这名
+   * 员工的自我介绍。
+   *
+   * 岗位描述才是这一位置该有的内容；它为空时才依次退回「看板摘要」（配置端
+   * 的说明就是「用于数字员工档案页顶部展示」，正是为此存在）与内部提示词，
+   * 最后才用按岗位名拼的一句兜底，避免整块空白。
+   */
   const systemSummary = compactSummary(
-    staffdeckDisplayText(selectedAgent.persona_prompt || systemPromptSummary || selectedAgent.description || `${employee.roleName}，负责接收任务、调用知识库、执行 SOP 并沉淀对话质量反馈。`),
+    staffdeckDisplayText(
+      selectedAgent.description
+        || systemPromptSummary
+        || selectedAgent.persona_prompt
+        || `${employee.roleName}，负责接收任务、调用知识库、执行 SOP 并沉淀对话质量反馈。`,
+    ),
     132,
   );
 
