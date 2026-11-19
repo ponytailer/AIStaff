@@ -4868,6 +4868,38 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       svg [data-node-id], svg [data-edge-from], svg [data-detail], svg [data-detail-anchor], svg [data-legend-hit], svg { transition: none !important; }
     }
   </style>
+
+  <style id="recall-detail-styles">
+    .recall-detail {
+      max-width: 1180px;
+      margin: 40px auto 56px;
+      padding: 0 28px;
+      box-sizing: border-box;
+      color: #18181a;
+    }
+    .recall-detail-head { border-top: 1px solid rgba(128,138,160,0.28); padding-top: 22px; }
+    .recall-detail-kicker {
+      display: inline-block; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: #0f766e; font-weight: 700; margin-bottom: 10px;
+    }
+    .recall-detail-head h2 { font-size: 22px; line-height: 1.35; margin: 0 0 10px; font-weight: 700; }
+    .recall-detail-head p { font-size: 13px; line-height: 1.8; opacity: 0.78; max-width: 820px; margin: 0 0 16px; }
+    .recall-detail-actions { margin-bottom: 18px; }
+    .recall-detail-btn {
+      display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 15px;
+      border-radius: 9px; background: #18181a; color: #fff; font-size: 12px; text-decoration: none;
+      transition: opacity 0.15s ease;
+    }
+    .recall-detail-btn:hover { opacity: 0.82; }
+    .recall-frame-wrap {
+      border: 1px solid rgba(128,138,160,0.28); border-radius: 14px; overflow: hidden;
+      background: rgba(127,127,127,0.04);
+    }
+    .recall-frame { display: block; width: 100%; height: 980px; border: 0; background: transparent; }
+    html[data-theme="dark"] .recall-detail { color: #e8eaed; }
+    html[data-theme="dark"] .recall-detail-btn { background: #f2f4f8; color: #18181a; }
+    @media (max-width: 720px) { .recall-frame { height: 1200px; } .recall-detail { padding: 0 16px; } }
+  </style>
 </head>
 <body>
   <!-- Toolbar: theme, live visual style, trace motion, presentation stage, and export.
@@ -5542,6 +5574,21 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       <ol class="node-outline-list" id="node-outline-list"></ol>
     </nav>
     </aside>
+
+  <!-- ===== 召回策略详解：按情况分流的五级决策（独立 workflow 图） ===== -->
+  <section class="recall-detail no-print" id="recall-detail" aria-labelledby="recall-detail-title">
+    <header class="recall-detail-head">
+      <div class="recall-detail-kicker">深入一层 · 召回决策</div>
+      <h2 id="recall-detail-title">同一次提问，为什么会走不同的召回策略</h2>
+      <p>总览图里的「两级路由」在真实代码里是一串按优先级排列的分支：缓存命中、候选过小、词法显著命中都能跳过昂贵的模型路由；只有都不满足才逐维调用模型。点开下图查看完整决策链。</p>
+      <div class="recall-detail-actions">
+        <a class="recall-detail-btn" href="knowledge-recall.html" target="_blank" rel="noopener">全屏打开召回流程图 ↗</a>
+      </div>
+    </header>
+    <div class="recall-frame-wrap">
+      <iframe class="recall-frame" src="knowledge-recall.html" title="知识召回：按情况分流的五级策略" loading="lazy"></iframe>
+    </div>
+  </section>
 
   </div>
 

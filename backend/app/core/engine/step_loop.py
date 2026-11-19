@@ -14,6 +14,10 @@ from app.core.engine.attachments import (
     ValidatedTaskImagePayload,
     isolated_attachment_context,
 )
+from app.core.engine.image_transcribe import (
+    ImageTranscript,
+    transcribe_images_once,
+)
 from app.core.base.request_compiler import (
     CapabilityDescriptor,
     TaskExecutionResult,
@@ -203,6 +207,27 @@ class HarnessTaskAgent:
                 HarnessAction.model_validate(item) for item in knowledge_prefill
             )
 
+        # 图片只读一次：进循环前把截图转成文本，之后所有决策轮都只看文本。
+        # 此前 isolated_attachment_context 写在循环体内，每一轮都会重发原图
+        # （data_url 原样上行、不压缩）+ 思考模式，单轮实测 91-187s；多轮场景
+        # 的耗时几乎全是「同一张图被反复理解」。转写失败一律回退老路。
+        image_transcript = None
+        if image_payloads:
+            image_transcript = transcribe_images_once(
+                image_payloads,
+                model_config,
+                user_message=str(
+                    getattr(requirement, "source_user_message", "") or ""
+                ),
+                deadline_monotonic=step_deadline_monotonic,
+                trace_sink=trace_sink,
+            )
+        # 转写成功才停发原图；失败时保持「每轮带图」，宁可慢也不能让模型看不到图。
+        decision_image_payloads = (
+            None if image_transcript is not None else image_payloads
+        )
+        decision_attachment_context = _image_transcript_context(image_transcript)
+
         def finish(result: TaskExecutionResult) -> TaskExecutionResult:
             summary = " ".join(
                 str(result.task_summary or result.reply_fragment or "").split()
@@ -252,9 +277,12 @@ class HarnessTaskAgent:
             requirement_payload = _slim_requirement_payload(
                 requirement.model_dump(mode="json")
             )
+            # 附件描述每轮都要重算（尺寸/校验会就地回写 vision_available），
+            # 但**图片本身**只在转写失败时才交给决策轮；转写成功后这里传 None，
+            # 循环里就不再出现任何 image_url part。
             attachment_descriptors, attachment_context = isolated_attachment_context(
                 requirement.attachments,
-                image_payloads,
+                decision_image_payloads,
             )
             requirement_payload["attachments"] = attachment_descriptors
             payload = {
@@ -278,6 +306,11 @@ class HarnessTaskAgent:
                 }
             if attachment_context is not None:
                 payload["conversation_context"] = attachment_context
+            elif decision_attachment_context is not None:
+                # 转写成功：不再发原图，改成把「图里有什么」当作文本上下文。
+                # 模型看到的信息不减少（截图内容已逐字转写），但视觉 token
+                # 只付一次，后续每轮都只是普通文本。
+                payload["conversation_context"] = decision_attachment_context
             try:
                 action: HarnessAction | None = None
                 validation_error: Exception | None = None
@@ -700,6 +733,38 @@ class HarnessTaskAgent:
         ))
 
 
+
+
+def _image_transcript_context(
+    transcript: ImageTranscript | None,
+) -> dict[str, Any] | None:
+    """把转写结果包成 ``conversation_context`` 的形状。
+
+    走同一个通道（``conversation_context``）而不是塞进 ``task_requirement``，
+    是为了让模型看到的「用户这一轮给了什么」在两种情况下是同一种结构 ——
+    区别只有内容形态（文本 vs 图片），决策逻辑不需要分支。
+
+    ``content`` 用「用户消息」的口吻写，避免模型把它当成系统注入的旁白而忽略。
+    """
+
+    if transcript is None or not transcript.usable:
+        return None
+    count = transcript.image_count
+    header = (
+        "用户上传了 1 张截图。以下是这张截图的内容转写，"
+        "请把它当作本轮用户提供的事实依据。"
+        if count == 1
+        else f"用户上传了 {count} 张截图。以下是这些截图的内容转写，"
+        "请把它们当作本轮用户提供的事实依据。"
+    )
+    return {
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{header}\n\n{transcript.text}",
+            }
+        ]
+    }
 
 
 def _deadline_llm_client(

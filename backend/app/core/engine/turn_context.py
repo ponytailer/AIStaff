@@ -289,6 +289,11 @@ _TRACE_STREAM_STATUS: dict[str, tuple[str, str]] = {
     "harness_action_sequence_accepted": ("preparing", "按模型给出的动作序列执行"),
     "harness_structured_result_adapted": ("preparing", "整理结构化业务结果"),
     "sop_slot_extraction": ("preparing", "正在提取槽位信息"),
+    # 截图只在进决策循环前读一次（见 image_transcribe），这期间用户看到的是
+    # 一个纯等待。给一行明确提示，比停在「正在整理上下文」更容易理解。
+    "image_transcribe_started": ("preparing", "正在读取截图内容"),
+    "image_transcribe_done": ("preparing", "已读取截图内容"),
+    "image_transcribe_failed": ("preparing", "截图读取失败，改为逐轮读图"),
 }
 
 
