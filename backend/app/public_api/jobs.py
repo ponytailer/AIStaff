@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterator
 from datetime import timedelta
-import json
 from time import sleep
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import or_, update
 from sqlmodel import Session, select
 
@@ -15,10 +16,10 @@ from app.async_jobs import enqueue_async_job
 from app.config import get_settings
 from app.db import engine, get_session
 from app.db.models import (
+    AgentEvent,
     APIIdempotencyRecord,
     APIJob,
     APIJobEvent,
-    AgentEvent,
     ChatSession,
     WebhookDelivery,
     new_id,
@@ -32,7 +33,6 @@ from app.public_api.webhooks import (
     enqueue_webhook_deliveries,
     stage_webhook_deliveries,
 )
-
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 JobHandler = Callable[[Session, APIJob], dict[str, Any]]
@@ -727,32 +727,55 @@ def recover_public_jobs() -> None:
 
 
 def cleanup_public_api_records() -> None:
+    """按保留期清理过期记录。
+
+    ## 为什么用 ``DELETE ... WHERE`` 而不是「查出来再逐行删」
+
+    旧写法是 ``select(...) → for row: db.delete(row)``。这在单进程下没问题，
+    但 PG 部署下**没有任何跨进程互斥**：``acquire_runtime_instance_lock`` 只对
+    SQLite 生效（见 ``app/runtime_lock.py``，``sqlite_database_path`` 对 PG 返回
+    None），而清理有三个入口——启动钩子、维护线程每 60 分钟、以及 rq worker
+    进程自己的启动钩子。于是两个进程可能同时算出同一批过期行：
+
+        进程 A：SELECT → 450 行，逐行标记删除
+        进程 B：SELECT → 同样 450 行，先 flush 提交并删掉
+        进程 A：flush → DELETE ... WHERE id IN (450 个 id) → **0 rows matched**
+
+    SQLAlchemy 的 ORM 批量删除会拿「发送了多少条 DELETE」和「数据库实际影响
+    行数」对比，不相等就在 autoflush 阶段抛 SAWarning::
+
+        DELETE statement on table 'api_job_events' expected to delete 450 row(s);
+        0 were matched.
+
+    警告本身不影响结果（数据已经删干净了），但它会淹没真正重要的告警，而且
+    说明这条路径在并发下是不确定的。改成单条 DELETE 之后，「预期行数」就等于
+    「实际行数」，警告从根上消失；顺带把 450 次往返压成 1 次。
+
+    ## 并发仍然存在，但现在是安全的
+
+    单条 DELETE 走数据库行锁：两个进程同时执行时，后到的那个会阻塞到前一个
+    提交，然后自己匹配到 0 行——0 行是**真实结果**，不会再和预期对不上。
+    """
+
     cutoff = utc_now() - timedelta(days=get_settings().public_api_retention_days)
     with Session(engine) as db:
-        old_events = db.exec(
-            select(APIJobEvent).where(APIJobEvent.created_at < cutoff)
-        ).all()
-        for row in old_events:
-            db.delete(row)
-        old_jobs = db.exec(
-            select(APIJob).where(
+        # synchronize_session=False：这些行下一轮就会被新数据替代，session 里
+        # 也不会有待用的 ORM 实例，让 SQLAlchemy 省掉逐行标记和失效扫描。
+        for statement in (
+            sa_delete(APIJobEvent).where(APIJobEvent.created_at < cutoff),
+            sa_delete(APIJob).where(
                 APIJob.updated_at < cutoff,
                 APIJob.status.in_(["succeeded", "failed", "cancelled"]),  # type: ignore[attr-defined]
-            )
-        ).all()
-        for row in old_jobs:
-            db.delete(row)
-        expired_idempotency = db.exec(
-            select(APIIdempotencyRecord).where(APIIdempotencyRecord.expires_at < utc_now())
-        ).all()
-        for row in expired_idempotency:
-            db.delete(row)
-        old_deliveries = db.exec(
-            select(WebhookDelivery).where(
+            ),
+            # 幂等记录用「已过期」判定，不套保留期：expires_at 本身就是过期时刻，
+            # 复用 cutoff（30 天）会让过期记录多留一个月，纯属无谓占用。
+            sa_delete(APIIdempotencyRecord).where(
+                APIIdempotencyRecord.expires_at < utc_now()
+            ),
+            sa_delete(WebhookDelivery).where(
                 WebhookDelivery.updated_at < cutoff,
                 WebhookDelivery.status.in_(["delivered", "abandoned"]),  # type: ignore[attr-defined]
-            )
-        ).all()
-        for row in old_deliveries:
-            db.delete(row)
+            ),
+        ):
+            db.exec(statement.execution_options(synchronize_session=False))
         db.commit()
