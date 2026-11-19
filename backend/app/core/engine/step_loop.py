@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import is_dataclass, replace
 from typing import Any, Literal, Mapping
 
@@ -26,6 +26,7 @@ from app.core.base.request_compiler import (
 from app.db.models import ModelConfig
 from app.llm import LLMClient, LLMError
 from app.llm.json_field_stream import JsonStringFieldStream
+from app.llm.output_policy import thinking_mode_scope
 from app.observability.spans import llm_operation
 from app.core.knowledge_flow.prefetch import plan_knowledge_prefill_actions
 from app.core.sop.step_executor import plan_sop_prefill_actions
@@ -349,7 +350,7 @@ class HarnessTaskAgent:
                                 len(json.dumps(directive_payload, ensure_ascii=False, default=str))
                                 + len(system_prompt or "")
                             ),
-                        ):
+                        ), _decision_thinking_scope(iteration):
                             # 上游瞬时失败（超时/限流/5xx）重试同一请求：这类错误与
                             # 协议无关，重试成本远低于让整轮对话以「模型没有返回有效
                             # 动作」收尾。协议/鉴权类错误不在此处重试，直接抛出交给
@@ -783,5 +784,45 @@ def _deadline_llm_client(
             update={"timeout_seconds": timeout_seconds}
         )
     return LLMClient(limited_config)
+
+
+def _decision_thinking_scope(iteration: int) -> Iterator[None]:
+    """第 2 轮起关掉决策轮的思考模式。
+
+    ## 为什么只关第 2 轮之后
+
+    第 1 轮要做的是「读懂任务 + 判断下一步该干什么」，这是真正需要推理的动作，
+    思考在这里有价值（尤其带截图排障的场景，模型要对照转写内容决定查什么）。
+    第 2 轮之后输入已经变成「上一轮工具的真实结果」——通常只是把检索到的证据
+    组织成答案，或者再补一次检索。这一步没有多少推理空间，思考纯属烧时间。
+
+    ## 实测依据
+
+    同模型、同网关的多次生产观测：
+
+    - ``bucket_route`` 关思考 18~42s → 1.21~1.34s（约 13×，见
+      ``output_policy.OPERATION_THINKING_MODE`` 注释）
+    - ``response.knowledge_answer`` 16.13s → 6.19s
+    - 截图排障现场（session_3230c8ab1b4b2cf2）第 3 轮 ``harness.task_action``
+      纯文本 payload 27.9K 字符、``thinking_mode=provider_default``，单轮 11.89s；
+      同轮第 2 轮只要 1.83s。差异几乎全在思考上。
+
+    ## 为什么不做成 output_policy 的静态覆盖
+
+    ``OPERATION_THINKING_MODE`` 只能按 operation 名匹配，而这里第 1 轮和第 N 轮
+    是**同一个 operation**（``harness.task_action``）。所以用
+    ``thinking_mode_scope`` 在循环里显式声明本轮不需要思考。
+
+    ## 安全性
+
+    关思考不影响动作协议的正确性：输出仍是受 JSON Schema 约束的 HarnessAction，
+    解析失败有 json_repair 与协议修复轮兜底，最终还有确定性收尾。而且只在
+    「已有工具结果」的轮次关闭，第 1 轮的推理能力完整保留。
+    """
+
+    if iteration <= 1:
+        # 第 1 轮：不干预，沿用模型/全局配置（通常是 provider_default）。
+        return thinking_mode_scope("")
+    return thinking_mode_scope("disabled")
 
 

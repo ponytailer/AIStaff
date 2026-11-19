@@ -390,13 +390,16 @@ export const CHAT_EMPTY_TITLE_CLASS = 'text-[26px] font-semibold leading-[1.25] 
 export const CHAT_EMPTY_SUBTITLE_CLASS = 'text-[13.5px] font-normal text-[#6d6d72]';
 export const CHAT_EMPTY_CARD_CLASS =
   'flex w-full items-stretch gap-[8px] rounded-[20px] bg-[#e5e4e0] p-[16px]';
-// 角色介绍现在挂在问候语正下方、和名字同处一张卡，属于「自报家门」的第二行。
-// 原来它在独立灰卡里是 12px 深灰正文，搬到标题下后按副标题处理：比问候语小
-// 一级、比正文亮一点，让「名字 → 角色」读成一句话而不是两块信息。
-// 单行省略而不是 line-clamp-2：这里只会有一句「一名经验丰富的X」，折成两行
-// 会把问候卡撑高、挤掉头像底部的对齐。
+// 角色介绍现在挂在问候语正下方、和名字同处一张卡，属于「自报家门」的第二句。
+// 内容是员工档案里的「岗位描述」（agent.description），可能是一整段话——编辑器
+// 的占位文案写的就是「岗位边界、服务风格和执行重点」——所以这里给两行 + 省略号，
+// 而不是单行截断：单行会把「执行重点」直接切掉，正好是最该被看到的那半句。
+// 完整原文由调用方挂在 title 上，鼠标停一下可读全。
+// 字号比问候语小一级、颜色比正文浅，让「名字 → 岗位」读成一句话而不是两块信息。
 export const CHAT_EMPTY_ROLE_CLASS =
-  'truncate text-[13px] font-normal leading-[1.5] text-[#6d6d72] capitalize';
+  // normal-case 必须有：外层问候卡链上有 `capitalize`（为名字里的英文姓氏服务），
+  // 会继承下来把岗位描述里每个英文单词首字母都大写，读起来像标题而不像一句话。
+  'line-clamp-2 text-[13px] font-normal leading-[1.6] text-[#6d6d72] normal-case';
 export const CHAT_EMPTY_TAGS_CLASS =
   'flex flex-wrap items-center gap-[6px] [&>span]:rounded-full [&>span]:bg-[rgba(24,24,26,0.05)] [&>span]:px-[9px] [&>span]:py-[3px] [&>span]:text-[11px] [&>span]:capitalize [&>span]:text-[#6d6d72]';
 export const CHAT_EMPTY_STAT_CELL_CLASS =

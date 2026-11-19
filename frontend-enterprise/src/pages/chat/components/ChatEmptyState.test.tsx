@@ -182,21 +182,24 @@ describe('ChatEmptyState dispatcher card', () => {
 });
 
 describe('ChatEmptyState regular sessions', () => {
-  it('renders the employee card with the role line under the greeting', () => {
+  const jobDescription = 'Talents、VPN、outlook、会议室预定等相关的问题';
+
+  it('renders the employee job description under the greeting', () => {
     renderEmptyState(buildChat(
       { agent_id: 'agent-1' },
       {
         displayedAgent: agent,
         displayedProfile: employeeProfile(agent),
-        emptyRoleSummary: '一名经验丰富的IT',
+        emptyRoleSummary: jobDescription,
         agents: [agent],
         },
     ));
 
     expect(screen.getByText(/Hello 我是/).textContent).toContain('小艾');
     expect(screen.queryByText(/Hello 我们是/)).toBeNull();
-    // 角色介绍上移到问候语下方
-    expect(screen.getByText('一名经验丰富的IT')).toBeTruthy();
+    // 岗位描述直接展示，不再是「一名经验丰富的X」
+    expect(screen.getByText(jobDescription)).toBeTruthy();
+    expect(screen.queryByText(/一名经验丰富的/)).toBeNull();
   });
 
   it('no longer renders the removed subtitle and resource stats card', () => {
@@ -205,7 +208,7 @@ describe('ChatEmptyState regular sessions', () => {
       {
         displayedAgent: agent,
         displayedProfile: employeeProfile(agent),
-        emptyRoleSummary: '一名经验丰富的IT',
+        emptyRoleSummary: jobDescription,
         agents: [agent],
       },
     ));
@@ -217,12 +220,12 @@ describe('ChatEmptyState regular sessions', () => {
     expect(screen.queryByText('SOP')).toBeNull();
   });
 
-  it('omits the role line entirely when there is no profile', () => {
+  it('omits the job description line entirely when it is blank', () => {
     const { container } = renderEmptyState(buildChat(
       { agent_id: 'agent-1' },
       {
         displayedAgent: agent,
-        // 没有档案 → emptyRoleSummary 为空串
+        // 员工没填岗位描述 → 空串
         emptyRoleSummary: '',
         agents: [agent],
       },

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 # Control-plane routers already have deterministic fallbacks. Retrying an empty
 # reasoning-only response delays the real work without improving routing.
@@ -119,12 +122,59 @@ OPERATION_THINKING_MODE: dict[str, str] = {
 
 
 def operation_thinking_mode(operation: str | None, configured_mode: str) -> str:
-    """返回该操作最终生效的思考模式；未配置覆盖时沿用模型/全局配置。"""
+    """返回该操作最终生效的思考模式；未配置覆盖时沿用模型/全局配置。
 
+    优先级（后者盖前者）：
+        1. 模型/全局配置的 ``configured_mode``
+        2. ``OPERATION_THINKING_MODE`` 里的静态按 operation 覆盖
+        3. ``thinking_mode_scope()`` 设置的**动态作用域**覆盖（见下）
+
+    动态作用域是给 Harness 决策循环用的：同一个 operation
+    （``harness.task_action``）在第 1 轮和第 N 轮的成本结构完全不同——第 1 轮要
+    读截图/理解任务，思考有价值；第 4 轮通常只是「拿工具结果收尾」，思考纯亏。
+    静态表没法表达这种差别，所以由调用方在循环里用 ``thinking_mode_scope``
+    显式声明「这一轮不需要思考」。
+    """
+
+    scoped = _scoped_thinking_mode.get()
+    if scoped in {"enabled", "disabled"}:
+        return scoped
     override = OPERATION_THINKING_MODE.get(str(operation or ""))
     if override in {"enabled", "disabled"}:
         return override
     return configured_mode
+
+
+# 动态思考模式覆盖：由调用方在**明确知道当前轮次成本结构**的地方设置。
+#
+# 用 ContextVar 而不是函数签名透传，是因为这条链路上「客户端构造 → LLMClient
+# .generate_text → output_policy」跨了三个模块、中间还夹着协议驱动与 SDK 调用，
+# 逐层加参数会污染大量与思考模式无关的签名；而它本身是「当前调用栈的属性」，
+# 正是 ContextVar 的语义。作用域严格用 with 包住单次决策调用，不会泄漏到
+# 工具执行或同一轮的其它 LLM 调用（它们各自有自己的 with 块）。
+_scoped_thinking_mode: ContextVar[str] = ContextVar(
+    "scoped_thinking_mode", default=""
+)
+
+
+@contextmanager
+def thinking_mode_scope(mode: str) -> Iterator[None]:
+    """在当前调用栈内强制思考模式，退出时自动还原。
+
+    传 ``"enabled"`` / ``"disabled"`` 生效；传空串或其它值等价于**不设置**
+    （保持外层作用域或模型配置的取值），而不是「把覆盖清成空」——后者会让
+    内层 with 悄悄抹掉外层已经声明好的策略。
+    """
+
+    normalized = mode if mode in {"enabled", "disabled"} else ""
+    if not normalized:
+        yield
+        return
+    token = _scoped_thinking_mode.set(normalized)
+    try:
+        yield
+    finally:
+        _scoped_thinking_mode.reset(token)
 
 
 def operation_json_repair_attempts(operation: str, default_attempts: int) -> int:

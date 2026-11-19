@@ -178,8 +178,8 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
     authUser,
   } = chat;
   const displayName = displayedAgent ? employeeDisplayName(displayedAgent) : '';
-  // 没有档案时后端给的 '--' 是「没有数据」而不是「介绍很短」——在问候语
-  // 下面挂两横线毫无意义，所以这一档直接不渲染。
+  // 岗位描述是员工在档案里自己写的，可能是空白（没填）。空白时整行不渲染，
+  // 不要在问候语下面留一条空隙或一个占位符。
   const hasRoleSummary = Boolean(emptyRoleSummary && emptyRoleSummary.trim());
   // 只从 profile 取：配置端的规整（去空/限长/最多 3 条）都在
   // `employeeProfile()` 与 `normalizeSuggestedPrompts()` 里做过一次，
@@ -212,10 +212,9 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
             </div>
           </div>
           {/*
-            角色介绍直接挂在问候语下方，不再单独占一张灰卡。
-            原先问候卡只放「Hello 我是X！」+ 一句「我们来做什么？」，而「我是谁」
-            这件事被推到下一张卡里，读起来是两段互不相干的自我介绍；现在合成一处：
-            名字 + 角色定位同属一句自报家门，中间那层灰卡也就没有存在的必要了。
+            岗位描述：直接展示员工档案里填的那段话，不再拼「一名经验丰富的X」。
+            那段话是员工在配置端认真写的岗位边界与执行重点，正是「我是谁」的
+            正文；空态没理由另造一句缩写。两行 + 省略号处理超长，title 给全文。
           */}
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-[8px] py-[12px] capitalize">
             <strong

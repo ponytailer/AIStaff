@@ -705,23 +705,23 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     };
   }, [displayedAgentId, displayedAgentIsDispatcher, tenantId]);
   /*
-   * 空态里的角色介绍。
+   * 空态里的角色介绍 —— 直接用员工档案的「岗位描述」。
    *
-   * 原先只有「#角色：IT「Jerry Hu 胡鹏飞」一名经验丰富的IT」这一种拼法，且它
-   * 单独占一整张灰卡，所以标记前缀、双引号里的名字、以及重复两遍的角色名都
-   * 还能被容忍。现在这句话挪到问候语正下方（「Hello 我是Jerry Hu 胡鹏飞！」的
-   * 下一行），紧跟着自我介绍念一遍名字 + 角色名，读起来像结巴：
+   * 这句话挪到问候语正下方（`Hello 我是Jerry Hu 胡鹏飞！` 的下一行）之后，它
+   * 的定位就变成「自报家门的第二句」，而不是一行标签。原来这里拼的是
+   * `一名经验丰富的${roleName}`：roleName 只取到 metadata 里的岗位名（IT /
+   * 行政 / 采购…），拼出来是「一名经验丰富的IT」，等于把岗位名又说了一遍，
+   * 却没有告诉对方这位员工到底做什么、边界在哪。
    *
-   *     Hello 我是Jerry Hu 胡鹏飞！
-   *     #角色：IT「Jerry Hu 胡鹏飞」一名经验丰富的IT
+   * 真正承载这些信息的是 `agent.description`——员工档案编辑器里那个标着
+   * 「岗位描述」的多行输入（`EmployeeProfileEditor.tsx` 的 `form.description`，
+   * 占位文案「概括这个数字员工的岗位边界、服务风格和执行重点」）。员工在配置端
+   * 认真写的就是它，空态没理由另拼一句。所以这里直接取它，为空则整段不渲染。
    *
-   * 所以这里只保留「角色定位」这一层信息，文案与原来被圈中的那段完全一致：
-   * `一名经验丰富的IT`。前端的 `#角色：` 是给配置端看的标记，不该出现在
-   * 对话页；名字也已经在上一行。roleName 为空时整段退成空串，由调用方决定
-   * 不渲染（不会留一个 `--` 占位）。
+   * 注意 `displayedProfile.roleName` 仍然保留：头像兜底文案、档案页等处还在用，
+   * 只是不再拿来拼这句介绍。
    */
-  const roleName = (displayedProfile?.roleName || '').trim();
-  const emptyRoleSummary = roleName ? `一名经验丰富的${roleName}` : '';
+  const emptyRoleSummary = (displayedAgent?.description || '').trim();
   /*
    * `emptyStats`（资料 / 技能 / SOP 三个计数）随中间那张灰卡一起下线了：
    * 同一组数字在右侧 ChatContextRail 里已经常驻显示，空态再抄一遍属于重复；
