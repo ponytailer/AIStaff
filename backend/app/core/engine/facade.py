@@ -119,6 +119,7 @@ def _memory_capture_skip_reason(
 
 
 from app.core.engine.facade_stream import AgentLoopPreconditionError  # noqa: F401  (re-export)
+from app.agents.model_policy import check_turn_model_policy
 from app.core.engine.facade_graph import _SkillGraphMixin
 from app.core.engine.facade_runtime import _TurnRuntimeMixin
 from app.core.engine.facade_stream import (  # noqa: F401  (re-export)
@@ -171,6 +172,12 @@ class AgentLoop(_TurnRuntimeMixin, _SkillGraphMixin):
         user_message_id: str | None = None
         step_result = StepAgentResult(action="reply")
         try:
+            # 模型闸门：免费额度 / 必须自配模型。放在引擎入口而不是各渠道的 HTTP
+            # 处理器里，是因为站内、微信、定时任务、公开 API、人工恢复最终都走这里——
+            # 写一次就全渠道生效，新渠道也不需要记得补校验（见 app/agents/model_policy.py）。
+            gate = check_turn_model_policy(self.db, request)
+            if not gate.allowed:
+                raise AgentLoopPreconditionError(gate.code, gate.message)
             return engine.run(request)
         except (HarnessTurnConflict, HarnessSessionBusy) as exc:
             chat_session = engine.session

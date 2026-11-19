@@ -16,6 +16,7 @@ from app.agents.branching import (
     visible_skill,
 )
 from app.agents.free_model import resolve_turn_default_model
+from app.agents.model_policy import MODEL_GATE_REPLY_CODES
 from app.agents.greeting import maybe_seed_greeting_message
 from app.agents.usage import bump_agent_usage
 from app.chat_pubsub import publish_relay_wake
@@ -557,12 +558,19 @@ class _TurnRuntimeMixin:
     def _finish_with_error(
         self, chat_session: ChatSession, code: str, message: str
     ) -> ChatTurnResponse:
-        reply = format_runtime_failure_reply(
-            "系统配置错误",
-            message,
-            code,
-            "请在管理端补齐配置后重试。",
-        )
+        if code in MODEL_GATE_REPLY_CODES:
+            # 模型闸门的 message 本身已是「对谁、怎么办」都齐的一句人话
+            # （例：「销售小王」没有为你配置模型。请在「模型配置」里添加自己的模型…）。
+            # 再套 format_runtime_failure_reply 会拼出「（model_required）：…。请在
+            # 管理端补齐配置」这种又带内部码又指错人的话，所以这里直接用它。
+            reply = message
+        else:
+            reply = format_runtime_failure_reply(
+                "系统配置错误",
+                message,
+                code,
+                "请在管理端补齐配置后重试。",
+            )
         self.events.record(
             chat_session.tenant_id,
             chat_session.id,
@@ -575,6 +583,9 @@ class _TurnRuntimeMixin:
         return ChatTurnResponse(
             reply=reply,
             session_id=chat_session.id,
+            # 带上错误码：渠道侧（微信 / 定时任务 / 公开 API）据此判断这轮是否失败，
+            # 前端也能按码展示不同的操作入口，而不是只能读一段自然语言。
+            runtime_error_code=code,
             session_state=public_session(chat_session),
         )
 

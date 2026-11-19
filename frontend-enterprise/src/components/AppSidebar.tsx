@@ -100,6 +100,8 @@ const WORKSPACE_NAV: NavItem[] = [
   { route: EnterpriseRoute.Agents, label: '我的数字员工', Icon: IconAgents },
   // 员工小队已从「我的数字员工」的页内 tab 升为一级菜单（2026-11-08）
   { route: EnterpriseRoute.Squads, label: '我的小队', Icon: IconSquads },
+  // 微信接入（2026-11-19）：数字员工的对外连接，与「我的小队」同属工作区一级入口
+  { route: EnterpriseRoute.Wechat, label: '微信接入', Icon: IconChatBubble },
 ];
 
 const PLATFORM_NAV: NavItem[] = [

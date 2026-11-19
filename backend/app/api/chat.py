@@ -24,12 +24,6 @@ from starlette.background import BackgroundTask
 from app.agents.branching import visible_published_skills
 from app.agents.greeting import maybe_seed_greeting_message
 from app.agents.usage import bump_agent_usage
-from app.agents.free_model import (
-    FREE_MODEL_DAILY_LIMIT,
-    FREE_MODEL_QUOTA_EXHAUSTED_CODE,
-    consume_free_quota,
-    free_model_turn_allowed,
-)
 from app.chat_pubsub import RelaySubscriber, publish_relay_wake
 from app.core import AgentLoop
 from app.core.base.cancellation import cancel_chat_turn, is_chat_turn_cancelled
@@ -505,6 +499,28 @@ def _handoff_reply_summary_text(
         return text[:120]
     count = len(attachments or [])
     return f"[附件 {count} 个]" if count else ""
+
+
+def _deliver_handoff_reply_to_channel(
+    db: Session,
+    row: HumanHandoffRequest,
+    reply: str,
+    answered_by_user_id: str | None,
+) -> None:
+    """把人工回复回传到渠道（目前只有微信）。
+
+    站内回复已经落库，投递失败不能回滚——用户至少能在网页端看到答案，
+    所以这里吞掉异常只记日志，由渠道侧自己重试或人工再发一次。
+    """
+    metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+    if str(metadata.get("channel") or "") != "wechat":
+        return
+    try:
+        from app.wechat.handoff import deliver_human_reply
+
+        deliver_human_reply(db, row, reply, answered_by_user_id=answered_by_user_id)
+    except Exception:  # noqa: BLE001 - 渠道投递失败不影响站内已完成的回复
+        logger.warning("转人工回复回传渠道失败 handoff=%s", row.id, exc_info=True)
 
 
 def _handoff_reply_attachments(row: HumanHandoffRequest) -> list[ChatAttachmentRead]:
@@ -1316,25 +1332,10 @@ def chat_stream(
     if not request.message.strip() and not request.attachments:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    # 免费模型链路:用户没有自己的模型(前端不会带 model_config_id)+ 员工被标记为免费
-    # → 校验并消耗「用户×员工×天」配额(每员工各 FREE_MODEL_DAILY_LIMIT 问)。
-    # 模型本身的解析在 agent_loop._get_default_model 里做;这里只管配额与计数,
-    # 计数立即提交(回合失败不退还,与真实 LLM 成本一致)。
-    if not request.model_config_id and request.agent_id:
-        free_model, free_error = free_model_turn_allowed(
-            db, request.tenant_id, request.user_id, request.agent_id
-        )
-        if free_error == FREE_MODEL_QUOTA_EXHAUSTED_CODE:
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    f"该员工今日免费额度已用完（每天 {FREE_MODEL_DAILY_LIMIT} 问）。"
-                    "明天再来，或在「模型配置」里添加自己的模型。"
-                ),
-            )
-        if free_model is not None:
-            consume_free_quota(db, request.tenant_id, request.user_id, request.agent_id)
-
+    # 模型闸门（免费额度 / 必须自配模型）已上移到引擎入口
+    # app/core/engine/facade.py:handle_turn → app/agents/model_policy.py。
+    # 这里不再重复校验：否则同一轮会被扣两问，而且微信/定时任务/公开 API
+    # 走的是引擎而非本端点，写在端点里天然盖不住它们。
     relay_ready = threading.Event()
     worker_done = threading.Event()
     source_session_id = {"value": request.session_id or ""}
@@ -2838,6 +2839,8 @@ def reply_human_handoff(
         source="web",
         attachments=attachments,
     )
+    # 微信渠道的转人工：把人工回复回传到微信，否则用户在微信里永远等不到答案
+    _deliver_handoff_reply_to_channel(db, row, reply, current_user.id)
     requester_user = db.get(User, row.requester_user_id) if row.requester_user_id else None
     if not requester_user:
         owner_session = db.get(ChatSession, row.session_id)

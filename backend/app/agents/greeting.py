@@ -52,6 +52,41 @@ def agent_greeting_message(agent: AgentProfile | None) -> str:
     return value.strip()[:GREETING_MAX_LENGTH]
 
 
+def channel_greeting_text(
+    greeting: str,
+    display_name: str,
+    agent_name: str,
+) -> str:
+    """渠道（微信）专用开场白：``Hi {显示名}，我是「{员工名}」，{开场白}``。
+
+    为什么和站内 ``greeting_text_for_user`` 不一样：站内进对话页时，员工是谁
+    清清楚楚写在页头和花名册里，只需要寒暄；而微信里只有一个聊天气泡、没有
+    任何身份线索，用户看到「你好，张三。」并不知道对面是哪个数字员工。所以
+    渠道版必须自报家门。
+
+    缺省处理一律「少半句也不要拼出半句病句」：
+    - 没显示名 → 去掉称呼，退化成 ``我是「X」，……``
+    - 没员工名 → 去掉自我介绍（理论上不该发生，员工必然有名字）
+    - 没正文   → 返回空串，调用方据此不发
+    """
+    body = (greeting or "").strip()
+    if not body:
+        return ""
+    name = (display_name or "").strip()
+    who = (agent_name or "").strip()
+
+    if name and who:
+        head = f"Hi {name}，我是「{who}」"
+    elif who:
+        head = f"我是「{who}」"
+    elif name:
+        head = f"Hi {name}"
+    else:
+        head = ""
+
+    return f"{head}，{body}" if head else body
+
+
 def user_display_name(db: Session, user_id: str | None) -> str:
     """用户展示名：优先 display_name，缺省回落 username。
 

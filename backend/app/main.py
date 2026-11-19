@@ -40,6 +40,7 @@ from app.api import (
     tools,
     traces,
     ui_config,
+    wechat,
 )
 from app.async_jobs import shutdown_async_jobs, start_async_jobs
 from app.config import get_settings
@@ -139,6 +140,17 @@ def on_startup() -> None:
             cleanup_public_api_records()
             enqueue_due_webhook_deliveries()
             start_public_api_maintenance()
+        # 微信长轮询：只在该开关打开的进程里拉起，多副本部署时避免抢同一游标
+        if settings.wechat_polling_enabled:
+            from app.api.wechat import _poller_kwargs
+            from app.wechat import poller as wechat_poller
+
+            kwargs = _poller_kwargs()
+            wechat_poller.start_all_active(
+                kwargs["db_session_factory"],
+                kwargs["client_factory"],
+                kwargs["handler"],
+            )
     except Exception:
         release_runtime_instance_lock()
         raise
@@ -147,6 +159,9 @@ def on_startup() -> None:
 @app.on_event("shutdown")
 def on_shutdown() -> None:
     try:
+        from app.wechat import poller as wechat_poller
+
+        wechat_poller.stop_all()
         stop_public_api_maintenance()
         stop_background_worker()
         stop_harness_recovery_sweeper()
@@ -204,6 +219,7 @@ app.include_router(agent_apps.router)
 app.include_router(sessions.router)
 app.include_router(traces.router)
 app.include_router(mock.router)
+app.include_router(wechat.router)
 
 if settings.public_api_enabled:
     app.mount("/api/v1", create_public_api_app())

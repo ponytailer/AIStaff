@@ -53,6 +53,7 @@ import ShareSkillPage from "./pages/ShareSkillPage";
 import ModelsPage from "./pages/ModelsPage";
 import RuntimeSettingsPage from "./pages/RuntimeSettingsPage";
 import BrowserExtensionPage from "./pages/BrowserExtensionPage";
+import WechatPage from "./pages/WechatPage";
 import ApiKeyApprovalsPage from "./pages/ApiKeyApprovalsPage";
 import OpenPlatformPage from "./pages/OpenPlatformPage";
 import PlatformUpdatesPage from "./pages/PlatformUpdatesPage";
@@ -833,6 +834,10 @@ function Shell({
                 element={
                   <BrowserExtensionPage currentUser={auth.user} onLogout={onLogout} />
                 }
+              />
+              <Route
+                path="/enterprise/wechat"
+                element={<WechatPage currentUser={auth.user} onLogout={onLogout} />}
               />
               <Route
                 path="/enterprise/api-key-approvals"

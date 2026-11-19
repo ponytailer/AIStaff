@@ -22,4 +22,5 @@ export enum EnterpriseRoute {
   DecisionAssistant = '/enterprise/decision-assistant',
   AiReviewer = '/enterprise/ai-reviewer',
   BrowserExtension = '/enterprise/browser-extension',
+  Wechat = '/enterprise/wechat',
 }

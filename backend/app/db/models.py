@@ -1281,6 +1281,10 @@ class ChatSession(SQLModel, table=True):
     last_agent_question: Optional[str] = None
     status: str = "active"
     channel: Optional[str] = None
+    # 渠道会话锚点：微信等外部渠道按 (agent_id, channel, external_conv_id) 独立建会话，
+    # 同一微信好友与不同员工各自保留上下文。站内会话三者均为空。
+    channel_binding_id: Optional[str] = Field(default=None, index=True)
+    external_conv_id: Optional[str] = Field(default=None, index=True)
     # 历史兼容列:早期团队会话可能带非空 team_id,保留以便历史对话可读
     team_id: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=utc_now)
@@ -1963,3 +1967,178 @@ class StaticAsset(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     deleted_at: Optional[datetime] = None
+
+
+# --------------------------------------------------------------------------
+# 微信渠道（个人微信 iLink 协议）
+#
+# 一个租户可建多个绑定（每个绑定 = 一个扫码登录的微信 bot，账号唯一锚点是
+# ilink_bot_id）。一个绑定下可挂载多个数字员工，会话按
+# (agent_id, channel, external_conv_id) 各自独立，所以切换员工天然隔离上下文。
+# --------------------------------------------------------------------------
+
+
+class WechatBinding(SQLModel, table=True):
+    """微信 bot 接入绑定：一次扫码登录一行。
+
+    ``bot_token`` 是 iLink 业务请求的唯一凭证，与 ``ilink_bot_id`` 一起标识
+    一个 bot 账号；两者都加密/独立存储，明文不落库、不进日志。
+    ``status`` 三态：pending（二维码已出但未确认）/ active / disconnected。
+    """
+
+    __tablename__ = "wechat_bindings"
+    __table_args__ = (
+        Index("ix_wechat_bindings_tenant_status", "tenant_id", "status"),
+        Index("ix_wechat_bindings_tenant_owner", "tenant_id", "owner_user_id"),
+        # 同一个微信 bot（ilink_bot_id）在整个租户内只能有一条绑定：
+        # 并发扫码确认会同时走到「新建」分支，没有这条约束就会生成两条重复绑定
+        # （表现为前端弹多次成功提醒）。空 ilink_bot_id 是 pending 态占位，不参与唯一性。
+        #
+        # 注意它约束的是「一个 bot 只能绑一次」，不是「一个租户只能有一个 bot」：
+        # 每个人扫自己的微信各自成一个 bot，多个 bot 并存是正常的（按 owner 区分）。
+        Index(
+            "uq_wechat_bindings_tenant_bot",
+            "tenant_id",
+            "ilink_bot_id",
+            unique=True,
+            postgresql_where=text("ilink_bot_id <> ''"),
+            sqlite_where=text("ilink_bot_id <> ''"),
+        ),
+        # 一个用户对自己的微信只留一条活跃绑定：重复扫码应恢复而不是再建一条。
+        Index(
+            "uq_wechat_bindings_owner_active",
+            "tenant_id",
+            "owner_user_id",
+            unique=True,
+            postgresql_where=text("status = 'active' AND owner_user_id IS NOT NULL"),
+            sqlite_where=text("status = 'active' AND owner_user_id IS NOT NULL"),
+        ),
+    )
+
+    id: str = Field(default_factory=lambda: new_id("wxbind"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    # 建绑定的操作人（站内用户），用于权限与展示归属
+    owner_user_id: Optional[str] = Field(default=None, index=True)
+    # 微信侧 bot 账号标识（扫码 confirmed 后下发），同一 bot 重复扫码时据此恢复而非新建
+    ilink_bot_id: str = Field(default="", index=True)
+    # 扫码人（bot 所有者）的微信 ID，如 xxx@im.wechat
+    ilink_user_id: str = Field(default="")
+    # bot_token 密文（Fernet），业务请求 Bearer
+    bot_token_enc: str = Field(default="")
+    # iLink 基址，默认官方域；入库前白名单校验
+    base_url: str = Field(default="https://ilinkai.weixin.qq.com")
+    status: str = Field(default="pending", index=True)
+    # getupdates 增量游标，长轮询线程持久化续传，重启不丢消息
+    updates_cursor: str = Field(default="")
+    # 展示名，默认取 bot 昵称；解绑后保留便于历史识别
+    display_name: str = Field(default="")
+    # typing_ticket 缓存（"正在输入"需要），按外部用户维度存 config_json
+    config_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    last_error: str = Field(default="")
+    last_seen_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class WechatBindingAgent(SQLModel, table=True):
+    """绑定下挂载的可调度员工。
+
+    挂载集是「用户在微信里能 /切换 到的员工」的唯一来源。没有挂载行的存量
+    绑定回退为该租户的默认员工（见 routing.mounted_agents），不依赖回填。
+    """
+
+    __tablename__ = "wechat_binding_agents"
+    __table_args__ = (
+        UniqueConstraint("binding_id", "agent_id", name="uq_wechat_binding_agent"),
+        Index("ix_wechat_binding_agents_binding_sort", "binding_id", "sort_order"),
+    )
+
+    id: str = Field(default_factory=lambda: new_id("wxmnt"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    binding_id: str = Field(index=True)
+    agent_id: str = Field(index=True)
+    # 新会话的初始员工；一个绑定只应有一个 True（应用层保证唯一）
+    is_default: bool = Field(default=False)
+    sort_order: int = Field(default=0, sa_column=Column(Integer, nullable=False, server_default="0"))
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class WechatConvState(SQLModel, table=True):
+    """每个微信会话的当前员工指针 + 数字菜单窗口。
+
+    这是「切换员工」的状态核心：外部会话（一个微信好友）→ 当前 agent。
+    ``menu_agents_json`` 记录最近一次 /员工 输出的编号顺序，``menu_expires_at``
+    到期后裸数字不再当菜单选择，避免用户正常提问「3 个问题」被误判成切换。
+    """
+
+    __tablename__ = "wechat_conv_states"
+    __table_args__ = (
+        UniqueConstraint("binding_id", "external_conv_id", name="uq_wechat_conv_state"),
+    )
+
+    id: str = Field(default_factory=lambda: new_id("wxconv"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    binding_id: str = Field(index=True)
+    # 外部会话标识，p2p 为 wechat_p2p_<外部用户 id>
+    external_conv_id: str = Field(index=True)
+    current_agent_id: str = Field(default="", index=True)
+    # 菜单窗口：编号列表（agent_id 有序）与过期时间
+    menu_agents_json: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    menu_expires_at: Optional[datetime] = None
+    # 每次指针变动 +1，用于并发 compare-and-set（迟到的旧轮不覆盖新指针）
+    routing_revision: int = Field(
+        default=0, sa_column=Column(Integer, nullable=False, server_default="0")
+    )
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class WechatInboundEvent(SQLModel, table=True):
+    """入站事件幂等登记：同一 (binding_id, event_id) 只处理一次。
+
+    iLink 的 getupdates 在异常重连/游标回退时可能重放同一批消息，
+    没有这张表就会重复调 LLM、重复发消息。
+    """
+
+    __tablename__ = "wechat_inbound_events"
+    __table_args__ = (
+        UniqueConstraint("binding_id", "event_id", name="uq_wechat_inbound_event"),
+    )
+
+    id: str = Field(default_factory=lambda: new_id("wxevent"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    binding_id: str = Field(index=True)
+    event_id: str = Field(index=True)
+    external_conv_id: str = Field(default="", index=True)
+    # processing / done / failed
+    status: str = Field(default="processing", index=True)
+    error: str = Field(default="")
+    payload_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class WechatIdentityLink(SQLModel, table=True):
+    """微信身份 ↔ 站内账号绑定。
+
+    未绑定时微信用户按外部 id 懒建独立账号（source='wechat'），不占用租户成员
+    名额；``/绑定 <码>`` 后把会话与记忆归属迁到实名 User，``/解绑`` 反向迁回。
+    """
+
+    __tablename__ = "wechat_identity_links"
+    __table_args__ = (
+        UniqueConstraint("binding_id", "external_user_id", name="uq_wechat_identity_external"),
+        UniqueConstraint("binding_id", "user_id", name="uq_wechat_identity_user"),
+    )
+
+    id: str = Field(default_factory=lambda: new_id("wxlink"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    binding_id: str = Field(index=True)
+    # 微信侧用户 id，如 xxx@im.wechat
+    external_user_id: str = Field(index=True)
+    # 绑定前的懒建账号（解绑时迁回的目标）
+    channel_user_id: str = Field(index=True)
+    # 绑定的站内账号
+    user_id: str = Field(index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)

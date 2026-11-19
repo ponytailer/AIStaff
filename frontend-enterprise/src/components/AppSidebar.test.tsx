@@ -477,3 +477,32 @@ describe('AppSidebar chat 员工切换器', () => {
     expect(await screen.findByText('打开小队档案')).toBeTruthy();
   });
 });
+
+describe('AppSidebar 微信接入入口', () => {
+  it('侧栏一级菜单包含「微信接入」，点击跳到 /enterprise/wechat', async () => {
+    const onNavigate = vi.fn();
+    render(
+      <I18nProvider>
+        <TooltipProvider>
+          <SidebarProvider>
+            <AppSidebar
+              selected="/enterprise/agents"
+              onNavigate={onNavigate}
+              isAdmin={false}
+              scopeAgents={[agent]}
+              selectedAgentId="agent-1"
+              onSelectAgent={() => {}}
+              onOpenChat={() => {}}
+            />
+          </SidebarProvider>
+        </TooltipProvider>
+      </I18nProvider>,
+    );
+
+    const entry = screen.getByText('微信接入');
+    expect(entry).toBeTruthy();
+
+    await userEvent.click(entry);
+    expect(onNavigate).toHaveBeenCalledWith('/enterprise/wechat');
+  });
+});

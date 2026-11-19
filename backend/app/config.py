@@ -51,6 +51,15 @@ class Settings(BaseSettings):
     # 留空则前端回退成浏览器当前 origin（本地开发即 http://127.0.0.1:5173）。
     public_base_url: str = ""
     tool_timeout_seconds: float = 8.0
+    # ---- 个人微信渠道（腾讯 iLink 协议）----
+    # 渠道凭证加密密钥：留空时由 APP_SECRET 派生（仅开发兜底）。
+    # 生产必须显式配置，否则换 APP_SECRET 会导致历史 bot_token 全部无法解密。
+    channel_secret: str = ""
+    # iLink 接入基址。协议只允许官方域，落库前会做白名单校验。
+    wechat_ilink_base_url: str = "https://ilinkai.weixin.qq.com"
+    # 是否在该进程内启动长轮询线程。多副本部署时应只在一个进程开启，
+    # 否则同一 bot_token 会有多个消费者抢同一游标。
+    wechat_polling_enabled: bool = True
     # ---- 互联网检索（内部 web_search 能力）----
     # 部署级总闸：False 时 web_search 能力从所有冻结清单中消失，
     # 即使本轮请求带 web_search=True 也不可用（企业内网禁外联用）。
