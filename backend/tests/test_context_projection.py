@@ -6,6 +6,7 @@ from app.core.base.context_projection import (
     compact_pending_tasks,
     compact_step_result,
     compact_step_skill_context,
+    strip_context_images,
 )
 from app.knowledge.citations import knowledge_citations_from_results
 
@@ -357,3 +358,80 @@ def test_compact_runtime_state_drops_storage_and_audit_metadata() -> None:
         "source_turn_id",
     ):
         assert field not in serialized
+
+
+# ---------------------------------------------------------------------------
+# strip_context_images：意图识别等「不看图」阶段的上下文剥离
+# ---------------------------------------------------------------------------
+# 背景：`message_context_entry` 会从消息 metadata 取 `data_url` 放进
+# `images`，于是任何吃 conversation_context 的调用都会重发历史图片。
+# TurnPlanner 只判断意图、路由 SOP，看图零收益，却每轮为同一张图重复付费。
+# 实测一次 turn_planner.plan 出站 136,736 字符 base64。
+
+
+def _ctx_with_image() -> dict:
+    return {
+        "messages": [
+            {
+                "id": "msg_1",
+                "role": "user",
+                "content": "怎么解决\n\n附件：pasted-image-1.png",
+                "images": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64," + "A" * 2_000},
+                    }
+                ],
+            },
+            {"id": "msg_2", "role": "assistant", "content": "我看看"},
+        ],
+        "metadata": {"estimated_tokens": 1_500},
+    }
+
+
+def test_strip_context_images_removes_pixels_but_keeps_attachment_text() -> None:
+    """剥图后模型仍要知道「用户贴了图」——附件描述在 content 里，必须保留。"""
+
+    stripped = strip_context_images(_ctx_with_image())
+
+    assert all("images" not in message for message in stripped["messages"])
+    user_message = stripped["messages"][0]
+    assert "pasted-image-1.png" in user_message["content"], (
+        "附件描述是意图识别的判断依据，剥图不能连带删掉它"
+    )
+
+
+def test_strip_context_images_does_not_mutate_input() -> None:
+    """调用方常把同一份 context 给多个阶段用，就地删图会污染需要看图的链路。"""
+
+    original = _ctx_with_image()
+    strip_context_images(original)
+
+    assert original["messages"][0]["images"], "原上下文必须保持带图"
+
+
+def test_strip_context_images_passes_through_when_nothing_to_strip() -> None:
+    """没有图片时原样返回同一个对象，避免无意义复制。"""
+
+    context = {"messages": [{"id": "m1", "role": "user", "content": "你好"}]}
+
+    assert strip_context_images(context) is context
+
+
+def test_strip_context_images_tolerates_malformed_context() -> None:
+    assert strip_context_images(None) is None
+    assert strip_context_images({"messages": "not a list"}) == {"messages": "not a list"}
+
+
+def test_stripped_context_drops_image_tokens_on_recompaction() -> None:
+    """剥图后若触发重算，预算必须按文本重新评估，不再为不发的图留空间。"""
+
+    context = _ctx_with_image()
+    stripped = strip_context_images(context)
+
+    # 给一个极小预算强制重算，观察估算值确实只按文本算
+    recompacted = compact_conversation_context(stripped, token_budget=10)
+
+    assert recompacted["metadata"]["estimated_tokens"] < 1_000, (
+        "剥图后估算里不该再含图片的 1000 token"
+    )

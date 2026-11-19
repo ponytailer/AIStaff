@@ -15,6 +15,9 @@ COMPACTION_TRIGGER_RATIO = 0.70
 RECENT_ROUND_LIMIT = 6
 LONG_SUMMARY_TOKEN_BUDGET = 4_000
 MEDIUM_SUMMARY_TOKEN_BUDGET = 4_000
+# 每张图的预算折算（见 `_image_tokens`）。取主流视觉输入的下限，宁可低估：
+# 目的是让预算机制「看得见」图片，而不是精确复刻 provider 的计费公式。
+IMAGE_TOKEN_ESTIMATE = 1_000
 ALLOWED_CONTEXT_ROLES = {"user", "assistant"}
 LONG_SUMMARY_PREFIX = "历史的信息可以被总结为："
 MEDIUM_SUMMARY_PREFIX = "近期的历史信息总结为："
@@ -349,9 +352,43 @@ def _messages_tokens(messages: list[dict[str, Any]]) -> int:
 
 
 def _message_tokens(message: dict[str, Any]) -> int:
-    return _estimate_tokens(str(message["role"])) + _estimate_tokens(
-        str(message["content"])
-    ) + 6
+    return (
+        _estimate_tokens(str(message["role"]))
+        + _estimate_tokens(str(message["content"]))
+        + _image_tokens(message.get("images"))
+        + 6
+    )
+
+
+def _image_tokens(images: object) -> int:
+    """图片在上下文预算里的折算成本。
+
+    为什么必须单独算：此前 `_message_tokens` 只看 role 与 content，`images`
+    完全不参与估算。于是一张 100KB 截图（base64 约 13.7 万字符、真实占位）在
+    预算表里记为 0 token，`estimated_tokens` 报 792 而实际出站 142,156 字符。
+    `compact_conversation_context` 靠 `estimated_tokens <= budget` 提前返回，
+    于是**裁剪逻辑对图片永远不触发**：历史里堆几张截图就能悄悄顶爆真实窗口，
+    压缩、截断、按轮次淘汰整套保护全部失效。
+
+    为什么不按 base64 字符数折算：那会得到十几万 token 的荒谬值，因为 base64
+    不是模型计费口径。视觉输入按图块计价，与字节数基本无关（一张 4K 图可能比
+    一张 100x100 缩略图还便宜，取决于缩放后的图块数）。这里取各家实现的下限
+    口径「每张图 1000 token」——宁可低估也不虚报，目的是让预算**看得见图片**，
+    而不是精确复刻某个 provider 的计费公式。
+
+    只数 `type == "image_url"` 的 part：`images` 是本模块内部约定的轻量结构
+    （`conversation_projection` 产出），不是任意 content list，别把它当通用
+    多模态格式解析。
+    """
+
+    if not isinstance(images, list):
+        return 0
+    count = sum(
+        1
+        for item in images
+        if isinstance(item, dict) and item.get("type") == "image_url"
+    )
+    return count * IMAGE_TOKEN_ESTIMATE
 
 
 def _estimate_tokens(text: str) -> int:

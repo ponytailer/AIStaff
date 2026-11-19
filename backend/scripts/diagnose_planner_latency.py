@@ -1,28 +1,70 @@
-"""只读诊断：拉最近打招呼 turn 的 llm_call_finished span，拆解判断意图耗时。
+"""只读诊断：拆解每轮对话的模型调用耗时，并盯住「图片有没有被重复付费」。
 
-用法：cd backend && .venv/bin/python scripts/diagnose_planner_latency.py
+用法：
+    cd backend && .venv/bin/python scripts/diagnose_planner_latency.py
+    cd backend && .venv/bin/python scripts/diagnose_planner_latency.py --turn <turn_id>
+    cd backend && .venv/bin/python scripts/diagnose_planner_latency.py --limit 5
+
 只读 SELECT，不写任何数据。
 
-说明：新代码中 planner/harness span 均带 turn_id，可精确归因；旧代码环境下
-span 可能缺 turn_id，脚本会按时间窗口兜底匹配并标注 [窗口匹配]。
+## 这一版修掉的两个盲区
 
-兼容性（2026-09-09 线上修复）：payload_json / created_at 在 PG 下返回
-dict/datetime，在 sqlite 下可能返回 str，统一经 as_payload / as_datetime 归一。
+**① `payload_chars` 少报数十倍。**
+该字段在 ``client.py:_request_shape_metrics`` 里算，输入是**已脱敏**的
+``serialized_payload``——base64 图片在那之前就被替换成了
+``[data:image/png payload omitted; base64_chars=136736]`` 这样的占位符。
+于是线上真实出站 142,156 字符的 planner 请求，``payload_chars`` 只记 3,839。
+旧脚本据此判断「体量很小、没问题」，方向完全反了。
+
+本版改为从 ``request_messages`` 里把占位符中的真实字符数还原出来
+（``base64_chars=`` 后的数字），得到 ``真实出站字符数``，并与
+``payload_chars`` 并排展示两者差值。
+
+**② 看不见图片。**
+``request_messages`` 里的 ``image_url`` part 数量才是「这一轮到底发了几张图」，
+也是视觉 token 的唯一来源。本版逐 span 统计 ``img`` 张数与 image 字节数，
+并按 operation 汇总，直接回答「同一张图被发了几次」。
+
+## 判定基线（2026-11 起的正确行为）
+
+- ``turn_planner.plan`` **不应**再出现 ``img>0``：意图识别只看文本与附件描述。
+  出现即说明 ``planner._planner_context_without_images`` 未生效。
+- ``harness.task_action`` 在带图会话里**最多一张图、且只出现在转写失败的降级
+  路径**：正常路径是 ``harness.image_transcribe`` 一次性转写，之后决策只看文本。
+- ``harness.image_transcribe`` 每轮最多 1 次：它是「只读一次」的载体，
+  同一 turn 出现多次说明图片被重复理解。
+
+## 时区
+
+服务器 DB 存 UTC。本脚本所有时间输出统一转北京时间（+8h）。
+**手写 SQL 过滤时间窗口时必须自己减 8 小时**，否则窗口内一条都查不到
+（这个坑踩过：按北京时间查 11:24 的事件返回 0 行，误以为改动没生效）。
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import re
 import sys
+from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import text  # noqa: E402
+from sqlalchemy import text
 
-from app.db.database import engine  # noqa: E402
-from app.llm.output_policy import OPERATION_TIMEOUT_SECONDS  # noqa: E402
+from app.db.database import engine
+from app.llm.output_policy import OPERATION_TIMEOUT_SECONDS
+
+# 服务器 DB 存 UTC；输出统一转北京时间（+8h）显示，避免人工换算看错
+TZ_OFFSET = timedelta(hours=8)
+
+# 从脱敏占位符里取回真实 base64 长度：`[data:image/png payload omitted; base64_chars=136736]`
+_BASE64_CHARS_RE = re.compile(r"base64_chars=(\d+)")
 
 
 def as_payload(value: object) -> dict:
@@ -44,10 +86,6 @@ def as_datetime(value: object) -> datetime | None:
     return value if isinstance(value, datetime) else None
 
 
-# 服务器 DB 存 UTC；输出统一转北京时间（+8h）显示，避免人工换算看错
-TZ_OFFSET = timedelta(hours=8)
-
-
 def bj_ts(value: datetime | None) -> str:
     if value is None:
         return "?"
@@ -60,250 +98,365 @@ def bj_hms(value: datetime | None) -> str:
     return (value + TZ_OFFSET).strftime("%H:%M:%S")
 
 
-def _check_route_cache_support() -> None:
-    """部署自检：路由缓存三项前提 + 最近 span 的新代码标志。
+@dataclass
+class OutboundShape:
+    """一个 span 的出站请求形态——图片成本的唯一可信来源。"""
 
-    ① REDIS_HOST 配置与连通性（未配置/连不上 = 缓存静默禁用，行为与旧代码一致）
-    ② 新代码标志：最近 bucket_route span 是否带 payload_chars（瘦身版才记录）
-    ③ 缓存命中迹象：最近 span 里 route_cache 相关 phase 出现情况
+    image_count: int = 0
+    image_bytes: int = 0
+    real_chars: int = 0
+
+    @property
+    def has_image(self) -> bool:
+        return self.image_count > 0
+
+
+def outbound_shape(payload: dict) -> OutboundShape:
+    """从 ``request_messages`` 还原真实出站体量与图片张数。
+
+    为什么不能只读 ``payload_chars``：那个值算在脱敏之后的 payload 上，
+    图片被换成占位符，体量少报数十倍（实测 3,839 vs 真实 142,156）。
+
+    image_bytes 的取法：占位符里带 ``base64_chars=N``，N 就是原始的 base64
+    字符数；没被脱敏的（旧 span 或直接内联）就退回量真实 url 长度。
     """
 
-    print("=" * 60)
-    print("路由缓存/瘦身部署自检")
-    print("=" * 60)
+    shape = OutboundShape()
+    messages = payload.get("request_messages")
+    if not isinstance(messages, list):
+        return shape
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            shape.real_chars += len(content)
+            for match in _BASE64_CHARS_RE.finditer(content):
+                shape.image_count += 1
+                shape.image_bytes += int(match.group(1))
+            continue
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if not isinstance(part, dict):
+                continue
+            text_value = part.get("text")
+            if isinstance(text_value, str):
+                shape.real_chars += len(text_value)
+            if part.get("type") != "image_url":
+                continue
+            shape.image_count += 1
+            url = str((part.get("image_url") or {}).get("url") or "")
+            match = _BASE64_CHARS_RE.search(url)
+            shape.image_bytes += int(match.group(1)) if match else len(url)
+    return shape
 
-    # ① Redis 底座
+
+@dataclass
+class SpanRow:
+    operation: str
+    created_at: datetime | None
+    duration_ms: float
+    payload: dict
+    shape: OutboundShape
+    thinking_mode: str
+    iteration: int | None
+    json_attempt: int | None
+    json_max_attempts: int | None
+
+    @property
+    def payload_chars(self) -> int | None:
+        value = self.payload.get("payload_chars")
+        return int(value) if isinstance(value, (int, float)) else None
+
+
+@dataclass
+class TurnGroup:
+    turn_id: str
+    session_id: str
+    created_at: datetime | None
+    message: str
+    spans: list[SpanRow] = field(default_factory=list)
+    # 两套 ID 体系并存，归因必须同时认：
+    #   user_message_received.turn_id      = msg_xxx（数据库消息主键）
+    #   user_message_received.client_turn_id = turn_xxx（前端生成，span 里用这个）
+    # 只按 msg_xxx 匹配会把所有 span 判成「0 次调用」——旧脚本正是因为这个才
+    # 退化成时间窗口兜底，而窗口兜底会把上一轮的后台任务也算进来。
+    client_turn_id: str = ""
+
+    def of(self, *operations: str) -> list[SpanRow]:
+        return [span for span in self.spans if span.operation in operations]
+
+    @property
+    def image_sends(self) -> int:
+        return sum(span.shape.image_count for span in self.spans)
+
+
+def _load_spans(limit: int) -> list[SpanRow]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT payload_json, created_at
+                FROM agent_events
+                WHERE event_type = 'llm_call_finished'
+                ORDER BY created_at DESC
+                LIMIT :limit
+                """
+            ),
+            {"limit": limit},
+        ).fetchall()
+    spans: list[SpanRow] = []
+    for raw, created in rows:
+        payload = as_payload(raw)
+        spans.append(
+            SpanRow(
+                operation=str(payload.get("operation") or "?"),
+                created_at=as_datetime(created),
+                duration_ms=float(payload.get("duration_ms") or 0),
+                payload=payload,
+                shape=outbound_shape(payload),
+                thinking_mode=str(payload.get("thinking_mode") or "?"),
+                iteration=(
+                    int(payload["iteration"])
+                    if isinstance(payload.get("iteration"), (int, float))
+                    else None
+                ),
+                json_attempt=(
+                    int(payload["json_attempt"])
+                    if isinstance(payload.get("json_attempt"), (int, float))
+                    else None
+                ),
+                json_max_attempts=(
+                    int(payload["json_max_attempts"])
+                    if isinstance(payload.get("json_max_attempts"), (int, float))
+                    else None
+                ),
+            )
+        )
+    return spans
+
+
+def _load_turns(limit: int) -> list[TurnGroup]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT session_id, payload_json, created_at
+                FROM agent_events
+                WHERE event_type = 'user_message_received'
+                ORDER BY created_at DESC
+                LIMIT :limit
+                """
+            ),
+            {"limit": limit},
+        ).fetchall()
+    turns: list[TurnGroup] = []
+    for session_id, raw, created in rows:
+        payload = as_payload(raw)
+        turns.append(
+            TurnGroup(
+                turn_id=str(payload.get("turn_id") or payload.get("message_id") or ""),
+                session_id=str(session_id or ""),
+                created_at=as_datetime(created),
+                message=str(payload.get("message") or "")[:60],
+                client_turn_id=str(payload.get("client_turn_id") or ""),
+            )
+        )
+    return turns
+
+
+def _attach_spans(turn: TurnGroup, spans: list[SpanRow]) -> None:
+    """按 turn 归因，两套 ID 都要认。
+
+    ``user_message_received`` 里同时有两个标识：
+      - ``turn_id`` / ``message_id`` = ``msg_xxx``（数据库消息主键）
+      - ``client_turn_id`` = ``turn_xxx``（前端生成，**span 里用的是这个**）
+
+    所以只比对 ``msg_xxx`` 会全部落空。两者都作为精确匹配的候选；只有既没
+    turn_id 也没 user_message_id 的老 span 才退回时间窗口兜底。
+    """
+
+    candidates = {item for item in (turn.turn_id, turn.client_turn_id) if item}
+    matched: list[SpanRow] = []
+    for span in spans:
+        span_turns = {
+            str(value)
+            for value in (
+                span.payload.get("turn_id"),
+                span.payload.get("user_message_id"),
+                span.payload.get("client_turn_id"),
+            )
+            if value
+        }
+        if span_turns:
+            if span_turns & candidates:
+                matched.append(span)
+            continue
+        # 完全没有 turn 标识的老 span：只能靠时间窗口，且要求 session 对得上
+        if turn.created_at is None or span.created_at is None:
+            continue
+        if turn.created_at <= span.created_at <= turn.created_at + timedelta(minutes=10):
+            span_session = span.payload.get("session_id")
+            if span_session and turn.session_id and str(span_session) != turn.session_id:
+                continue
+            matched.append(span)
+    matched.sort(key=lambda item: str(item.payload.get("started_at") or ""))
+    turn.spans = matched
+
+
+def _print_turn(turn: TurnGroup) -> None:
+    if not turn.spans:
+        print(f"\n[{bj_ts(turn.created_at)}] turn {turn.turn_id[:18]}…")
+        print("  0 次模型调用（本轮可能全走了确定性直通，或 span 未落库）")
+        return
+
+    exact = [
+        span
+        for span in turn.spans
+        if span.payload.get("turn_id") or span.payload.get("user_message_id")
+    ]
+    window = [span for span in turn.spans if span not in exact]
+
+    print(f"\n[{bj_ts(turn.created_at)}] turn {turn.turn_id[:18]}…  msg={turn.message!r}")
+    print(
+        f"  共 {len(turn.spans)} 次模型调用"
+        + (f"（精确 {len(exact)} / 窗口兜底 {len(window)}）" if window else "")
+    )
+    print(
+        f"  {'时间':<9} {'operation':<26} {'dur':>8} {'img':>4} {'图片字节':>10} "
+        f"{'真实出站':>10} {'记录体量':>10}"
+    )
+    for span in turn.spans:
+        payload_chars = span.payload_chars
+        # 只在「本来该以文本为主」的调用上标少报：转写/看图这类请求本来就只有
+        # 一张图 + 一句话，真实体量与 payload_chars 的倍数没有诊断意义（会印出
+        # 198× 这种噪音，反而掩盖真正的问题）。
+        drift = ""
+        if (
+            payload_chars is not None
+            and span.shape.image_count == 0
+            and span.shape.real_chars > max(payload_chars, 1) * 2
+        ):
+            drift = f"  ← 少报 {span.shape.real_chars / max(payload_chars, 1):.0f}×"
+        print(
+            f"  {bj_hms(span.created_at):<9} {span.operation[:26]:<26} "
+            f"{span.duration_ms / 1000:>7.2f}s {span.shape.image_count:>4} "
+            f"{span.shape.image_bytes:>10,} {span.shape.real_chars:>10,} "
+            f"{(payload_chars if payload_chars is not None else -1):>10,}{drift}"
+        )
+
+    total_ms = sum(span.duration_ms for span in turn.spans)
+    print(f"  合计 {total_ms / 1000:.2f}s，其中带图请求 {turn.image_sends} 次")
+
+    plan_spans = turn.of("turn_planner.plan")
+    if plan_spans:
+        image_plans = [span for span in plan_spans if span.shape.has_image]
+        if image_plans:
+            print(
+                f"  [!] planner 重发了 {len(image_plans)} 次图片"
+                " → `_planner_context_without_images` 未生效（意图识别不需要看图）"
+            )
+        else:
+            print("  [OK] planner 未发送图片")
+
+    transcribe = turn.of("harness.image_transcribe")
+    if len(transcribe) > 1:
+        print(
+            f"  [!] 本轮转写 {len(transcribe)} 次（应只读一次图）"
+            " → 检查 step_loop 是否在循环体内重复调用 transcribe_images_once"
+        )
+
+    action_spans = [span for span in turn.of("harness.task_action") if span.iteration]
+    if action_spans:
+        modes = defaultdict(int)
+        for span in action_spans:
+            modes[span.thinking_mode] += 1
+        detail = "，".join(f"{mode}×{count}" for mode, count in sorted(modes.items()))
+        print(f"  决策轮思考模式：{detail}")
+        first = next((s for s in action_spans if s.iteration == 1), None)
+        later = [s for s in action_spans if (s.iteration or 0) >= 2]
+        if later and all(s.thinking_mode == "disabled" for s in later):
+            opening = first.thinking_mode if first else "无第 1 轮调用"
+            print(f"  [OK] 第 2 轮起已关思考（第 1 轮：{opening}）")
+        elif later:
+            stray = [s.iteration for s in later if s.thinking_mode != "disabled"]
+            print(f"  [!] 第 {stray} 轮仍是思考模式 → _decision_thinking_scope 未生效")
+
+
+def _print_operation_summary(turns: list[TurnGroup]) -> None:
+    """按 operation 汇总：耗时、图片重发次数、真实体量 vs 记录体量。"""
+
+    stats: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"count": 0, "ms": 0.0, "img": 0, "real": 0, "logged": 0, "logged_n": 0}
+    )
+    for turn in turns:
+        for span in turn.spans:
+            entry = stats[span.operation]
+            entry["count"] += 1
+            entry["ms"] += span.duration_ms
+            entry["img"] += span.shape.image_count
+            entry["real"] += span.shape.real_chars
+            if span.payload_chars is not None:
+                entry["logged"] += span.payload_chars
+                entry["logged_n"] += 1
+
+    if not stats:
+        return
+    print("\n" + "=" * 78)
+    print("按 operation 汇总（图片成本视角）")
+    print("=" * 78)
+    print(f"  {'operation':<26} {'次数':>4} {'均耗时':>8} {'图片':>5} {'真实体量':>12} {'记录体量':>12}")
+    for operation, entry in sorted(stats.items(), key=lambda kv: -kv[1]["ms"]):
+        avg = entry["ms"] / entry["count"] / 1000
+        logged = (
+            f"{entry['logged']:,}" if entry["logged_n"] else "-"
+        )
+        print(
+            f"  {operation[:26]:<26} {entry['count']:>4} {avg:>7.2f}s "
+            f"{entry['img']:>5} {entry['real']:>12,} {logged:>12}"
+        )
+
+    planner = stats.get("turn_planner.plan")
+    if planner and planner["img"]:
+        print(
+            f"\n  [!] turn_planner.plan 累计重发图片 {planner['img']} 张"
+            f"（{planner['real']:,} 字符）→ 意图识别阶段仍在为图片付费"
+        )
+
+
+def _check_runtime_support() -> None:
+    """部署自检：Redis、路由缓存、output_policy 收紧、确定性执行器生效率。"""
+
+    print("=" * 78)
+    print("部署自检")
+    print("=" * 78)
+
     try:
         from app.redis_client import get_redis
 
         client = get_redis()
         if client is None:
-            print("  [!] Redis：不可用（REDIS_HOST 未配置或连接失败）")
-            print("      → 路由缓存静默禁用，行为与旧代码一致；重新启用需配置并重启进程")
+            print("  [!] Redis：不可用（REDIS_HOST 未配置或连接失败）→ 路由缓存静默禁用")
         else:
             try:
                 info = client.info("server")
                 print(
-                    "  [OK] Redis 已连通："
-                    f"{info.get('redis_version', '?')} / keys≈{client.dbsize()}"
+                    f"  [OK] Redis 已连通：{info.get('redis_version', '?')} / keys≈{client.dbsize()}"
                 )
             except Exception as exc:  # noqa: BLE001
-                print(f"  [!] Redis client 存在但 ping/info 失败：{exc}")
+                print(f"  [!] Redis client 存在但 info 失败：{exc}")
     except Exception as exc:  # noqa: BLE001
         print(f"  [!] Redis 检查异常：{exc}")
 
-    # ②③ 扫最近 span 找新代码标志
-    payload_chars_seen: list[tuple[str, int]] = []
-    route_cache_hits = 0
-    route_cache_stored = 0
-    slim_spans = 0
-    total_bucket_routes = 0
-    planner_chars: list[tuple[str, int]] = []
-    task_action_chars: list[tuple[str, int, float, int]] = []
-    try:
-        # 每段查询独立开连接：第一条查询若失败会把连接置为 invalid，
-        # 复用同一连接的后续查询会报 "This Connection is closed"
-        with engine.connect() as conn:
-            rows = conn.execute(
-                text(
-                    """
-                    SELECT payload_json, created_at
-                    FROM agent_events
-                    WHERE event_type = 'llm_call_finished'
-                    ORDER BY created_at DESC
-                    LIMIT 200
-                    """
-                )
-            ).fetchall()
-        for row in rows:
-            payload = as_payload(row[0])
-            # 新版 _select_buckets_with_llm 在 llm_operation 上挂 payload_chars；
-            # llm_call_finished 的 payload 可能是嵌套 attributes 或平铺，两处都查
-            flat_attrs = payload.get("attributes") if isinstance(payload.get("attributes"), dict) else payload
-            chars = flat_attrs.get("payload_chars")
-            op = str(payload.get("operation") or "?")
-            if op == "knowledge.bucket_route":
-                total_bucket_routes += 1
-                if isinstance(chars, (int, float)):
-                    slim_spans += 1
-                    payload_chars_seen.append((bj_hms(as_datetime(row[1])), int(chars)))
-            if op == "turn_planner.plan" and isinstance(chars, (int, float)):
-                planner_chars.append((bj_hms(as_datetime(row[1])), int(chars)))
-            if op == "harness.task_action" and isinstance(chars, (int, float)):
-                task_action_chars.append(
-                    (
-                        bj_hms(as_datetime(row[1])),
-                        int(chars),
-                        float(payload.get("duration_ms") or 0),
-                        int(payload.get("json_max_attempts") or 0),
-                    )
-                )
-            trace_json = json.dumps(payload, ensure_ascii=False)
-            if "route_cache_hit" in trace_json:
-                route_cache_hits += 1
-            if "route_cache_stored" in trace_json:
-                route_cache_stored += 1
+    timeout_cap = OPERATION_TIMEOUT_SECONDS.get("harness.task_action")
+    if timeout_cap:
+        print(f"  [i] harness.task_action 单次上限 {timeout_cap:.0f}s")
 
-        if total_bucket_routes == 0:
-            print("  [i] 最近 200 个 span 中无 bucket_route 调用，暂无法判断新代码是否生效")
-        else:
-            print(
-                f"  bucket_route：最近 {total_bucket_routes} 次，其中带 payload_chars（新代码）{slim_spans} 次"
-            )
-            for ts, chars in payload_chars_seen[:5]:
-                print(f"    [{ts}] payload_chars={chars}")
-            if slim_spans == 0:
-                print("  [!] 新代码未生效：所有 bucket_route span 均无 payload_chars → 检查部署/重启")
-        print(
-            f"  route_cache 迹象：最近 200 span 中 route_cache_hit ×{route_cache_hits}，"
-            f"route_cache_stored ×{route_cache_stored}"
-        )
-        # 误报修复：缓存命中/写入的 phase 记在 harness_tool_completed 事件里，
-        # llm_call_finished span 扫描天然扫不到（命中时根本不发 LLM 调用），
-        # 警告延后到 ks 事件段做双口径合并判定。
-    except Exception as exc:  # noqa: BLE001
-        print(f"  [!] LLM span 扫描失败：{exc}")
 
-    # 盲区补丁：缓存命中不发 LLM 调用 → llm_call_finished 里扫不到 hit。
-    # route phase 经 harness_tool_completed 事件落库（tool_name=knowledge_search）。
-    # 新代码在事件 payload.result.route_phases 带轻量 phase 列表；旧事件回退
-    # 字符串匹配。独立连接 + 独立 try，前段失败不影响本段。
-    ks_hits = ks_stores = ks_fast = 0
-    ks_count = 0
-    ks_old_style = 0
-    ks_detail: list[tuple[str, str, list[str]]] = []
-    try:
-        with engine.connect() as conn:
-            ks_rows = conn.execute(
-                text(
-                    """
-                    SELECT payload_json, created_at
-                    FROM agent_events
-                    WHERE event_type = 'harness_tool_completed'
-                    ORDER BY created_at DESC
-                    LIMIT 150
-                    """
-                )
-            ).fetchall()
-        for row in ks_rows:
-            payload = as_payload(row[0])
-            # tool_name 在事件 payload 顶层（trace 链路平铺，不包一层）
-            if str(payload.get("tool_name") or "") != "knowledge_search":
-                continue
-            ks_count += 1
-            # 优先：新版事件 result.route_phases（轻量列表，精确计数）
-            nested = payload.get("result") if isinstance(payload.get("result"), dict) else {}
-            phases = nested.get("route_phases")
-            query = str(payload.get("query") or "")[:60]
-            if isinstance(phases, list):
-                phase_names = [str(p) for p in phases]
-                ks_hits += sum(1 for p in phase_names if p == "route_cache_hit")
-                ks_stores += sum(1 for p in phase_names if p == "route_cache_stored")
-                ks_fast += sum(1 for p in phase_names if p.endswith("lexical_fast_path"))
-            else:
-                # 旧事件（无 route_phases）：result.data 可能还带完整 payload，
-                # 字符串匹配做兜底，可能含 chunk 正文噪声
-                trace_json = json.dumps(payload, ensure_ascii=False)
-                ks_old_style += 1
-                ks_hits += trace_json.count("route_cache_hit")
-                ks_stores += trace_json.count("route_cache_stored")
-                ks_fast += trace_json.count("lexical_fast_path")
-                phase_names = []
-            ks_detail.append((bj_hms(as_datetime(row[1])), query or "(旧事件无 query 字段)", phase_names))
-        print(
-            f"  知识检索事件：最近 {ks_count} 条（route_phases 精确 {ks_count - ks_old_style} /"
-            f" 旧事件兜底 {ks_old_style}）→ route_cache_hit ×{ks_hits}，"
-            f"route_cache_stored ×{ks_stores}，词法快速路径 ×{ks_fast}"
-        )
-        for ts, query, phase_names in ks_detail[:6]:
-            print(f"    [{ts}] query={query!r} phases={phase_names}")
-        if ks_count == 0:
-            print("  [i] 最近无 knowledge_search 调用事件；有检索但无事件 → 确认 trace_sink 配置")
-        if ks_hits > 0:
-            print("  [OK] 路由缓存命中已在发生（重复问法免 LLM 路由）")
-        elif ks_count > 0 and ks_fast > 0:
-            print("  [i] 无缓存命中但词法快速路径在生效（词法显著命中免 LLM 路由）")
-        elif ks_count > 0 and ks_old_style == ks_count:
-            print(
-                "  [!] 事件均为旧格式（无 route_phases）→ 新 invoker 代码未部署，"
-                "route phase 计数可能受 chunk 正文噪声干扰"
-            )
-        if (
-            ks_hits == 0
-            and ks_stores == 0
-            and route_cache_hits == 0
-            and route_cache_stored == 0
-            and (ks_count > 0 or total_bucket_routes > 0)
-        ):
-            print(
-                "  [!] 无任何 route_cache 迹象（span + 知识检索事件双口径均零）"
-                "→ 检查 Redis 配置 / 缓存写入"
-            )
-    except Exception as exc:  # noqa: BLE001
-        print(f"  [!] 知识检索事件扫描失败：{exc}")
+def _check_deterministic_paths() -> None:
+    """确定性执行器生效率：这些节点跳过 LLM 决策轮，是「降耗」的另一条腿。"""
 
-    # planner 瘦身观测（独立段，不依赖前段）
-    try:
-        if planner_chars:
-            print(
-                f"  planner 瘦身：最近 planner span 带 payload_chars {len(planner_chars)} 条"
-                "（新代码；>25000 视为旧代码量级）"
-            )
-            for ts, chars in planner_chars[:5]:
-                flag = "  ← 旧代码量级" if chars > 25_000 else ""
-                print(f"    [{ts}] payload_chars={chars}{flag}")
-        else:
-            print("  planner 瘦身：最近 planner span 无 payload_chars → planner 瘦身代码未部署")
-    except Exception as exc:  # noqa: BLE001
-        print(f"  [!] planner 观测失败：{exc}")
-
-    # task_action payload 观测（独立段）：响应生成链实测 91-187s，需体量佐证
-    try:
-        if task_action_chars:
-            print(
-                f"  task_action payload：最近 {len(task_action_chars)} 条带 payload_chars"
-                "（新观测；响应生成链 91-187s 瓶颈拆解用）"
-            )
-            for ts, chars, dur, _max_attempts in task_action_chars[:5]:
-                flag = "  ← 大 payload" if chars > 50_000 else ""
-                print(f"    [{ts}] payload_chars={chars} dur={dur / 1000:.1f}s{flag}")
-            # 部署判定改用「JSON 修复上限」这个硬信号：output_policy 收紧后
-            # harness.task_action 的 json_max_attempts 应为 2（= 1 次修复 + 首次尝试）。
-            # 早期版本用「dur 是否超过上限」判断，结论是错的——OpenAI SDK 默认
-            # max_retries=2 会在超时后自动重试，一次 span 的墙钟时间可以合法地
-            # 超过单次上限（实测 90s 上限 → 104.4s = 90s 超时 + 14.4s 重试成功）。
-            # 判定必须只看「最近一条」：200-span 窗口可能横跨数天（实测 09-07 → 09-14，
-            # 因为 llm_call_finished 稀疏，200 条只覆盖 53 个 span），用 max() 会被窗口里
-            # 收紧之前的历史 span 骗到，误报「未部署」。task_action_chars 按时间倒序，取首个非零。
-            latest_attempts = next((a for _, _, _, a in task_action_chars if a), 0)
-            timeout_cap = OPERATION_TIMEOUT_SECONDS.get("harness.task_action")
-            if not latest_attempts:
-                print("  [i] task_action span 未带 json_max_attempts，无法判定 output_policy 是否收紧")
-            elif latest_attempts >= 4:
-                print(
-                    f"  [!] 最近一条 harness.task_action json_max_attempts={latest_attempts}"
-                    "（收紧后应为 2） → output_policy 收紧代码未部署或进程未重启"
-                )
-            else:
-                print(
-                    f"  [OK] output_policy 收紧已生效（最近一条 json_max_attempts={latest_attempts}）"
-                )
-            if timeout_cap and latest_attempts and latest_attempts < 4:
-                over = [d for _, _, d, _ in task_action_chars if d > timeout_cap * 1000]
-                if over:
-                    print(
-                        f"  [!] {len(over)} 次 task_action dur 超过 {timeout_cap:.0f}s 单次上限"
-                        " → 上限已生效，超限来自 SDK 层重试/分段读把单次上限放大"
-                        "（见 app/llm/client.py 的 max_retries），非部署问题"
-                    )
-                else:
-                    print(f"  [OK] 全部 task_action dur ≤ {timeout_cap:.0f}s 单次上限")
-        else:
-            print("  task_action payload：无 payload_chars → 观测代码未部署")
-    except Exception as exc:  # noqa: BLE001
-        print(f"  [!] task_action 观测失败：{exc}")
-
-    # SOP 确定性执行器（P1）生效率观测（独立段）
     try:
         with engine.connect() as conn:
             prefill_rows = conn.execute(
@@ -317,45 +470,23 @@ def _check_route_cache_support() -> None:
                     """
                 )
             ).fetchall()
-        scenes: dict[str, int] = {}
-        prefill_detail: list[tuple[str, str, str]] = []
-        for row in prefill_rows:
-            payload = as_payload(row[0])
+        scenes: dict[str, int] = defaultdict(int)
+        details: list[tuple[str, str]] = []
+        for raw, created in prefill_rows:
+            payload = as_payload(raw)
             scene = str(payload.get("scene") or "?")
-            scenes[scene] = scenes.get(scene, 0) + 1
-            prefill_detail.append(
-                (
-                    bj_hms(as_datetime(row[1])),
-                    scene,
-                    str(
-                        payload.get("query")
-                        or payload.get("next_node_id")
-                        or payload.get("tool_name")
-                        or (
-                            "缺必填:"
-                            + "、".join(str(s) for s in payload.get("missing_required") or [])
-                            if payload.get("missing_required")
-                            else ""
-                        )
-                        or "、".join(str(s) for s in payload.get("required_slots") or [])
-                        or ""
-                    )[:40],
-                )
-            )
+            scenes[scene] += 1
+            details.append((bj_hms(as_datetime(created)), scene))
         if prefill_rows:
             summary = "，".join(f"{k} ×{v}" for k, v in sorted(scenes.items()))
-            print(
-                f"  SOP 确定性执行器（P1）：sop_prefill_planned ×{len(prefill_rows)}"
-                f"（{summary}）——这些节点跳过了 LLM 决策轮"
-            )
-            for ts, scene, detail in prefill_detail[:5]:
-                print(f"    [{ts}] {scene} {detail}")
+            print(f"\n  SOP 确定性执行器：sop_prefill_planned ×{len(prefill_rows)}（{summary}）")
+            print("    → 这些节点跳过了 LLM 决策轮")
         else:
-            print(
-                "  SOP 确定性执行器（P1）：无 sop_prefill_planned 事件"
-                "（未部署 / 未触发 / 观测代码未部署）"
-            )
-        # 槽位抽取（P2）观测：全抽出（抽齐直通）vs 部分（带值询问）vs 空
+            print("\n  SOP 确定性执行器：无 sop_prefill_planned 事件（未部署 / 未触发）")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [!] 确定性执行器观测失败：{exc}")
+
+    try:
         with engine.connect() as conn:
             ext_rows = conn.execute(
                 text(
@@ -371,9 +502,8 @@ def _check_route_cache_support() -> None:
         if ext_rows:
             full = partial = empty = 0
             durations: list[float] = []
-            details: list[tuple[str, int, int, str]] = []
-            for row in ext_rows:
-                payload = as_payload(row[0])
+            for raw, _created in ext_rows:
+                payload = as_payload(raw)
                 extracted = payload.get("extracted")
                 extracted_n = len(extracted) if isinstance(extracted, dict) else 0
                 fields_n = len(payload.get("fields") or [])
@@ -384,124 +514,83 @@ def _check_route_cache_support() -> None:
                 else:
                     empty += 1
                 durations.append(float(payload.get("duration_ms") or 0))
-                details.append(
-                    (
-                        bj_hms(as_datetime(row[1])),
-                        extracted_n,
-                        fields_n,
-                        json.dumps(extracted, ensure_ascii=False)[:60] if extracted else "",
-                    )
-                )
             avg_ms = sum(durations) / len(durations) if durations else 0
             print(
-                f"  槽位抽取（P2）：sop_slot_extraction ×{len(ext_rows)}"
-                f"（抽齐直通 ×{full}，部分抽取 ×{partial}，未抽到 ×{empty}）"
-                f" 平均 {avg_ms:.1f}ms"
+                f"  槽位抽取：sop_slot_extraction ×{len(ext_rows)}"
+                f"（抽齐直通 ×{full}，部分 ×{partial}，未抽到 ×{empty}）均 {avg_ms:.0f}ms"
             )
-            for ts, ext_n, field_n, extracted_str in details[:5]:
-                print(f"    [{ts}] 抽到 {ext_n}/{field_n} {extracted_str}")
         else:
-            print("  槽位抽取（P2）：无 sop_slot_extraction 事件（未部署 / 未触发）")
+            print("  槽位抽取：无 sop_slot_extraction 事件（未部署 / 未触发）")
     except Exception as exc:  # noqa: BLE001
-        print(f"  [!] P1 生效率观测失败：{exc}")
-    print()
+        print(f"  [!] 槽位抽取观测失败：{exc}")
 
 
 def main() -> None:
-    _check_route_cache_support()
-    with engine.connect() as conn:
-        # 最近 8 个 user_message_received 事件 → 定位 turn
-        rows = conn.execute(
-            text(
-                """
-                SELECT session_id, payload_json, created_at
-                FROM agent_events
-                WHERE event_type = 'user_message_received'
-                ORDER BY created_at DESC
-                LIMIT 1
-                """
-            )
-        ).fetchall()
-        print(f"最近 {len(rows)} 条用户消息：")
-        turns: list[tuple[str, str, datetime | None]] = []
-        for row in rows:
-            payload = as_payload(row[1])
-            message = str(payload.get("message") or "")[:40]
-            turn_id = str(payload.get("turn_id") or payload.get("message_id") or "")
-            turn_created_at = as_datetime(row[2])
-            shown = bj_ts(turn_created_at)
-            print(f"  [{shown}] turn={turn_id[:16]}... msg={message!r}")
-            turns.append((row[0], turn_id, turn_created_at))
+    parser = argparse.ArgumentParser(description="planner/决策链耗时与图片成本诊断")
+    parser.add_argument("--turn", help="只看指定 turn_id")
+    parser.add_argument("--limit", type=int, default=4, help="分析最近几个 turn（默认 4）")
+    parser.add_argument("--spans", type=int, default=400, help="扫描多少个 span（默认 400）")
+    parser.add_argument(
+        "--all", action="store_true", help="额外打印部署自检与确定性执行器生效率"
+    )
+    args = parser.parse_args()
 
-        # 对每个 turn 拉全部 llm_call_finished span
-        print("\n各 turn 的 LLM 调用明细：")
-        for session_id, turn_id, turn_created_at in turns[:4]:
-            # 注意行结构：(payload_json, created_at)
-            spans = conn.execute(
-                text(
-                    """
-                    SELECT payload_json, created_at
-                    FROM agent_events
-                    WHERE event_type = 'llm_call_finished'
-                      AND session_id = :session_id
-                    ORDER BY created_at DESC
-                    LIMIT 120
-                    """
-                ),
-                {"session_id": session_id},
-            ).fetchall()
-            exact: list[dict] = []
-            window: list[tuple[dict, datetime]] = []
-            for row in spans:
-                payload = as_payload(row[0])
-                created_at = as_datetime(row[1])
-                if turn_id in (payload.get("turn_id"), payload.get("user_message_id")):
-                    exact.append(payload)
-                elif (
-                    turn_created_at is not None
-                    and created_at is not None
-                    and turn_created_at <= created_at <= turn_created_at + timedelta(minutes=10)
-                ):
-                    # 旧代码 span 无 turn_id：按「本 turn 消息时间 → +10min」窗口兜底
-                    window.append((payload, created_at))
+    if args.all:
+        _check_runtime_support()
+        _check_deterministic_paths()
+        print()
 
-            label = f"turn {turn_id[:16]}..."
-            if not exact and not window:
-                # spans 行结构为 (payload_json, created_at)
-                recent_ops = [
-                    str((p or {}).get("operation") or "?") for p, _ts in spans[:8]
-                ]
-                print(f"\n{label}  0 次匹配（该会话最近 span operations: {recent_ops}）")
-                continue
+    spans = _load_spans(args.spans)
+    if not spans:
+        print("没有 llm_call_finished 事件。检查 trace_sink 是否落库。")
+        return
 
-            if exact:
-                print(f"\n{label}  共 {len(exact)} 次模型调用（精确匹配）：")
-                for payload in sorted(exact, key=lambda p: str(p.get("started_at") or "")):
-                    print(
-                        "  {op} model={model} dur={dur}ms json_attempt={ja}/{jm}".format(
-                            op=str(payload.get("operation") or "?"),
-                            model=str(payload.get("model_name") or payload.get("model") or "?"),
-                            dur=payload.get("duration_ms"),
-                            ja=payload.get("json_attempt"),
-                            jm=payload.get("json_max_attempts"),
-                        )
-                    )
-            if window:
-                print(
-                    f"\n{label}  窗口兜底匹配 {len(window)} 次"
-                    "（旧代码 span 无 turn_id，含上一 turn 的后台任务，仅供参考）："
+    print("=" * 78)
+    print("最近对话的模型调用明细")
+    print("=" * 78)
+    print(
+        "  说明：`真实出站` 是从 request_messages 还原的字符数（含图片占位符里的原始\n"
+        "        base64 长度）；`payload_chars` 是脱敏后记录的值，图片场景会严重少报。"
+    )
+
+    if args.turn:
+        # 指定 turn：turn_id / user_message_id / client_turn_id 任一对上都算，
+        # 因为用户手上拿到的可能是其中任意一种形态。
+        target = TurnGroup(
+            turn_id=args.turn, session_id="", created_at=None, message="(指定)"
+        )
+        exact = [
+            span
+            for span in spans
+            if args.turn
+            in {
+                str(value)
+                for value in (
+                    span.payload.get("turn_id"),
+                    span.payload.get("user_message_id"),
+                    span.payload.get("client_turn_id"),
                 )
-                for payload, created_at in sorted(window, key=lambda item: item[1]):
-                    print(
-                        "  [{ts}] {op} model={model} dur={dur}ms json_attempt={ja}/{jm}".format(
-                            ts=bj_hms(created_at),
-                            op=str(payload.get("operation") or "?"),
-                            model=str(payload.get("model_name") or payload.get("model") or "?"),
-                            dur=payload.get("duration_ms"),
-                            ja=payload.get("json_attempt"),
-                            jm=payload.get("json_max_attempts"),
-                        )
-                    )
+                if value
+            }
+        ]
+        target.spans = exact
+        if not exact:
+            print(f"\n未找到 turn_id={args.turn} 的 span（可能超出 --spans 窗口）")
+            return
+        _print_turn(target)
+        _print_operation_summary([target])
+        return
+
+    turns = _load_turns(args.limit)
+    if not turns:
+        print("没有 user_message_received 事件，无法按轮次归因。可用 --turn 指定。")
+        return
+
+    for turn in turns:
+        _attach_spans(turn, spans)
+        _print_turn(turn)
+
+    _print_operation_summary(turns)
 
 
 if __name__ == "__main__":

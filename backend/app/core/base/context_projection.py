@@ -65,6 +65,55 @@ def compact_conversation_context(
     return compacted
 
 
+def strip_context_images(
+    context: dict[str, object] | None,
+) -> dict[str, object] | None:
+    """去掉上下文里的图片，只留文本（意图识别等「不需要看图」的阶段用）。
+
+    为什么要有这个：``conversation_projection.message_context_entry`` 会从消息
+    metadata 里取出 ``data_url``，原样放进 ``images``。于是**任何**吃
+    ``conversation_context`` 的调用都会重发历史图片——哪怕这张图是三轮前贴的、
+    早就被理解过。实测 ``turn_planner.plan`` 出站带 1 张 100KB 截图（base64 约
+    136,736 字符），而 TurnPlanner 的职责只是判断意图和路由 SOP，其 prompt 明确
+    写着「不选择 GeneralSkill、不生成工具调用、不读节点图」——看图对它零收益。
+
+    为什么不能只删 ``images`` 了事：消息 ``content`` 里已经带了附件描述
+    （文件名 / 类型 / 大小 / 沙箱路径，见 ``attachment_context_lines``），
+    所以模型仍然知道「用户这轮贴了图」，只是看不到像素。这正是意图识别需要的
+    全部信息。
+
+    为什么在这里做而不是改 ``message_context_entry``：那个投影同时服务决策循环
+    回复生成等真正需要看图的调用方，改它会连带影响那些链路。这里按调用方
+    显式选择，语义边界清楚。
+
+    返回新 dict（不原地改）：调用方常常持有同一份 context 给多个阶段用，
+    就地删图会让后续需要图片的阶段拿到残缺上下文。
+    """
+
+    if not isinstance(context, dict):
+        return context
+    messages = context.get("messages")
+    if not isinstance(messages, list):
+        return context
+    stripped: list[object] = []
+    changed = False
+    for message in messages:
+        if isinstance(message, dict) and message.get("images"):
+            changed = True
+            stripped.append({key: value for key, value in message.items() if key != "images"})
+        else:
+            stripped.append(message)
+    if not changed:
+        return context
+    # `metadata.estimated_tokens` 是按含图算出的旧值：图片既然不发，就该让
+    # 预算重新按文本评估，否则裁剪会为不存在的图片白留空间。
+    result: dict[str, object] = {**context, "messages": stripped}
+    metadata = result.get("metadata")
+    if isinstance(metadata, dict):
+        result["metadata"] = {**metadata, "images_stripped": True}
+    return result
+
+
 def compact_current_step(
     content: dict[str, Any] | None,
     step_id: str | None,

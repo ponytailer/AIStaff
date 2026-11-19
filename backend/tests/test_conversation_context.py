@@ -169,3 +169,104 @@ def test_conversation_context_compacts_assistant_only_history() -> None:
         "assistant",
         "assistant",
     ]
+
+
+# ---------------------------------------------------------------------------
+# 图片成本计入预算
+# ---------------------------------------------------------------------------
+# 背景：此前 `_message_tokens` 只算 role + content，`images` 记为 0 token。
+# 一张 100KB 截图的 base64 约 13.7 万字符，在预算表里却是 0 —— 于是
+# `compact_conversation_context` 的 `estimated_tokens <= budget` 提前返回，
+# 裁剪对图片永不触发。下面两个用例锁住「图片必须进入预算」这条契约。
+
+
+def _image_message(message_id: str, text: str = "看这张截图") -> dict:
+    return {
+        "id": message_id,
+        "role": "user",
+        "content": text,
+        "images": [
+            {
+                "type": "image_url",
+                "image_url": {"url": "data:image/png;base64," + "A" * 4_000},
+            }
+        ],
+    }
+
+
+def test_image_counts_towards_token_budget() -> None:
+    """纯文本版与带图版的消息数、文本完全相同，预算估算必须不同。"""
+
+    text_only = [
+        {"id": "m1", "role": "user", "content": "看这张截图"},
+        {"id": "m2", "role": "assistant", "content": "好的"},
+    ]
+    with_image = [dict(text_only[0], images=_image_message("m1")["images"]), text_only[1]]
+
+    plain = build_conversation_context(text_only, token_budget=100_000)
+    imaging = build_conversation_context(with_image, token_budget=100_000)
+
+    plain_tokens = plain["metadata"]["estimated_tokens"]
+    image_tokens = imaging["metadata"]["estimated_tokens"]
+    assert image_tokens > plain_tokens, (
+        f"图片必须计入预算：带图 {image_tokens} 应大于纯文本 {plain_tokens}"
+    )
+    # 每张图按 IMAGE_TOKEN_ESTIMATE 折算，差值应正好是一张图的成本。
+    assert image_tokens - plain_tokens == 1_000
+
+
+def test_images_can_trigger_compaction_that_text_alone_would_not() -> None:
+    """关键回归：预算刚好卡在文本量之上时，图片必须让它触发压缩。
+
+    这正是线上场景 —— est_tokens 报 792（只有文本），实际出站 14 万字符。
+    """
+
+    messages = [
+        _image_message(f"msg_{index}", f"第 {index} 轮追问")
+        for index in range(4)
+    ]
+    text_only = [dict(message, images=[]) for message in messages]
+
+    # 8000 token 预算：纯文本（4 条短消息）远远够用，但 4 张图共 4000 token
+    # 会把它推到触发线附近。
+    budget = 8_000
+    plain = build_conversation_context(text_only, token_budget=budget)
+    imaging = build_conversation_context(messages, token_budget=budget)
+
+    assert plain["metadata"]["compacted"] is False, "纯文本不该触发压缩"
+    assert imaging["metadata"]["estimated_tokens"] > plain["metadata"][
+        "estimated_tokens"
+    ]
+    # 4 张图 = 4000 token，必须原样体现在估算里（而不是被当成 0）。
+    assert (
+        imaging["metadata"]["estimated_tokens"]
+        - plain["metadata"]["estimated_tokens"]
+        == 4_000
+    )
+
+
+def test_image_estimate_ignores_malformed_entries() -> None:
+    """`images` 是本模块约定的轻量结构，非 image_url part 不参与估算。"""
+
+    messages = [
+        {
+            "id": "m1",
+            "role": "user",
+            "content": "你好",
+            "images": [
+                {"type": "text", "text": "这不是图片"},
+                {"no_type": True},
+                "裸字符串",
+            ],
+        }
+    ]
+
+    context = build_conversation_context(messages, token_budget=100_000)
+    baseline = build_conversation_context(
+        [{"id": "m1", "role": "user", "content": "你好"}], token_budget=100_000
+    )
+
+    assert (
+        context["metadata"]["estimated_tokens"]
+        == baseline["metadata"]["estimated_tokens"]
+    )

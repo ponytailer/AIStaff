@@ -12,6 +12,7 @@ from app.core.base.context_projection import (
     compact_awaiting_input,
     compact_conversation_context,
     compact_pending_tasks,
+    strip_context_images,
 )
 from app.core.base.graph_rules import GraphRules
 from app.core.plan.frame_policy import MAX_TASK_FRAMES_PER_TURN
@@ -51,6 +52,29 @@ from app.core.plan.planner_fastpath import (  # noqa: F401  (re-export)
     _fast_path_plan,
     _followup_shortcircuit_plan,
 )
+
+
+def _planner_context_without_images(
+    conversation_context: dict[str, object] | None,
+) -> dict[str, object] | None:
+    """意图识别用的上下文：剥掉历史图片，只留文本。
+
+    TurnPlanner 只判断「这轮要做什么、路由到哪个 SOP」，prompt 里明确不选能力、
+    不生成工具调用、不读节点图——看图对它没有任何增益。但 ``conversation_context``
+    是投影出来的全量上下文，历史里每张截图都带着 ``data_url``，于是每轮 planner
+    都要为同一张早已理解过的图重复支付视觉成本。实测一次 ``turn_planner.plan``
+    出站 136,736 字符 base64。
+
+    消息 ``content`` 里已经带了附件描述（文件名/类型/大小/沙箱路径），所以剥掉
+    像素后，planner 依然知道「用户这轮贴了图」，判断依据不缺。
+
+    失败一律降级回原上下文：这个优化绝不能因为结构异常而让规划拿不到历史。
+    """
+
+    try:
+        return strip_context_images(conversation_context)
+    except Exception:  # noqa: BLE001 - 剥图失败就用原上下文，不影响规划正确性
+        return conversation_context
 
 
 class TurnPlanner:
@@ -123,7 +147,7 @@ class TurnPlanner:
                 interaction_mode,
             )
         planner_payload = compact_conversation_context(
-            conversation_context,
+            _planner_context_without_images(conversation_context),
             token_budget=PLANNER_CONTEXT_TOKEN_BUDGET,
         )
         payload = stage_payload(
