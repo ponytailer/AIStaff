@@ -172,13 +172,15 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
     displayedAgent,
     displayedProfile,
     emptyRoleSummary,
-    emptyStats,
     currentSessionRunning,
     shareMode,
     sendQuickText,
     authUser,
   } = chat;
   const displayName = displayedAgent ? employeeDisplayName(displayedAgent) : '';
+  // 没有档案时后端给的 '--' 是「没有数据」而不是「介绍很短」——在问候语
+  // 下面挂两横线毫无意义，所以这一档直接不渲染。
+  const hasRoleSummary = Boolean(emptyRoleSummary && emptyRoleSummary.trim());
   // 只从 profile 取：配置端的规整（去空/限长/最多 3 条）都在
   // `employeeProfile()` 与 `normalizeSuggestedPrompts()` 里做过一次，
   // 这里再过滤会让「配了 3 条只显示 2 条」这类问题无从排查。
@@ -209,6 +211,12 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
             />
             </div>
           </div>
+          {/*
+            角色介绍直接挂在问候语下方，不再单独占一张灰卡。
+            原先问候卡只放「Hello 我是X！」+ 一句「我们来做什么？」，而「我是谁」
+            这件事被推到下一张卡里，读起来是两段互不相干的自我介绍；现在合成一处：
+            名字 + 角色定位同属一句自报家门，中间那层灰卡也就没有存在的必要了。
+          */}
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-[8px] py-[12px] capitalize">
             <strong
               className={`${CHAT_EMPTY_TITLE_CLASS} max-w-full [overflow-wrap:anywhere]`}
@@ -217,22 +225,12 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
             >
               Hello 我是{displayName}！
             </strong>
-            <span className={CHAT_EMPTY_SUBTITLE_CLASS}>我们来做什么？</span>
+            {hasRoleSummary && (
+              <p className={CHAT_EMPTY_ROLE_CLASS} title={emptyRoleSummary}>
+                {emptyRoleSummary}
+              </p>
+            )}
           </div>
-        </div>
-      </div>
-
-      <div className={CHAT_EMPTY_CARD_CLASS}>
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-[8px] px-[4px]">
-          <p className={CHAT_EMPTY_ROLE_CLASS}>{emptyRoleSummary}</p>
-        </div>
-        <div className="flex flex-1 items-stretch">
-          {emptyStats.map((item) => (
-            <div key={item.label} className={CHAT_EMPTY_STAT_CELL_CLASS}>
-              <span className="text-[18px] font-medium leading-none">{item.value}</span>
-              <span className="text-[10px] leading-none">{item.label}</span>
-            </div>
-          ))}
         </div>
       </div>
 

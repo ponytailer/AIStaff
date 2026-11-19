@@ -385,10 +385,18 @@ export const CHAT_EMPTY_CLASS =
 export const CHAT_EMPTY_GREETING_CARD_CLASS =
   'flex w-full items-end justify-between rounded-[20px] bg-[#e5e4e0] pl-[8px] pr-[16px]';
 export const CHAT_EMPTY_TITLE_CLASS = 'text-[26px] font-semibold leading-[1.25] tracking-[-0.02em] text-[#18181a]';
+// 员工空态已经不用这两条了（「我们来做什么？」与中间那张灰卡一并移除），
+// 但多智能体空态（DispatcherEmptyCard）仍按原版式使用，保留。
 export const CHAT_EMPTY_SUBTITLE_CLASS = 'text-[13.5px] font-normal text-[#6d6d72]';
 export const CHAT_EMPTY_CARD_CLASS =
   'flex w-full items-stretch gap-[8px] rounded-[20px] bg-[#e5e4e0] p-[16px]';
-export const CHAT_EMPTY_ROLE_CLASS = 'line-clamp-2 text-[12px] capitalize leading-[1.5] text-[#6d6d72]';
+// 角色介绍现在挂在问候语正下方、和名字同处一张卡，属于「自报家门」的第二行。
+// 原来它在独立灰卡里是 12px 深灰正文，搬到标题下后按副标题处理：比问候语小
+// 一级、比正文亮一点，让「名字 → 角色」读成一句话而不是两块信息。
+// 单行省略而不是 line-clamp-2：这里只会有一句「一名经验丰富的X」，折成两行
+// 会把问候卡撑高、挤掉头像底部的对齐。
+export const CHAT_EMPTY_ROLE_CLASS =
+  'truncate text-[13px] font-normal leading-[1.5] text-[#6d6d72] capitalize';
 export const CHAT_EMPTY_TAGS_CLASS =
   'flex flex-wrap items-center gap-[6px] [&>span]:rounded-full [&>span]:bg-[rgba(24,24,26,0.05)] [&>span]:px-[9px] [&>span]:py-[3px] [&>span]:text-[11px] [&>span]:capitalize [&>span]:text-[#6d6d72]';
 export const CHAT_EMPTY_STAT_CELL_CLASS =

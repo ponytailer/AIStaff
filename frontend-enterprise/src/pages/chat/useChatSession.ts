@@ -704,20 +704,29 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       cancelled = true;
     };
   }, [displayedAgentId, displayedAgentIsDispatcher, tenantId]);
-  const emptyRoleSummary = displayedProfile
-    ? `#角色：${displayedProfile.roleName}「${displayedAgent ? employeeDisplayName(displayedAgent) : '--'}」一名经验丰富的${displayedProfile.roleName}`
-    : '--';
-  const emptyStats = displayedAgent
-    ? [
-      { label: '资料', value: agentResourceCount(displayedAgent, 'knowledge_base') },
-      { label: '技能', value: agentResourceCount(displayedAgent, 'general_skill') },
-      { label: 'SOP', value: agentResourceCount(displayedAgent, 'skill') },
-    ]
-    : [
-      { label: '资料', value: 0 },
-      { label: '技能', value: 0 },
-      { label: 'SOP', value: 0 },
-    ];
+  /*
+   * 空态里的角色介绍。
+   *
+   * 原先只有「#角色：IT「Jerry Hu 胡鹏飞」一名经验丰富的IT」这一种拼法，且它
+   * 单独占一整张灰卡，所以标记前缀、双引号里的名字、以及重复两遍的角色名都
+   * 还能被容忍。现在这句话挪到问候语正下方（「Hello 我是Jerry Hu 胡鹏飞！」的
+   * 下一行），紧跟着自我介绍念一遍名字 + 角色名，读起来像结巴：
+   *
+   *     Hello 我是Jerry Hu 胡鹏飞！
+   *     #角色：IT「Jerry Hu 胡鹏飞」一名经验丰富的IT
+   *
+   * 所以这里只保留「角色定位」这一层信息，文案与原来被圈中的那段完全一致：
+   * `一名经验丰富的IT`。前端的 `#角色：` 是给配置端看的标记，不该出现在
+   * 对话页；名字也已经在上一行。roleName 为空时整段退成空串，由调用方决定
+   * 不渲染（不会留一个 `--` 占位）。
+   */
+  const roleName = (displayedProfile?.roleName || '').trim();
+  const emptyRoleSummary = roleName ? `一名经验丰富的${roleName}` : '';
+  /*
+   * `emptyStats`（资料 / 技能 / SOP 三个计数）随中间那张灰卡一起下线了：
+   * 同一组数字在右侧 ChatContextRail 里已经常驻显示，空态再抄一遍属于重复；
+   * 而且它是「我有什么」而不是「我是谁」，塞进自报家门的版式里反而打断阅读。
+   */
   /*
    * 多智能体空状态：完全不套「#角色 / 资料 / 技能 / SOP」这套员工话术。
    * 它不配知识库/技能/工具，角色字段对它没有意义；用户在表单里真正填过的是
@@ -4163,7 +4172,6 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     authUser: auth?.user ?? null,
     currentSession,
     emptyRoleSummary,
-    emptyStats,
     // 多智能体专用的空状态数据（displayedAgentIsDispatcher 为 false 时不用）
     displayedAgentIsDispatcher,
     displayedDispatcher,

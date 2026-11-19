@@ -182,24 +182,56 @@ describe('ChatEmptyState dispatcher card', () => {
 });
 
 describe('ChatEmptyState regular sessions', () => {
-  it('still renders the employee card for regular sessions', () => {
+  it('renders the employee card with the role line under the greeting', () => {
     renderEmptyState(buildChat(
       { agent_id: 'agent-1' },
       {
         displayedAgent: agent,
         displayedProfile: employeeProfile(agent),
-        emptyRoleSummary: 'role summary',
-        emptyStats: [
-          { label: '资料', value: 1 },
-          { label: '技能', value: 2 },
-          { label: 'SOP', value: 3 },
-        ],
+        emptyRoleSummary: '一名经验丰富的IT',
         agents: [agent],
         },
     ));
 
     expect(screen.getByText(/Hello 我是/).textContent).toContain('小艾');
     expect(screen.queryByText(/Hello 我们是/)).toBeNull();
-    expect(screen.getByText('资料')).toBeTruthy();
+    // 角色介绍上移到问候语下方
+    expect(screen.getByText('一名经验丰富的IT')).toBeTruthy();
+  });
+
+  it('no longer renders the removed subtitle and resource stats card', () => {
+    renderEmptyState(buildChat(
+      { agent_id: 'agent-1' },
+      {
+        displayedAgent: agent,
+        displayedProfile: employeeProfile(agent),
+        emptyRoleSummary: '一名经验丰富的IT',
+        agents: [agent],
+      },
+    ));
+
+    // 「我们来做什么？」整句下线
+    expect(screen.queryByText('我们来做什么？')).toBeNull();
+    // 中间那张灰卡的三个计数格一并移除（数字改由右侧 ChatContextRail 承担）
+    expect(screen.queryByText('资料')).toBeNull();
+    expect(screen.queryByText('SOP')).toBeNull();
+  });
+
+  it('omits the role line entirely when there is no profile', () => {
+    const { container } = renderEmptyState(buildChat(
+      { agent_id: 'agent-1' },
+      {
+        displayedAgent: agent,
+        // 没有档案 → emptyRoleSummary 为空串
+        emptyRoleSummary: '',
+        agents: [agent],
+      },
+    ));
+
+    expect(screen.getByText(/Hello 我是/).textContent).toContain('小艾');
+    // 不留一个空 <p> 占位
+    expect(container.querySelectorAll('p').length).toBe(
+      Array.from(container.querySelectorAll('p')).filter((p) => (p.textContent || '').trim()).length,
+    );
   });
 });
