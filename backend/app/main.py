@@ -151,6 +151,12 @@ def on_startup() -> None:
                 kwargs["client_factory"],
                 kwargs["handler"],
             )
+            # 转人工静默超时：跟轮询同进程，避免多副本各自发一遍提示
+            idle_minutes = int(settings.wechat_handoff_idle_minutes or 0)
+            if idle_minutes > 0:
+                from app.wechat.handoff_sweeper import start_handoff_sweeper
+
+                start_handoff_sweeper(idle_minutes=idle_minutes)
     except Exception:
         release_runtime_instance_lock()
         raise
@@ -162,6 +168,9 @@ def on_shutdown() -> None:
         from app.wechat import poller as wechat_poller
 
         wechat_poller.stop_all()
+        from app.wechat.handoff_sweeper import stop_handoff_sweeper
+
+        stop_handoff_sweeper()
         stop_public_api_maintenance()
         stop_background_worker()
         stop_harness_recovery_sweeper()

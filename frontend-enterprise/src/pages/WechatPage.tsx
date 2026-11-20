@@ -25,6 +25,8 @@ interface WechatBindingRead {
   last_error: string;
   last_seen_at: string | null;
   created_at: string | null;
+  /** 这条绑定是不是我自己扫的：管理员能看到别人的，但不该能替人断开。 */
+  owned_by_me?: boolean;
 }
 
 interface QrcodeResponse {
@@ -141,6 +143,8 @@ export default function WechatPage({ currentUser }: Props) {
 
   // 断开确认
   const [disconnectTarget, setDisconnectTarget] = useState<WechatBindingRead | null>(null);
+  // 删除确认（只对已断开的记录开放）
+  const [deleteTarget, setDeleteTarget] = useState<WechatBindingRead | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -304,12 +308,29 @@ export default function WechatPage({ currentUser }: Props) {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/api/enterprise/wechat/bindings/${deleteTarget.id}?${Q}`);
+      notify.success('已删除这条接入记录');
+      setDeleteTarget(null);
+      await load();
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : '删除失败');
+    }
+  };
+
   // ---- 渲染 --------------------------------------------------------
 
   // 「整体智能体」是租户级兜底入口（is_overall），不是一个具体员工：
   // 它没有独立人设，挂到微信里只会让 /员工 列表出现一个语义不明的选项，
   // 所以候选集里排除掉。
   const selectableAgents = agents.filter((agent) => !agent.is_overall);
+
+  // 一次只允许接入一个微信：只要已有生效中的绑定，「扫码接入」就灰掉。
+  // 后端 /qrcode 有同样的拦截（409），这里置灰是为了让规则在点击之前可见。
+  const activeBinding = bindings.find((row) => row.status === 'active');
+  const scanLocked = activeBinding !== undefined;
 
   const card =
     'rounded-[20px] border border-[#e8e6e1] bg-white p-[24px] shadow-[0_1px_2px_rgba(26,26,26,0.04)]';
@@ -331,8 +352,18 @@ export default function WechatPage({ currentUser }: Props) {
             <p className="mt-[4px] text-[13px] text-[#6b6b6f]">
               每个微信只管自己的对话：你在微信里 /员工 看到的就是你名下有权限的员工。
             </p>
+            {scanLocked && (
+              <p className="mt-[4px] text-[12px] text-[#8a8a8f]">
+                一个账号只能接入一个微信。要换绑请先断开当前接入。
+              </p>
+            )}
           </div>
-          <Button onClick={() => setQrOpen(true)} className="shrink-0">
+          <Button
+            onClick={() => setQrOpen(true)}
+            disabled={scanLocked}
+            title={scanLocked ? '已接入微信，请先断开后再换绑' : undefined}
+            className="shrink-0"
+          >
             扫码接入
           </Button>
         </div>
@@ -370,13 +401,25 @@ export default function WechatPage({ currentUser }: Props) {
                     <Button variant="outline" size="sm" onClick={() => openAgentEditor(binding)}>
                       配置员工
                     </Button>
-                    {binding.status === 'active' && (
+                    {/* 断开：只在生效中显示；不是自己的绑定不给操作 */}
+                    {binding.status === 'active' && binding.owned_by_me !== false && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setDisconnectTarget(binding)}
                       >
                         断开
+                      </Button>
+                    )}
+                    {/* 删除：只有断开之后才允许，避免「删了但还在跑」的悬空 bot */}
+                    {binding.status === 'disconnected' && binding.owned_by_me !== false && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[#b4483c]"
+                        onClick={() => setDeleteTarget(binding)}
+                      >
+                        删除
                       </Button>
                     )}
                   </div>
@@ -423,7 +466,7 @@ export default function WechatPage({ currentUser }: Props) {
             ['/员工', '查看可对话员工，回复数字直接切换'],
             ['/切换 <名字>', '切换到指定员工'],
             ['/当前', '查看当前正在对话的员工'],
-            ['转人工', '找真人同事接手，回复会回到这个微信对话'],
+            ['/转人工', '找真人同事接手，回复会回到这个微信对话'],
             ['/取消转人工', '结束人工，继续由数字员工服务'],
           ].map(([cmd, desc]) => (
             <div
@@ -546,6 +589,15 @@ export default function WechatPage({ currentUser }: Props) {
         description="断开后微信 bot 将离线，需要重新扫码才能恢复；对话记录保留。确定断开接入吗？"
         confirmText="确认断开"
         onConfirm={() => void confirmDisconnect()}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="删除这条接入记录？"
+        description="删除后这条接入与员工配置会一并移除，历史对话保留。之后可以重新扫码接入。"
+        confirmText="删除"
+        onConfirm={() => void confirmDelete()}
       />
     </div>
   );

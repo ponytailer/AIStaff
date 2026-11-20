@@ -5,7 +5,7 @@
 //   2) 有的绑定行渲染出员工与模型规则徽标；
 //   3) 「微信里的指令」清单只列仍然生效的指令。
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import type { EnterpriseAuthUser } from '@/auth';
 import type { AgentProfileRead } from '../types';
@@ -57,15 +57,20 @@ function jsonResponse(body: unknown): Response {
   } as Response;
 }
 
-function stubFetch() {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+function stubFetch(rows: unknown = bindings) {
+  // 第二个参数必须显式声明：默认实现只接 input，解构 init 时 TS 会报「元组越界」
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    if (url.includes('/api/enterprise/wechat/bindings')) return jsonResponse(bindings);
+    if (url.includes('/api/enterprise/wechat/bindings')) return jsonResponse(rows);
     if (url.includes('/api/enterprise/agents')) return jsonResponse(agents);
     return jsonResponse({});
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
+}
+
+function buttonTexts(): string[] {
+  return Array.from(document.querySelectorAll('button')).map((el) => el.textContent ?? '');
 }
 
 function renderPage() {
@@ -117,7 +122,8 @@ describe('WechatPage', () => {
       '/员工',
       '/切换 <名字>',
       '/当前',
-      '转人工',
+      // 转人工必须是斜杠指令：裸词「转人工」现在交回 LLM 正常作答
+      '/转人工',
       '/取消转人工',
     ]);
   });
@@ -129,5 +135,97 @@ describe('WechatPage', () => {
     await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
     // 员工名出现在挂载摘要里
     expect(screen.getAllByText(/AI G\.O/).length).toBeGreaterThan(0);
+  });
+
+  // ---- 一个账号只能接一个微信 -------------------------------------------
+
+  it('已有生效中的接入时，扫码接入被置灰', async () => {
+    stubFetch();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    const scan = screen.getByText('扫码接入').closest('button') as HTMLButtonElement;
+    expect(scan.disabled).toBe(true);
+    // 规则要在点击之前就看得见，不能只靠灰按钮暗示
+    expect(screen.getByText('一个账号只能接入一个微信。要换绑请先断开当前接入。')).toBeTruthy();
+  });
+
+  it('没有接入时扫码可用', async () => {
+    stubFetch([]);
+    renderPage();
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('还没有接入微信。扫码后就能在微信里和你的数字员工对话。'),
+      ).toBeTruthy(),
+    );
+
+    const scan = screen.getByText('扫码接入').closest('button') as HTMLButtonElement;
+    expect(scan.disabled).toBe(false);
+  });
+
+  it('断开的记录不再占用扫码入口', async () => {
+    stubFetch([{ ...bindings[0], status: 'disconnected' }]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    const scan = screen.getByText('扫码接入').closest('button') as HTMLButtonElement;
+    expect(scan.disabled).toBe(false);
+  });
+
+  // ---- 断开 / 删除的动作归属 -------------------------------------------
+
+  it('生效中的行只给「断开」，不给「删除」', async () => {
+    stubFetch();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    const texts = buttonTexts();
+    expect(texts).toContain('断开');
+    expect(texts).not.toContain('删除');
+  });
+
+  it('断开的行给「删除」，不给「断开」', async () => {
+    stubFetch([{ ...bindings[0], status: 'disconnected' }]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    const texts = buttonTexts();
+    expect(texts).toContain('删除');
+    expect(texts).not.toContain('断开');
+  });
+
+  it('别人的绑定（owned_by_me=false）不给断开/删除按钮', async () => {
+    stubFetch([{ ...bindings[0], owned_by_me: false }]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    const texts = buttonTexts();
+    expect(texts).not.toContain('断开');
+    expect(texts).not.toContain('删除');
+    // 管理员仍能看配置，只是不能替人操作
+    expect(texts).toContain('配置员工');
+  });
+
+  it('点删除先弹确认，不会直接删', async () => {
+    const fetchMock = stubFetch([{ ...bindings[0], status: 'disconnected' }]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+    fireEvent.click(screen.getByText('删除'));
+
+    await waitFor(() => expect(screen.getByText('删除这条接入记录？')).toBeTruthy());
+    // 确认前不该发请求
+    const deletions = fetchMock.mock.calls.filter(
+      ([input, init]) =>
+        String(input).includes('/api/enterprise/wechat/bindings') &&
+        (init as RequestInit | undefined)?.method === 'DELETE',
+    );
+    expect(deletions).toHaveLength(0);
   });
 });

@@ -68,6 +68,9 @@ class BindingRead(BaseModel):
     last_error: str = ""
     last_seen_at: Optional[str] = None
     created_at: Optional[str] = None
+    #: 这一行是不是当前登录用户自己扫的。前端据此决定「断开/删除」能不能点——
+    #: 管理员能看到别人的绑定，但不该能替人断开。
+    owned_by_me: bool = True
 
 
 class MountAgentsRequest(BaseModel):
@@ -104,7 +107,9 @@ def _get_owned_binding(
     raise HTTPException(status_code=404, detail="微信绑定不存在")
 
 
-def _binding_read(db: Session, binding: WechatBinding) -> BindingRead:
+def _binding_read(
+    db: Session, binding: WechatBinding, *, viewer: Optional[User] = None
+) -> BindingRead:
     mounts = list(
         db.exec(
             select(WechatBindingAgent)
@@ -138,6 +143,7 @@ def _binding_read(db: Session, binding: WechatBinding) -> BindingRead:
         last_error=binding.last_error,
         last_seen_at=binding.last_seen_at.isoformat() if binding.last_seen_at else None,
         created_at=binding.created_at.isoformat() if binding.created_at else None,
+        owned_by_me=(viewer is None or binding.owner_user_id == viewer.id),
     )
 
 
@@ -187,8 +193,25 @@ def create_qrcode(
 
     **任何成员都可以扫**：扫的是他自己的微信，接的是他自己的 bot，
     配的是他自己有权限的员工。不需要管理员代劳。
+
+    但**一个账号只允许一条接入**（2026-11-20）：已经接入成功的用户，前端会把
+    按钮置灰；这里再挡一次是为了防绕过（旧页面缓存、直接调接口）。否则重复扫码
+    会在服务端悄悄把旧绑定断开换成新的，用户以为"多接了几个"，实际只有一个在跑。
     """
     _guard_tenant(tenant_id, current_user)
+
+    existing = db.exec(
+        select(WechatBinding).where(
+            WechatBinding.tenant_id == tenant_id,
+            WechatBinding.owner_user_id == current_user.id,
+            WechatBinding.status == "active",
+        )
+    ).first()
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="你已经接入了一个微信。如需换绑，请先断开当前接入。",
+        )
 
     # 已登录过的 bot token 一并带上：同一微信重复扫码时服务端会恢复而非新建。
     # 只带自己的 token——别人的凭证不该出现在这个请求里。
@@ -351,7 +374,7 @@ def list_bindings(
     if not is_admin_user(current_user):
         stmt = stmt.where(WechatBinding.owner_user_id == current_user.id)
     rows = db.exec(stmt.order_by(WechatBinding.created_at)).all()
-    return [_binding_read(db, row) for row in rows]
+    return [_binding_read(db, row, viewer=current_user) for row in rows]
 
 
 @router.get("/bindings/{binding_id}", response_model=BindingRead)
@@ -362,7 +385,9 @@ def get_binding(
     current_user: User = Depends(get_current_user),
 ) -> BindingRead:
     _guard_tenant(tenant_id, current_user)
-    return _binding_read(db, _get_owned_binding(db, tenant_id, binding_id, current_user))
+    return _binding_read(
+        db, _get_owned_binding(db, tenant_id, binding_id, current_user), viewer=current_user
+    )
 
 
 @router.put("/bindings/{binding_id}/agents", response_model=BindingRead)
@@ -410,7 +435,7 @@ def mount_agents(
     binding.updated_at = utc_now()
     db.add(binding)
     db.commit()
-    return _binding_read(db, binding)
+    return _binding_read(db, binding, viewer=current_user)
 
 
 @router.post("/bindings/{binding_id}/disconnect", response_model=BindingRead)
@@ -430,7 +455,7 @@ def disconnect_binding(
     binding.updated_at = utc_now()
     db.add(binding)
     db.commit()
-    return _binding_read(db, binding)
+    return _binding_read(db, binding, viewer=current_user)
 
 
 @router.delete("/bindings/{binding_id}")
@@ -440,9 +465,16 @@ def delete_binding(
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
-    """彻底删除绑定与挂载配置。会话与消息不删（历史可读）。"""
+    """彻底删除绑定与挂载配置。会话与消息不删（历史可读）。
+
+    **必须先断开**（2026-11-20）：删除一条 active 绑定等于让一个还在跑的 bot
+    失去归属——轮询线程会停，但用户那边看到的是「突然不回消息了」且无法自愈。
+    先断开让用户明确知道「这个微信不再接了」，再删才没有歧义。
+    """
     _guard_tenant(tenant_id, current_user)
     binding = _get_owned_binding(db, tenant_id, binding_id, current_user)
+    if binding.status == "active":
+        raise HTTPException(status_code=409, detail="请先断开接入，再删除这条记录。")
 
     poller.stop(binding.id)
     db.exec(

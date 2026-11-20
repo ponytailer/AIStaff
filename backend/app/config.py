@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     # 是否在该进程内启动长轮询线程。多副本部署时应只在一个进程开启，
     # 否则同一 bot_token 会有多个消费者抢同一游标。
     wechat_polling_enabled: bool = True
+    # 转人工静默超时（2026-11-20）：人工回复后这么久用户没再说话，就自动结束
+    # 人工协助、把会话交回数字员工，并在微信里补一句说明。0 = 关闭该行为。
+    wechat_handoff_idle_minutes: int = 30
     # ---- 互联网检索（内部 web_search 能力）----
     # 部署级总闸：False 时 web_search 能力从所有冻结清单中消失，
     # 即使本轮请求带 web_search=True 也不可用（企业内网禁外联用）。

@@ -76,8 +76,13 @@ class SwitchResult:
 
 _MENU_PICK = re.compile(r"^(\d{1,2})$")
 
-#: 不带斜杠也认的转人工说法（严格全等，"怎么转人工" 这类提问不受影响）
-BARE_HANDOFF_TRIGGERS = {"转人工", "人工", "人工客服", "找人工", "要人工", "handoff", "human"}
+#: 转人工**只认斜杠指令**（2026-11-20 调整）。
+#:
+#: 原先裸词「转人工」也直接拦截，问题在于：它太像正常说话，「这个功能不好用，
+#: 帮我转人工看看」这类提问会被整段吞掉、连数字员工都不作答；而且微信里没有
+#: 命令提示，用户不知道哪些词是"有魔力"的。统一成 /转人工 后语义边界清楚，
+#: 裸词交回 LLM 正常回答。
+#: 取消类保留裸词兼容：老用户已经养成「取消转人工」的说法，且它不像正常提问。
 BARE_CANCEL_TRIGGERS = {"取消转人工", "结束人工", "不用人工了"}
 
 
@@ -96,10 +101,8 @@ def parse_command(text: str, *, menu_active: bool = False) -> Optional[ChannelCo
         if matched:
             return ChannelCommand(kind="menu_pick", query=matched.group(1))
 
-    # 转人工允许裸词：用户在微信里最自然的说法就是「转人工」，不会加斜杠。
-    # 用严格全等匹配（不是包含），避免「怎么转人工？」这种提问被拦截。
-    if stripped in BARE_HANDOFF_TRIGGERS:
-        return ChannelCommand(kind="handoff")
+    # 取消转人工仍允许裸词：老用户习惯这个说法，且它不像正常提问。
+    # 正向的 /转人工 见下方斜杠分支——只认斜杠，裸词「转人工」交给 LLM 正常作答。
     if stripped in BARE_CANCEL_TRIGGERS:
         return ChannelCommand(kind="cancel_handoff")
 

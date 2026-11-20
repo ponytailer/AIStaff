@@ -102,11 +102,34 @@ def _session(db, agent_id: str = "agent_h") -> ChatSession:
 # ---- 指令解析 -----------------------------------------------------------
 
 
-@pytest.mark.parametrize("text", ["转人工", "/转人工", "人工", "/人工", "人工客服", "handoff"])
+@pytest.mark.parametrize(
+    "text",
+    ["/转人工", "/人工", "/人工客服", "/handoff", "/human", "  /转人工  "],
+)
 def test_parse_handoff_triggers(text):
     cmd = routing.parse_command(text)
     assert cmd is not None
     assert cmd.kind == "handoff"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "转人工",
+        "人工",
+        "人工客服",
+        "handoff",
+        "这个功能不好用，帮我转人工看看",
+        "能转人工吗？",
+    ],
+)
+def test_bare_handoff_words_go_to_llm(text):
+    """裸词「转人工」不再拦截（2026-11-20 调整）。
+
+    它太像正常说话，整段吞掉会让数字员工完全不作答；微信里又没有命令提示，
+    用户无从知道哪个词"有魔力"。因此只有斜杠指令才认，裸词交回 LLM 正常回答。
+    """
+    assert routing.parse_command(text) is None
 
 
 def test_parse_cancel_handoff():
@@ -115,8 +138,19 @@ def test_parse_cancel_handoff():
     assert cmd.kind == "cancel_handoff"
 
 
+@pytest.mark.parametrize("text", ["取消转人工", "结束人工", "不用人工了"])
+def test_bare_cancel_handoff_still_recognised(text):
+    """取消类保留裸词兼容：老用户已经养成这个说法，且它不像正常提问。"""
+    cmd = routing.parse_command(text)
+    assert cmd is not None
+    assert cmd.kind == "cancel_handoff"
+
+
 def test_help_mentions_handoff():
-    assert "转人工" in routing.help_text()
+    """帮助文案里的转人工必须是斜杠写法，否则用户照着发裸词不会有反应。"""
+    text = routing.help_text()
+    assert "/转人工" in text
+    assert "\n转人工" not in text
 
 
 # ---- 处理人解析 ---------------------------------------------------------
