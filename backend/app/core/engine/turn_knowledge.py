@@ -233,9 +233,63 @@ _REFUSAL_MARKERS = (
     "没有提到",
 )
 
+#: 这些回答只是在**反问澄清**，还没进入正题。
+#:
+#: 2026-11-20 用户报：发了「1」，员工很合理地回「我不太确定你指的是哪方面，
+#: 方便说明吗？例如 A/B/C」，接着却甩了一整篇文档的截图。原因是原先只挡了
+#: `_is_refusal`（明确说没找到），而反问澄清不在其中——于是「图在证据包里、
+#: 模型没用」的兜底把当轮召回的所有图都补了上去。
+#:
+#: 判断标准很直接：答案没有回答任何问题、只是要求补充信息，这时配图没有
+#: 任何可以对应的正文，纯属噪声。
+_CLARIFY_MARKERS = (
+    "不太确定",
+    "不确定你",
+    "方便说明",
+    "能否说明",
+    "可以说明",
+    "能说下",
+    "可以说下",
+    "请补充",
+    "麻烦补充",
+    "具体指",
+    "具体是",
+    "哪一方面",
+    "哪个方面",
+    "哪类",
+    "哪个",
+    "哪种",
+    "你指的是",
+    "你是指",
+    "想了解哪",
+    "想咨询哪",
+    "想问哪",
+)
+
 
 def _is_refusal(text: str) -> bool:
     return any(marker in (text or "") for marker in _REFUSAL_MARKERS)
+
+
+def _is_clarification(text: str) -> bool:
+    """这段回复是不是「反问澄清」而不是答案。
+
+    澄清轮的典型形态：先承认没听懂，再列出几个方向让用户选。它一定包含
+    疑问语气 + 澄清词。只看澄清词会误伤「这个功能不确定的话可以看第 3 节」
+    这类正常答案，所以还要求整段里有问号或"例如/比如"这类引导列举的信号。
+    """
+    body = text or ""
+    if not body or not any(marker in body for marker in _CLARIFY_MARKERS):
+        return False
+    # 有澄清词但整段没有任何"在问你"的痕迹 → 更可能是顺带提及，不算澄清轮。
+    # 中文反问未必带问号（「可以说下吗」「麻烦补一句」），所以语气词也算。
+    question_signals = ("？", "?", "吗", "呢", "例如", "比如")
+    return any(signal in body for signal in question_signals)
+
+
+def _append_images_allowed(text: str) -> bool:
+    """兜底补图的总闸：既不是「没找到」，也不是「在反问」。"""
+    return not _is_refusal(text) and not _is_clarification(text)
 
 
 def _answer_document_ids(
@@ -694,13 +748,15 @@ class _KnowledgeWorkflowMixin:
         非流式路径整段替换、以及「模型一张图都没引用」时的兜底追加。
 
         兜底的必要性：图在证据包里、模型却没用，用户就只能看到一段没有配图的
-        说明文字，而他问的恰恰是「这张流程图怎么走」。放弃条件见 ``_is_refusal``。
+        说明文字，而他问的恰恰是「这张流程图怎么走」。放弃条件见
+        ``_append_images_allowed``：拒答（没找到依据）与反问澄清都不补图——
+        这两种情况都没有"图可以对应哪段正文"，补上去纯是噪声。
         """
 
         text = streamed if streamed is not None else expand_image_refs(raw, legend)
         if not legend or REF_PATTERN.search(raw or ""):
             return text
-        if not _image_appendix_enabled() or _is_refusal(text):
+        if not _image_appendix_enabled() or not _append_images_allowed(text):
             return text
         appendix = build_image_appendix(
             legend,

@@ -3480,10 +3480,32 @@ def _score_text(query: str, text: str) -> float:
     return scores[0] + sum(scores[1:]) * 0.15
 
 
+#: 整串命中的加分。要求查询本身有足够的辨识度：太短的串（单个数字/字母）
+#: 在任何文档里都能"命中"，加 5 分等于把所有文档都拉过证据阈值。
+_MIN_SUBSTRING_QUERY_CHARS = 2
+
+
+def _has_identifying_query(query: str) -> bool:
+    """这段查询是否值得用「整串出现在正文里」来换 5 分。
+
+    2026-11-20 用户报：只发了个「1」，检索把整库文档都当成了证据，回复末尾
+    甩了一堆无关截图。根因就在这里——``"1" in 任意正文`` 恒为真，白白 +5 分，
+    而证据阈值只有 2.0，于是「1」这个毫无信息量的串把全库都捞了进来。
+
+    判定：长度 >= 2，且不能是纯数字/纯单个字符。像「报销」「VPN」这种两字符
+    的查询仍然照旧加分。
+    """
+    normalized = (query or "").strip()
+    if len(normalized) < _MIN_SUBSTRING_QUERY_CHARS:
+        return False
+    # 纯数字（"1"、"42"）在正文里俯拾皆是，同样没有辨识度
+    return not normalized.isdigit()
+
+
 def _score_single_query(query: str, text: str) -> float:
     haystack = _strip_markdown_images(text).lower()
     score = 0.0
-    if query and query.lower() in haystack:
+    if query and _has_identifying_query(query) and query.lower() in haystack:
         score += 5.0
     for term in _query_terms(query):
         count = haystack.count(term)
