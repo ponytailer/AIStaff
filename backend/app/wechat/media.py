@@ -71,8 +71,20 @@ UPLOAD_TARGET_BYTES = 400 * 1024
 #: 压缩时依次尝试的缩放边长与 JPEG 质量；命中第一条就停。
 _COMPRESS_STEPS = ((1600, 82), (1280, 78), (960, 72), (720, 66))
 
-#: 单条回复最多发几张图，防止一轮几十张图刷屏。
-MAX_IMAGES_PER_REPLY = 4
+#: 单条回复最多发几张图。
+#:
+#: **不是微信的限制**（2026-11-20 核实）：微信协议对图片张数没有硬上限，真正的
+#: 天花板是「每个 context_token 只能出站约 10 条消息」，而一图一条、图文不能混排，
+#: 所以图片张数会直接吃掉文本的发送配额。
+#:
+#: 原先定 4 是"防刷屏"的产品取舍，代价是知识库文档动辄 6~8 张截图时有一半发不出去，
+#: 还要在正文里补一句"另有 N 张超出上限"——用户读到的是一句解释我们内部限制的话。
+#: 改成与「文本配额」对齐：留一半配额给正文，图片最多 5 张，超出的不再提。
+MAX_IMAGES_PER_REPLY = 5
+
+#: 微信每个 context_token 允许的出站消息条数（文本或媒体各算一条）。
+#: 超了服务端直接丢弃（ret: -2），所以排发送计划时必须自己收敛。
+MAX_MESSAGES_PER_TOKEN = 10
 
 _IMAGE_MIME_PREFIX = "image/"
 
@@ -92,6 +104,24 @@ class InlineImage:
 
     url: str
     caption: str = ""
+
+
+@dataclass
+class TextSegment:
+    """回复正文中的一段文本。"""
+
+    text: str
+
+
+@dataclass
+class ImageSegment:
+    """回复正文中的一张图片。"""
+
+    image: InlineImage
+
+
+#: 回复被切成的有序片段。顺序 = 原文顺序，发送方按这个顺序逐条投递。
+Segment = TextSegment | ImageSegment
 
 
 @dataclass
@@ -138,34 +168,94 @@ def _md5_hex(data: bytes) -> str:
 IMAGE_APPENDIX_HEADING = "**原文档配图**"
 _HEADING_LINE_PATTERN = re.compile(r"^\s*" + re.escape(IMAGE_APPENDIX_HEADING) + r"\s*$")
 
+#: 没有真实图注时 image_refs 会填这个兜底名（多张时带编号：``原文档配图 2``）。
+#: 它**不含任何信息**——图就在眼前，念一遍"原文档配图"只是噪声，所以生成
+#: 图题说明时要把它过滤掉，而不是拼成「配图：原文档配图、原文档配图…」。
+_PLACEHOLDER_CAPTION_PATTERN = re.compile(r"^原文档配图(?:\s*\d+)?$")
+
 
 def extract_inline_images(text: str) -> tuple[str, list[InlineImage]]:
     """从回复正文里摘出 markdown 图片，返回（剥掉图片的正文，图片列表）。
 
     图片在微信里会作为独立消息发送，正文里必须移除标记——否则用户看到的是
-    一串 ``![图题](url)`` 噪声。图题保留在图片附近会不会丢信息？不会：微信图片
-    消息本身没有 caption 字段，图题改由紧随其后的文本行补一句「见图：xxx」，
-    由 ``_caption_note`` 统一生成。
+    一串 ``![图题](url)`` 噪声。
+
+    这是**丢失顺序**的旧接口（正文被压成一段、图被collect到另一个列表），
+    只保留给需要"纯正文 + 图集合"的调用方。真正发送走 ``split_segments``，
+    它按原文顺序产出图文片段，用户看到的图与那段话才对得上。
     """
-    if not text or "![" not in text:
-        return text, []
+    body, images, _ = _split_segments(text, max_images=MAX_IMAGES_PER_REPLY)
+    return body, images
 
+
+def split_segments(
+    text: str, *, max_images: int = MAX_IMAGES_PER_REPLY
+) -> list[Segment]:
+    """把回复切成**有序**的图文片段，供发送方按序逐条投递。
+
+    为什么要按序：微信协议一条消息只能带一个 item（文本 or 图片），图文**无法**
+    混排（见 client.py 里 iLink 协议说明）。原先的发送方式是「先把所有图发完，
+    再发整段文字」，于是用户看到的是：一堆图 → 一大段字，图与它对应的那段话
+    完全错开。既然只能拆开发，至少顺序要对——图出现在原文的位置上。
+
+    ``max_images`` 超出的图连同其标记一起丢掉（返回的片段里不含），
+    调用方据此决定要不要告知用户。
+    """
+    _, _, segments = _split_segments(text, max_images=max_images)
+    return segments
+
+
+def _split_segments(
+    text: str, *, max_images: int
+) -> tuple[str, list[InlineImage], list[Segment]]:
+    """一次扫描产出三份视图：纯正文 / 图片列表 / 有序片段。
+
+    三份视图共用同一次遍历，避免"先剥图再按位置找图"那种两遍实现漂移。
+    """
+    if not text:
+        return "", [], []
+    if "![" not in text:
+        return text, [], [TextSegment(text)] if text else []
+
+    segments: list[Segment] = []
     images: list[InlineImage] = []
+    cursor = 0
+    for match in MARKDOWN_IMAGE_PATTERN.finditer(text):
+        chunk = text[cursor:match.start()]
+        # 图前的文本先入队：这一步决定"文字在图前面"还是"图在文字前面"
+        _push_text(segments, chunk)
+        cursor = match.end()
 
-    def _collect(match: re.Match[str]) -> str:
         url = (match.group(2) or "").strip()
-        if not url or len(images) >= MAX_IMAGES_PER_REPLY:
-            # 超额的图直接丢弃标记，避免把 url 当正文发出去
-            return ""
-        images.append(InlineImage(url=url, caption=(match.group(1) or "").strip()))
-        return ""
+        if url and len(images) < max_images:
+            image = InlineImage(url=url, caption=(match.group(1) or "").strip())
+            images.append(image)
+            segments.append(ImageSegment(image))
+        # 超额的图：标记已被跳过（cursor 已越过去），所以不会漏成裸 url 文本
 
-    cleaned = MARKDOWN_IMAGE_PATTERN.sub(_collect, text)
-    # 图片被摘掉后常留下整行空白，压掉连续空行免得微信里出现大片空白
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
-    if images:
-        cleaned = _strip_appendix_leftovers(cleaned)
-    return cleaned, images
+    _push_text(segments, text[cursor:])
+
+    body = _join_text_segments(segments)
+    return body, images, segments
+
+
+def _push_text(segments: list[Segment], raw: str) -> None:
+    """追加一段文本；剥掉只为图片服务的标题/分隔线后再看是否还有内容。"""
+    cleaned = _strip_appendix_leftovers(raw.strip())
+    if not cleaned:
+        return
+    # 与前一文本段相邻时合并，避免把一句话拆成多个发送单元（每条都算配额）
+    if segments and isinstance(segments[-1], TextSegment):
+        segments[-1] = TextSegment(f"{segments[-1].text}\n\n{cleaned}")
+        return
+    segments.append(TextSegment(cleaned))
+
+
+def _join_text_segments(segments: Iterable[Segment]) -> str:
+    """把片段里的文本按顺序接回一份纯正文（图片处不断句）。"""
+    return "\n\n".join(
+        seg.text for seg in segments if isinstance(seg, TextSegment) and seg.text
+    ).strip()
 
 
 def _strip_appendix_leftovers(text: str) -> str:
@@ -174,7 +264,9 @@ def _strip_appendix_leftovers(text: str) -> str:
     ``build_image_appendix`` 产出的是 ``---\\n\\n**原文档配图**\\n\\n![](url)``。
     图被摘走后标题和分隔线还在，微信纯文本里就会看到 ``---`` 和
     ``**原文档配图**`` 这种裸标记——图没了，噪声还在。
-    只删「末尾连续的空行/分隔线/标题行」，正文中间正常的 ``---`` 不动。
+
+    两侧都要清：末尾的（附录在文末）和开头的（整段回复只有图时，剥完图
+    开头就是标题）。
     """
     lines = text.split("\n")
     while lines:
@@ -183,15 +275,42 @@ def _strip_appendix_leftovers(text: str) -> str:
             lines.pop()
             continue
         break
+    while lines:
+        head = lines[0].strip()
+        if not head or head == "---" or _HEADING_LINE_PATTERN.match(head):
+            lines.pop(0)
+            continue
+        break
     return "\n".join(lines).strip()
 
 
 def _caption_note(images: Iterable[InlineImage]) -> str:
-    """图题变成一句话补在文本里（微信图片消息没有 caption 位）。"""
-    captions = [img.caption for img in images if img.caption]
+    """图题变成一句话补在文本里（微信图片消息没有 caption 位）。
+
+    只对**有信息量**的图题补。知识库兜底补图用的是「原文档配图 1/2/3」这类
+    占位名，图已经在眼前了，再念一遍只会拼出用户报的那种句子：
+    「（配图：原文档配图、原文档配图、原文档配图）」——像程序漏了个变量。
+
+    同名图题合并计数，避免长句。
+    """
+    captions = [
+        img.caption.strip()
+        for img in images
+        if img.caption.strip() and not _PLACEHOLDER_CAPTION_PATTERN.match(img.caption.strip())
+    ]
     if not captions:
         return ""
-    return "（配图：" + "、".join(captions[:MAX_IMAGES_PER_REPLY]) + "）"
+
+    counts: dict[str, int] = {}
+    for caption in captions:
+        counts[caption] = counts.get(caption, 0) + 1
+
+    parts = [
+        caption if count == 1 else f"{caption} × {count}"
+        for caption, count in counts.items()
+    ]
+    head = f"配图 {len(captions)} 张" if len(captions) > 1 else "配图"
+    return f"（{head}：{'、'.join(parts)}）"
 
 
 def load_image_bytes(url: str, tenant_id: str = "") -> Optional[tuple[bytes, str]]:

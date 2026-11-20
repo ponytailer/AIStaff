@@ -83,6 +83,148 @@ def test_caption_note_mentions_captions():
     assert "流程图" in note
 
 
+def test_caption_note_merges_duplicate_captions():
+    """同名真实图题合并计数，避免长句。"""
+    note = media._caption_note(
+        [media.InlineImage(f"u{i}", "报错截图") for i in range(3)]
+    )
+    assert note == "（配图 3 张：报错截图 × 3）"
+
+
+def test_caption_note_skips_placeholder_captions():
+    """用户报的「配图: 原文档配图 原文档配图 原文档配图」不该出现。
+
+    知识库兜底补图用「原文档配图 N」这种占位名，图就在眼前，念它没有信息量。
+    """
+    assert media._caption_note([media.InlineImage("u1", "原文档配图")]) == ""
+    assert media._caption_note([media.InlineImage("u2", "原文档配图 2")]) == ""
+    assert (
+        media._caption_note([media.InlineImage(f"u{i}", "原文档配图") for i in range(4)])
+        == ""
+    )
+
+
+def test_caption_note_keeps_real_captions_next_to_placeholders():
+    note = media._caption_note(
+        [media.InlineImage("u1", "原文档配图"), media.InlineImage("u2", "发票样例")]
+    )
+    assert "发票样例" in note
+    assert "原文档配图" not in note
+
+
+def test_caption_note_counts_single_caption_without_multiplier():
+    assert media._caption_note([media.InlineImage("u1", "发票样例")]) == "（配图：发票样例）"
+
+
+# ---- 按原文顺序切分 ------------------------------------------------------
+
+
+def test_split_segments_keeps_text_image_order():
+    """用户诉求：图要出现在它原本那段话的位置，而不是先一堆图再一大段字。"""
+    text = (
+        "先说结论：不需要重装。\n\n"
+        "![第一步](/api/knowledge/assets/kasset_1?sig=a)\n\n"
+        "然后检查这里。\n\n"
+        "![第二步](/api/knowledge/assets/kasset_2?sig=b)\n\n"
+        "最后重启即可。"
+    )
+    segments = media.split_segments(text)
+
+    kinds = ["image" if isinstance(s, media.ImageSegment) else "text" for s in segments]
+    assert kinds == ["text", "image", "text", "image", "text"]
+    assert isinstance(segments[0], media.TextSegment)
+    assert "先说结论" in segments[0].text
+    assert isinstance(segments[2], media.TextSegment)
+    assert "然后检查这里" in segments[2].text
+    assert isinstance(segments[4], media.TextSegment)
+    assert "最后重启" in segments[4].text
+
+
+def test_split_segments_image_before_text():
+    """图在开头时，第一个片段必须是图。"""
+    segments = media.split_segments(
+        "![截图](/api/knowledge/assets/kasset_1?sig=a)\n\n上面是截图。"
+    )
+    assert isinstance(segments[0], media.ImageSegment)
+    assert segments[0].image.url.startswith("/api/knowledge/assets/kasset_1")
+    assert isinstance(segments[1], media.TextSegment)
+
+
+def test_split_segments_plain_text_single_segment():
+    segments = media.split_segments("没有图片的一段话")
+    assert len(segments) == 1
+    assert isinstance(segments[0], media.TextSegment)
+    assert segments[0].text == "没有图片的一段话"
+
+
+def test_split_segments_empty_text():
+    assert media.split_segments("") == []
+
+
+def test_split_segments_merges_adjacent_text():
+    """相邻文本要合并：多一条消息就多占一份 context_token 配额。"""
+    segments = media.split_segments(
+        "第一段\n\n---\n\n第二段\n\n![图](/api/knowledge/assets/kasset_a?sig=1)"
+    )
+    # 中间没有图，所以前半部分要合成一个文本段（分隔线也保留，它是内容）
+    assert len(segments) == 2
+    assert isinstance(segments[0], media.TextSegment)
+    assert "第一段" in segments[0].text
+    assert "第二段" in segments[0].text
+    assert isinstance(segments[1], media.ImageSegment)
+
+
+def test_split_segments_drops_appendix_heading_between_images():
+    """兜底补图区块的标题与分隔线不能变成独立的文本消息发出去。"""
+    text = (
+        "答案是A。\n\n---\n\n**原文档配图**\n\n"
+        "![原文档配图 1](/api/knowledge/assets/kasset_a?sig=1)\n\n"
+        "![原文档配图 2](/api/knowledge/assets/kasset_b?sig=2)"
+    )
+    segments = media.split_segments(text)
+
+    texts = [s.text for s in segments if isinstance(s, media.TextSegment)]
+    joined = "\n".join(texts)
+    assert "原文档配图" not in joined
+    assert "---" not in joined
+    assert texts == ["答案是A。"]
+    assert sum(isinstance(s, media.ImageSegment) for s in segments) == 2
+
+
+def test_split_segments_drops_leading_appendix_heading():
+    """整段回复只有图时，剥完图开头就是标题，也要清掉。"""
+    text = "---\n\n**原文档配图**\n\n![原文档配图 1](/api/knowledge/assets/kasset_a?sig=1)"
+    segments = media.split_segments(text)
+
+    assert [type(s) for s in segments] == [media.ImageSegment]
+
+
+def test_split_segments_caps_images_and_hides_markup():
+    text = "\n\n".join(
+        f"说明{i}\n\n![图{i}](/api/knowledge/assets/kasset_{i})"
+        for i in range(media.MAX_IMAGES_PER_REPLY + 3)
+    )
+    segments = media.split_segments(text)
+
+    assert sum(isinstance(s, media.ImageSegment) for s in segments) == media.MAX_IMAGES_PER_REPLY
+    joined = "\n".join(s.text for s in segments if isinstance(s, media.TextSegment))
+    # 超额图的 url 绝不能漏成正文
+    assert "kasset_" not in joined
+    assert "![" not in joined
+
+
+def test_extract_inline_images_order_can_be_lossy_but_body_kept():
+    """旧接口仍可用：正文按序拼回，图片集合单独返回。"""
+    body, images = media.extract_inline_images(
+        "前面的话\n\n![图A](/api/knowledge/assets/kasset_a)\n\n后面的话"
+    )
+    assert len(images) == 1
+    assert "前面的话" in body
+    assert "后面的话" in body
+    # 正文里图片标记已清掉
+    assert "![" not in body
+
+
 # ---- AES-128-ECB --------------------------------------------------------
 
 
@@ -399,18 +541,25 @@ def test_caption_note_empty_when_no_captions():
 
 
 class _RecordingClient:
-    """记录文本与图片发送，用于验证 send_reply 的分支行为。"""
+    """记录文本与图片发送，用于验证 send_reply 的分支行为。
+
+    ``calls`` 保留**跨类型的时间顺序**，这是验证「图文是否按原文顺序投递」
+    的唯一依据——分开记 texts / images 只能证明发过，不能证明顺序对。
+    """
 
     def __init__(self) -> None:
         self.texts: list[str] = []
         self.images: list[tuple[str, str]] = []
+        self.calls: list[tuple[str, str]] = []
 
     def send_text_chunked(self, to_user_id, context_token, text, *, client_id="", **kw):
         self.texts.append(text)
+        self.calls.append(("text", text))
         return 1
 
     def send_image(self, to_user_id, context_token, param, key, *, client_id="", **kw):
         self.images.append((param, key))
+        self.calls.append(("image", param))
 
     def post_raw(self, endpoint, body, *, timeout=20.0):
         return {"upload_param": "up"}
@@ -485,3 +634,212 @@ def test_send_reply_attribution_prefix_kept(monkeypatch):
         client, _binding(), "u@im.wechat", "ctx", "回复内容", attribution="客服小李"
     )
     assert client.texts[0].startswith("【客服小李】")
+
+
+# ---- 图文顺序 ------------------------------------------------------------
+
+
+def _stub_upload(monkeypatch, *, image_ids: list[str] | None = None):
+    """让每张图都能上传成功，并按下标返回可区分的 param，用于验证顺序。"""
+    counter = {"n": 0}
+
+    def _upload(client, to_user, data, mime):
+        idx = counter["n"]
+        counter["n"] += 1
+        return media.UploadedImage(f"dl{idx}", "a2V5", len(data), len(data))
+
+    monkeypatch.setattr(media, "load_image_bytes", lambda url, tenant_id="": (b"png", "image/png"))
+    monkeypatch.setattr(media, "upload_image", _upload)
+
+
+def test_send_reply_interleaves_text_and_images_in_source_order(monkeypatch):
+    """核心回归：文字与图必须按原文顺序交替，而不是「先全部图、再整段文字」。"""
+    from app.wechat import service
+
+    client = _RecordingClient()
+    _stub_upload(monkeypatch)
+
+    service.send_reply(
+        client, _binding(), "u@im.wechat", "ctx",
+        "先说结论：不用重装。\n\n"
+        "![第一步](/api/knowledge/assets/kasset_1?sig=a)\n\n"
+        "然后检查这里。\n\n"
+        "![第二步](/api/knowledge/assets/kasset_2?sig=b)\n\n"
+        "最后重启即可。",
+    )
+
+    kinds = [kind for kind, _ in client.calls]
+    # 正文按序交替；真实图题会补一条尾注，所以先截到正文长度
+    assert kinds[:5] == ["text", "image", "text", "image", "text"], client.calls
+
+    # 顺序不仅在类型上，内容也要对得上
+    assert "先说结论" in client.calls[0][1]
+    assert "然后检查这里" in client.calls[2][1]
+    assert "最后重启" in client.calls[4][1]
+
+
+def test_send_reply_image_first_when_source_starts_with_image(monkeypatch):
+    from app.wechat import service
+
+    client = _RecordingClient()
+    _stub_upload(monkeypatch)
+
+    service.send_reply(
+        client, _binding(), "u@im.wechat", "ctx",
+        "![截图](/api/knowledge/assets/kasset_1?sig=a)\n\n上面是截图。",
+    )
+
+    kinds = [kind for kind, _ in client.calls]
+    assert kinds[0] == "image"
+    # 正文那段话紧跟在图后面，而不是被推到图题后面
+    assert "上面是截图" in client.calls[1][1]
+
+
+def test_send_reply_placeholder_captions_emit_no_note(monkeypatch):
+    """兜底图的占位图题不产生任何附加文本——图已经在眼前了。"""
+    from app.wechat import service
+
+    client = _RecordingClient()
+    _stub_upload(monkeypatch)
+
+    service.send_reply(
+        client, _binding(), "u@im.wechat", "ctx",
+        "答案是A。\n\n![原文档配图 1](/api/knowledge/assets/kasset_a)",
+    )
+
+    joined = "\n".join(client.texts)
+    assert "原文档配图" not in joined
+    assert "配图" not in joined
+    # 只应是正文本身，没有额外尾注
+    assert client.texts == ["答案是A。"]
+
+
+def test_send_reply_no_internal_limit_message(monkeypatch):
+    """超额时不该再跟用户解释「另有 N 张超出单条上限」——那是内部实现细节。"""
+    from app.wechat import service
+
+    client = _RecordingClient()
+    _stub_upload(monkeypatch)
+
+    text = "\n\n".join(
+        f"说明{i}\n\n![原文档配图](/api/knowledge/assets/kasset_{i})"
+        for i in range(media.MAX_IMAGES_PER_REPLY + 4)
+    )
+    service.send_reply(client, _binding(), "u@im.wechat", "ctx", text)
+
+    joined = "\n".join(client.texts)
+    assert "超出" not in joined
+    assert "上限" not in joined
+    assert "配额" not in joined
+    # 图仍然发了（具体张数受单轮消息配额约束，见下一条用例）
+    assert len(client.images) >= 1
+
+
+def test_send_reply_text_wins_when_quota_is_tight(monkeypatch):
+    """配额不够时正文优先：不能出现「图全发了、结论那句被挤掉」。
+
+    每 token 约 10 条消息，图文交替时张数会直接和正文抢配额。这条守的是
+    「宁可少一张图，也要把话说完」。
+    """
+    from app.wechat import service
+
+    client = _RecordingClient()
+    _stub_upload(monkeypatch)
+
+    # 5 段文字 + 5 张图 = 10 条，正好卡在配额边界上
+    parts: list[str] = []
+    for i in range(media.MAX_IMAGES_PER_REPLY):
+        parts.append(f"第{i}段说明")
+        parts.append(f"![图{i}](/api/knowledge/assets/kasset_{i})")
+    text = "\n\n".join(parts)
+
+    service.send_reply(client, _binding(), "u@im.wechat", "ctx", text)
+
+    texts = [payload for kind, payload in client.calls if kind == "text"]
+    # 每一段正文都必须发出去（可以少图，不能少话）
+    for i in range(media.MAX_IMAGES_PER_REPLY):
+        assert any(f"第{i}段说明" in t for t in texts), f"第{i}段被图片挤掉了"
+    # 总条数不超过单轮配额
+    assert len(client.calls) <= media.MAX_MESSAGES_PER_TOKEN
+
+
+def test_send_reply_respects_message_budget(monkeypatch):
+    """极长正文 + 多图时，总发送条数必须收敛在配额内（超了服务端会静默丢弃）。"""
+    from app.wechat import service
+
+    client = _RecordingClient()
+    _stub_upload(monkeypatch)
+
+    long_text = "\n\n".join(
+        f"![图{i}](/api/knowledge/assets/kasset_{i})\n\n" + ("内容" * 1500)
+        for i in range(media.MAX_IMAGES_PER_REPLY)
+    )
+    service.send_reply(client, _binding(), "u@im.wechat", "ctx", long_text)
+
+    assert len(client.calls) <= media.MAX_MESSAGES_PER_TOKEN
+
+
+def test_send_reply_repeated_placeholder_captions_produce_no_note(monkeypatch):
+    """用户报的「配图: 原文档配图 原文档配图 原文档配图」——现在根本不出现。
+
+    占位图题没有信息量，图就在眼前，补一句只是噪声，所以整条说明都不生成。
+    """
+    from app.wechat import service
+
+    client = _RecordingClient()
+    _stub_upload(monkeypatch)
+
+    text = "\n\n".join(
+        f"![原文档配图](/api/knowledge/assets/kasset_{i})" for i in range(3)
+    )
+    service.send_reply(client, _binding(), "u@im.wechat", "ctx", text)
+
+    joined = "\n".join(client.texts)
+    assert "原文档配图" not in joined
+    assert "配图" not in joined
+    # 三张图照发
+    assert len(client.images) == 3
+
+
+def test_send_reply_real_captions_note_is_compact(monkeypatch):
+    """真实图题会补一句，但同名要合并计数，不能重复念。"""
+    from app.wechat import service
+
+    client = _RecordingClient()
+    _stub_upload(monkeypatch)
+
+    text = "\n\n".join(
+        f"![报错截图](/api/knowledge/assets/kasset_{i})" for i in range(3)
+    )
+    service.send_reply(client, _binding(), "u@im.wechat", "ctx", text)
+
+    joined = "\n".join(client.texts)
+    assert joined.count("报错截图") == 1
+    assert "× 3" in joined
+
+
+def test_send_reply_partial_image_failure_keeps_text_in_order(monkeypatch):
+    """图发失败只跳过那一张，文字的位置不能被挪走。"""
+    from app.wechat import service
+
+    client = _RecordingClient()
+    monkeypatch.setattr(
+        media, "load_image_bytes",
+        lambda url, tenant_id="": None if "kasset_bad" in url else (b"png", "image/png"),
+    )
+    monkeypatch.setattr(
+        media, "upload_image",
+        lambda c, u, d, m: media.UploadedImage("dl", "a2V5", len(d), len(d)),
+    )
+
+    service.send_reply(
+        client, _binding(), "u@im.wechat", "ctx",
+        "看图前的话\n\n![坏图](/api/knowledge/assets/kasset_bad)\n\n看图后的话",
+    )
+
+    kinds = [kind for kind, _ in client.calls]
+    assert "image" not in kinds
+    # 两段文本仍然按序发出
+    texts = [payload for kind, payload in client.calls if kind == "text"]
+    assert "看图前的话" in texts[0]
+    assert "看图后的话" in texts[1]

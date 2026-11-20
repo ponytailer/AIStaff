@@ -40,7 +40,7 @@ from app.db.models import (
 from app.session.session_schema import ChatTurnRequest
 from app.wechat import handoff as handoff_mod
 from app.wechat import identity, media, routing
-from app.wechat.client import WeChatClient, WeChatApiError
+from app.wechat.client import WeChatClient, WeChatApiError, split_text
 
 logger = logging.getLogger(__name__)
 
@@ -279,95 +279,150 @@ def send_reply(
 
     迟到的旧轮回复靠这个前缀避免被误认成新员工在说话。
 
-    含图片时先发图再发文字：微信里图片消息独立成条，先图后文符合阅读顺序。
-    图片取不到/上传失败一律降级成文字说明，绝不让整轮回复丢掉。
+    ## 为什么按片段顺序逐条发
+
+    iLink 协议**一条消息只能带一个 item**（文本 or 图片），图文无法混排。
+    所以"文字和图混在一起"在微信侧物理上做不到，只能拆成多条消息。
+
+    既然必须拆，"怎么拆"就决定了观感：
+    - 旧做法（全部图 → 整段文字）让图与对应的话完全错开，用户读完一堆图
+      才知道那段话在讲什么；
+    - 现在按 ``media.split_segments`` 的**原文顺序**投递，图就出现在它原本
+      该在的段落之间。
+
+    图取不到/上传失败一律降级成一句说明，绝不让整轮回复丢掉。
     """
     body = text or ""
     if attribution:
         body = f"【{attribution}】\n{body}"
 
-    # 图片必须摘出来单独发：留在正文里会以 "![](...)" 原样出现在微信上，
-    # 那正是「回复里的图片无法显示」的直接原因。
     total_images = len(media.MARKDOWN_IMAGE_PATTERN.findall(body))
-    body, images = media.extract_inline_images(body)
+    segments = media.split_segments(body)
     cid_base = f"staffdeck:{binding.id}:{utc_now().timestamp():.0f}"
 
-    if total_images > len(images):
-        # 超出单条上限的图被丢了：别让用户以为只有这几张
+    sent_images = 0
+    failed_images = 0
+    messages_sent = 0
+    # 每个 context_token 只允许约 10 条出站消息，超了服务端**静默丢弃**（ret: -2）。
+    # 所以自己先收敛，并且**优先保证正文完整**：先算出文本要占几条，剩下的
+    # 额度才分给图片。反过来（按序碰到谁发谁）会让几张图把正文挤出配额，
+    # 用户看到"图发完了，最关键的结论那句没了"——比少一张图严重得多。
+    budget = media.MAX_MESSAGES_PER_TOKEN - 1  # 留 1 条给末尾图题说明
+    text_cost = sum(
+        len(split_text(seg.text)) or 1
+        for seg in segments
+        if isinstance(seg, media.TextSegment)
+    )
+    image_budget = max(0, budget - text_cost)
+
+    for index, segment in enumerate(segments):
+        if isinstance(segment, media.ImageSegment):
+            if sent_images + failed_images >= image_budget:
+                # 图让位给正文：静默跳过，理由只记日志（别把内部配额讲给用户）
+                logger.info("微信发图：配额不足，跳过超出的一图（正文优先）")
+                continue
+            ok = _send_one_image(
+                client,
+                to_user_id,
+                context_token,
+                segment.image,
+                cid=f"{cid_base}:img{sent_images + failed_images}",
+                tenant_id=binding.tenant_id,
+            )
+            messages_sent += 1
+            if ok:
+                sent_images += 1
+            else:
+                failed_images += 1
+            continue
+        # 文本片段：自身超过 2000 字仍要拆条，按分片逐条发
+        chunks = split_text(segment.text)
+        for chunk_index, chunk in enumerate(chunks):
+            if messages_sent >= budget:
+                logger.warning(
+                    "微信发送：正文触及单轮 %s 条配额，尾部被截断",
+                    media.MAX_MESSAGES_PER_TOKEN,
+                )
+                break
+            client.send_text_chunked(
+                to_user_id,
+                context_token,
+                chunk,
+                client_id=f"{cid_base}:t{index}:{chunk_index}",
+            )
+            messages_sent += 1
+
+    kept_images = sent_images + failed_images
+    if total_images > kept_images:
+        # 超额被丢的图不再向用户解释"我们的上限"——那是内部实现细节。
         logger.info(
             "微信发图：单条上限 %s，丢弃 %s 张",
             media.MAX_IMAGES_PER_REPLY,
-            total_images - len(images),
+            total_images - kept_images,
         )
 
-    sent_images = _send_images(
-        client, to_user_id, context_token, images, cid_base, tenant_id=binding.tenant_id
-    )
-    if images and sent_images == 0:
+    # 图题说明：并进**最后一段文本**而不是单独发一条。
+    # 多发一条就多占一份 context_token 配额（每 token 约 10 条），
+    # 而图题只是补充说明，没有独立成条的必要。
+    caption_note = ""
+    if failed_images and sent_images == 0:
         # 一张都没发出去：告诉用户有图但发不了，而不是悄悄少一截内容
-        note = "（本条回复中的配图暂时无法在微信中显示，可在 StaffDeck 网页端查看）"
-        body = f"{body}\n\n{note}" if body else note
+        caption_note = "（本条回复中的配图暂时无法在微信中显示，可在 StaffDeck 网页端查看）"
     elif sent_images:
-        # 微信图片消息没有 caption 位，图题不补一句就等于丢了
-        caption_note = media._caption_note(images)
-        if total_images > len(images):
-            caption_note = f"{caption_note}，另有 {total_images - len(images)} 张图超出单条上限未发送"
-        if caption_note:
-            body = f"{body}\n\n{caption_note}" if body else caption_note
+        # 微信图片消息没有 caption 位，真实图题不补一句就等于丢了
+        caption_note = media._caption_note(
+            [seg.image for seg in segments if isinstance(seg, media.ImageSegment)]
+        )
 
-    if body:
+    if caption_note:
         client.send_text_chunked(
             to_user_id,
             context_token,
-            body,
-            client_id=cid_base,
+            caption_note,
+            client_id=f"{cid_base}:note",
         )
 
 
-def _send_images(
+def _send_one_image(
     client: WeChatClient,
     to_user_id: str,
     context_token: str,
-    images: list[media.InlineImage],
-    cid_base: str,
+    image: media.InlineImage,
     *,
+    cid: str,
     tenant_id: str = "",
-) -> int:
-    """逐张上传并发送，返回成功张数。单张失败只跳过该张。"""
-    if not images:
-        return 0
-    sent = 0
-    for index, image in enumerate(images):
-        loaded = media.load_image_bytes(image.url, tenant_id=tenant_id)
-        if loaded is None:
-            # warning 而非 debug：这里跳过就是用户侧「图片不显示」，
-            # 用 debug 时线上完全看不到原因，只能靠猜。
-            logger.warning(
-                "微信发图：本地取不到图片（资产缺失/格式不支持/超限），跳过 url=%s",
-                image.url,
-            )
-            continue
-        data, mime = loaded
-        # 大图先压再传：CDN 直连对大图不稳，原图发不出去等于没修
-        shrunk = media.shrink_for_upload(data)
-        if shrunk is not data:
-            data, mime = shrunk, "image/jpeg"
-        uploaded = media.upload_image(client, to_user_id, data, mime)
-        if uploaded is None:
-            continue
-        try:
-            client.send_image(
-                to_user_id,
-                context_token,
-                uploaded.encrypt_query_param,
-                uploaded.aes_key,
-                mid_size=uploaded.encrypted_size,
-                client_id=f"{cid_base}:img{index}",
-            )
-            sent += 1
-        except Exception:  # noqa: BLE001 - 单张图失败不影响后续
-            logger.warning("微信发图：发送失败 index=%s", index, exc_info=True)
-    return sent
+) -> bool:
+    """上传并发送单张图，返回是否成功。任何一步失败都只跳过这一张。"""
+    loaded = media.load_image_bytes(image.url, tenant_id=tenant_id)
+    if loaded is None:
+        # warning 而非 debug：这里跳过就是用户侧「图片不显示」，
+        # 用 debug 时线上完全看不到原因，只能靠猜。
+        logger.warning(
+            "微信发图：本地取不到图片（资产缺失/格式不支持/超限），跳过 url=%s",
+            image.url,
+        )
+        return False
+    data, mime = loaded
+    # 大图先压再传：CDN 直连对大图不稳，原图发不出去等于没修
+    shrunk = media.shrink_for_upload(data)
+    if shrunk is not data:
+        data, mime = shrunk, "image/jpeg"
+    uploaded = media.upload_image(client, to_user_id, data, mime)
+    if uploaded is None:
+        return False
+    try:
+        client.send_image(
+            to_user_id,
+            context_token,
+            uploaded.encrypt_query_param,
+            uploaded.aes_key,
+            mid_size=uploaded.encrypted_size,
+            client_id=cid,
+        )
+        return True
+    except Exception:  # noqa: BLE001 - 单张图失败不影响后续
+        logger.warning("微信发图：发送失败 cid=%s", cid, exc_info=True)
+        return False
 
 
 def _typing(client: WeChatClient, external_user_id: str, context_token: str, status: int) -> None:
