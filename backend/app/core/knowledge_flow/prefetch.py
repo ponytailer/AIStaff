@@ -35,6 +35,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.plan.planner_fastpath import is_handoff_intent
+from app.knowledge.service import has_substantive_query
 
 QUERY_MAX_CHARS = 200
 # 与 knowledge_search 工具侧上限对齐（harness_capability_invoker min(…, 12)）
@@ -96,6 +97,11 @@ def plan_knowledge_prefill_actions(
         query = str(getattr(requirement, "source_user_message", "") or "").strip()
         if len(query) < 2:
             return []  # 空消息/单字符（纯标点、表情）不值得检索
+        # 无实质内容（纯数字/纯标点/单字叠字）不预填：检索侧会把它当「无实词」
+        # 触发 _weak_fallback_chunks 兜底，把各桶代表块塞进 transcript，
+        # 模型接着照那些内容答（2026-11-20 用户发「1」收到整篇「修改邮箱密码」）。
+        if not has_substantive_query(query):
+            return []
         # 转人工类消息不预填：用户要的是人，不是知识。线上踩坑——点「转人工」
         # 按钮发出的就是字面量「转人工」，预填照样拿它去检索知识库（
         # knowledge_prefetch_conversation 的 query 就是「转人工」），白烧一次

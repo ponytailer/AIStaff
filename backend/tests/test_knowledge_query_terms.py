@@ -27,6 +27,7 @@ from app.knowledge.service import (
     _query_terms,
     _rank_chunks,
     _weak_fallback_chunks,
+    has_substantive_query,
 )
 
 
@@ -263,3 +264,79 @@ def test_rank_chunks_returns_empty_for_zero_signal_query() -> None:
         )
     ]
     assert _rank_chunks("怎么去啊", chunks, [], []) == []
+
+
+# ---- 无实质内容的查询不兜底（2026-11-20）----------------------------------
+#
+# 用户连发两次「1」，都收到整篇「修改邮箱密码」。根因不是打分，而是这里的
+# 兜底：``_query_terms("1")`` 为空 → 命中 ``_weak_fallback_chunks`` → 各桶
+# 代表块进证据包 → 模型把库里第一个话题当成用户意图。
+#
+# 「怎么去啊」和「1」在词法上**都是**零信号，但意图不同：前者有话要说只是
+# 缺实体词，后者连话都没说。所以兜底要多一道 ``has_substantive_query``。
+
+@pytest.mark.parametrize(
+    "query",
+    ["1", "2", "42", "2024", "3.5", "1.", "90%", "嗯", "嗯嗯", "好", "在", "哈哈", "呵呵"],
+)
+def test_no_substance_queries(query: str) -> None:
+    assert has_substantive_query(query) is False
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["", "   ", "？", "???", "。。。", "😀"],
+)
+def test_non_text_or_shell_only_queries(query: str) -> None:
+    assert has_substantive_query(query) is False
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "报销",
+        "VPN",
+        "年假",
+        "Outlook",
+        "账号登不上",
+        "打印机怎么用",
+        "ISO 9001",
+        "A4 纸",
+        "多少钱",
+        # 疑问句即使没有实体词也要放行：「怎么去啊」靠 weak fallback 让模型
+        # 看到范围，是那个兜底的正当用途，不能被这道闸误伤。
+        "怎么去啊",
+        "我不会用",
+        "怎么办",
+        # 转人工不能在这里被拦：它是指令，由转人工意图单独处理
+        "转人工",
+    ],
+)
+def test_entity_queries_have_substance(query: str) -> None:
+    """实体词哪怕只有两个字符也必须放行，否则「报销」「VPN」会被误伤。"""
+    assert has_substantive_query(query) is True
+
+
+def test_digit_query_returns_no_evidence(_no_route_cache) -> None:
+    """「1」不再拿到各桶代表块，只留一条可诊断的路由记录。"""
+    with _test_session() as db:
+        _seed_project_kb(db)
+        response = _search(db, "1")
+
+        phases = [item["phase"] for item in response.route_trace]
+        assert "query_without_substance" in phases
+        # 关键断言：不再兜底塞内容
+        assert "chunk_lexical_empty_fallback" not in phases
+        assert response.chunks == []
+
+
+def test_vague_question_still_gets_fallback(_no_route_cache) -> None:
+    """「怎么去啊」仍然兜底：有疑问意图、缺实体词，要让模型看到范围。"""
+    with _test_session() as db:
+        _seed_project_kb(db)
+        response = _search(db, "怎么去啊")
+
+        phases = [item["phase"] for item in response.route_trace]
+        assert "chunk_lexical_empty_fallback" in phases
+        assert "query_without_substance" not in phases
+        assert response.chunks

@@ -12,6 +12,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from app.core.engine.turn import (
     HarnessV2Engine,
     _is_knowledge_workflow_frame,
@@ -290,6 +292,65 @@ def test_workflow_smalltalk_skips_retrieval() -> None:
     assert invoker.invocations == []  # 寒暄不检索
     assert rg.calls == []
     assert [t for t, _ in events] == ["knowledge_workflow_smalltalk"]
+
+
+@pytest.mark.parametrize("message", ["1", "2", "42", "嗯", "嗯嗯", "好", "？"])
+def test_workflow_skips_retrieval_for_query_without_substance(message: str) -> None:
+    """「1」这类消息不检索、直接社交回复。
+
+    2026-11-20 用户发「1」收到整篇「修改邮箱密码」：``is_smalltalk`` 是封闭
+    词典拦不住，检索侧又因「无实词」触发 weak fallback，把各桶代表块塞成
+    证据。这道闸要在检索**之前**拦掉，否则模型只能照着别人的话题答。
+    """
+    rg = _FakeResponseGenerator()
+    engine = _engine(rg)
+    engine._answer_direct_reply = lambda *a, **k: "在的，你想了解什么？"  # type: ignore[method-assign]
+    invoker = _FakeInvoker(_ok_search_result())
+    events: list[tuple[str, dict[str, Any]]] = []
+
+    result = engine._run_knowledge_workflow(
+        SimpleNamespace(tenant_id="t"),
+        SimpleNamespace(agent_id="a"),
+        SimpleNamespace(task_id="task-1", status="running"),
+        _frame(),
+        SimpleNamespace(source_user_message=message),
+        invoker,
+        object(),
+        [],
+        None,
+        lambda t, p: events.append((t, p)),
+    )
+
+    assert result is not None
+    assert result.reply_fragment == "在的，你想了解什么？"
+    # 关键：一次检索都没发
+    assert invoker.invocations == []
+    assert rg.calls == []
+    assert [t for t, _ in events] == ["knowledge_workflow_smalltalk"]
+    assert events[0][1]["reason"] == "no_substance"
+
+
+def test_workflow_still_retrieves_for_real_question() -> None:
+    """有实质内容的问题不能被上面那道闸误伤。"""
+    rg = _FakeResponseGenerator()
+    engine = _engine(rg)
+    invoker = _FakeInvoker(_ok_search_result())
+
+    result = engine._run_knowledge_workflow(
+        SimpleNamespace(tenant_id="t"),
+        SimpleNamespace(agent_id="a"),
+        SimpleNamespace(task_id="task-1", status="running"),
+        _frame(),
+        SimpleNamespace(source_user_message="怎么修改邮箱密码"),
+        invoker,
+        object(),
+        [],
+        None,
+        lambda t, p: None,
+    )
+
+    assert result is not None
+    assert invoker.invocations  # 确实检索了
 
 
 def test_workflow_falls_back_when_search_fails() -> None:

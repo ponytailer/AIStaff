@@ -259,3 +259,81 @@ def test_member_only_sees_own_binding(db):
     rows = response.json()
     assert [row["id"] for row in rows] == ["bind_2"]
     assert rows[0]["owned_by_me"] is True
+
+
+# ---- 归属人标注（2026-11-20 用户反馈「看到了不属于自己的绑定信息」）----------
+
+
+def test_binding_read_carries_owner_name_for_admin(db):
+    """管理员看到别人的行时必须能认出是谁的：只给 bot id 是认不出来的。"""
+    admin = make_user(db, "admin1", role="admin")
+    make_user(db, "u1")
+    make_binding(db, "bind_mine", owner="admin1")
+    make_binding(db, "bind_other", owner="u1")
+    client = client_for(db, admin)
+
+    rows = {
+        row["id"]: row
+        for row in client.get(f"{BASE}/bindings", params={"tenant_id": TENANT}).json()
+    }
+
+    assert rows["bind_mine"]["owner_name"] == "admin1"
+    assert rows["bind_other"]["owner_name"] == "u1"
+
+
+def test_member_binding_carries_own_name(db):
+    """普通成员的行也带 owner_name，前端无需区分身份就能统一渲染。"""
+    member = make_user(db, "u2")
+    make_binding(db, "bind_2", owner="u2")
+    client = client_for(db, member)
+
+    rows = client.get(f"{BASE}/bindings", params={"tenant_id": TENANT}).json()
+
+    assert rows[0]["owner_name"] == "u2"
+
+
+# ---- 凭证归属：管理员也不能带别人的 bot token --------------------------------
+
+
+def test_qrcode_never_sends_other_users_tokens(monkeypatch, db):
+    """管理员扫码只带自己的旧 token。
+
+    旧实现给管理员放开了全租户 token，iLink 拿到别人的旧 token 会把那个 bot
+    恢复成新绑定——等于管理员扫自己的码把别人的微信接管到自己名下。这里直接
+    断言传给 iLink 的 token 列表。
+    """
+    admin = make_user(db, "admin1", role="admin")
+    make_user(db, "u1")
+    make_binding(db, "bind_other", owner="u1")
+    # 自己的那条必须是 disconnected：否则会被「一个账号只接一条」的 409 拦住
+    make_binding(db, "bind_mine", owner="admin1", status="disconnected")
+
+    # 给两条绑定塞上可解密的 token
+    from app.wechat.crypto import encrypt_secret
+
+    for binding_id, token in (("bind_other", "TOKEN_OTHER"), ("bind_mine", "TOKEN_MINE")):
+        row = db.get(WechatBinding, binding_id)
+        row.bot_token_enc = encrypt_secret(token)
+        db.add(row)
+    db.commit()
+
+    seen: dict[str, list[str]] = {}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_bot_qrcode(self, local_tokens=None):
+            seen["tokens"] = list(local_tokens or [])
+            return {"qrcode": "qr_x", "qrcode_img_content": "url_x"}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(wechat_api, "WeChatClient", FakeClient)
+    client = client_for(db, admin)
+
+    response = client.post(f"{BASE}/qrcode", params={"tenant_id": TENANT})
+
+    assert response.status_code == 200
+    assert seen["tokens"] == ["TOKEN_MINE"]

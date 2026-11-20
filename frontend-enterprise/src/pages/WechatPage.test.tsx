@@ -208,8 +208,58 @@ describe('WechatPage', () => {
     const texts = buttonTexts();
     expect(texts).not.toContain('断开');
     expect(texts).not.toContain('删除');
-    // 管理员仍能看配置，只是不能替人操作
-    expect(texts).toContain('配置员工');
+    // 别人的行是只读的，连配置也不给（改的是别人微信能跟谁对话）
+    expect(texts).not.toContain('配置员工');
+  });
+
+  // ---- 别人的绑定不能混进「我的微信」（2026-11-20 用户反馈）----------------
+
+  it('别人的绑定归到「其他人的微信」，不混在我的列表里', async () => {
+    stubFetch([
+      { ...bindings[0], id: 'wxbind_mine', owned_by_me: true, owner_name: 'me' },
+      {
+        ...bindings[0],
+        id: 'wxbind_other',
+        owned_by_me: false,
+        owner_name: 'Jenny Hu 胡晓飞',
+      },
+    ]);
+    renderPage();
+
+    // 两行都在 → 「可对话员工：」会出现两次，不能用它当信号
+    await waitFor(() => expect(screen.getByText('其他人的微信')).toBeTruthy());
+
+    // 有独立的「其他人的微信」分区，并标出归属人
+    expect(screen.getByText('Jenny Hu 胡晓飞')).toBeTruthy();
+    expect(screen.getByText('仅管理员可见，用于排障；不能替成员操作')).toBeTruthy();
+    // 我的行不留归属人标签（只有别人的行需要标注）
+    expect(screen.queryByText('me')).toBeNull();
+  });
+
+  it('只有别人的绑定在跑时，我仍然可以扫码接入', async () => {
+    // 关键回归：旧实现无条件 find(status==='active')，别人接了微信
+    // 会把「扫码接入」灰掉——页面写着「我的微信」却因别人不能操作。
+    stubFetch([{ ...bindings[0], owned_by_me: false, owner_name: 'Jenny Hu 胡晓飞' }]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('其他人的微信')).toBeTruthy());
+
+    const scan = screen.getByText('扫码接入').closest('button') as HTMLButtonElement;
+    expect(scan.disabled).toBe(false);
+    expect(screen.getByText('还没有接入微信。扫码后就能在微信里和你的数字员工对话。')).toBeTruthy();
+  });
+
+  it('自己已接入时扫码置灰，即使还有别人的绑定', async () => {
+    stubFetch([
+      { ...bindings[0], id: 'wxbind_mine', owned_by_me: true },
+      { ...bindings[0], id: 'wxbind_other', owned_by_me: false, owner_name: '别人' },
+    ]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('其他人的微信')).toBeTruthy());
+
+    const scan = screen.getByText('扫码接入').closest('button') as HTMLButtonElement;
+    expect(scan.disabled).toBe(true);
   });
 
   it('点删除先弹确认，不会直接删', async () => {

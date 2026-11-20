@@ -35,6 +35,7 @@ from app.core.engine.attachments import (
 )
 from app.core.engine.invoke import HarnessCapabilityInvoker
 from app.core.knowledge_flow.prefetch import is_smalltalk
+from app.knowledge.service import has_substantive_query
 from app.core.capability.deliverables import list_published_deliverables
 from app.core.engine.session import (
     HarnessSessionLeaseLost,
@@ -423,8 +424,15 @@ class _KnowledgeWorkflowMixin:
             request.tenant_id, session.agent_id
         )
         try:
-            # 1) 寒暄：不检索，直接社交回复（0 检索 + 1 次 LLM）
-            if is_smalltalk(message):
+            # 1) 寒暄/无实质内容：不检索，直接社交回复（0 检索 + 1 次 LLM）
+            # 两道判定缺一不可：
+            # - ``is_smalltalk`` 是封闭词典（「你好」「谢谢」），精确但漏得多；
+            # - ``has_substantive_query`` 是结构化下限（纯数字/纯标点/单字叠字），
+            #   接住词典外的「1」「嗯」「ok」。
+            # 2026-11-20 用户发「1」，词典没拦住，检索侧又因「无实词」触发
+            # ``_weak_fallback_chunks`` 兜底，把各桶代表块塞成证据，于是回了整篇
+            # 「修改邮箱密码」——答非所问比答错更糟。这里在检索之前就拦掉。
+            if is_smalltalk(message) or not has_substantive_query(message):
                 reply = self._answer_direct_reply(
                     message,
                     persona_prompt,
@@ -432,7 +440,15 @@ class _KnowledgeWorkflowMixin:
                     conversation_context,
                     model_config,
                 )
-                trace("knowledge_workflow_smalltalk", {"query": message})
+                trace(
+                    "knowledge_workflow_smalltalk",
+                    {
+                        "query": message,
+                        "reason": (
+                            "smalltalk" if is_smalltalk(message) else "no_substance"
+                        ),
+                    },
+                )
                 return TaskExecutionResult(
                     task_frame_id=row.task_id,
                     status="completed",

@@ -1338,12 +1338,23 @@ class KnowledgeService:
             ranked_candidates = _rank_chunks(
                 query, chunks, selected_buckets, expanded_sections
             )
-            if not ranked_candidates and chunks and not _query_terms(query):
+            if (
+                not ranked_candidates
+                and chunks
+                and not _query_terms(query)
+                and has_substantive_query(query)
+            ):
                 # 词法零信号：query 里**没有任何可用实词**（「怎么去啊」「怎么去项目」
                 # 剥完外壳/泛词后为空）。桶路由已选定范围，这里取各桶代表块兜底，
                 # 让模型能诚实回答「资料里没有这条」而不是空手。
                 # 注意门槛是「无实词」而不是「无命中」：带实词的查询（如「年假政策」
                 # 查项目资料）零命中说明库里确实没有，必须保持空结果，不能塞无关内容。
+                #
+                # 还要再过一道 ``has_substantive_query``：无实词分两种，「怎么去啊」
+                # 是有疑问意图但缺实体词，值得兜底给模型看范围；而「1」「嗯」连疑问
+                # 意图都没有，兜底等于把库里第一个话题当成用户意图（2026-11-20 用户
+                # 发「1」收到整篇「修改邮箱密码」）。后一种必须返回空结果——
+                # 上层据此走寒暄/澄清，而不是拿别人的话题硬答。
                 ranked_candidates = _weak_fallback_chunks(chunks, selected_buckets)
                 route_trace.append(
                     {
@@ -1351,6 +1362,15 @@ class KnowledgeService:
                         "message": "问题没有可用于检索的关键词，已给出所选索引的代表内容",
                         "chunk_count": len(ranked_candidates),
                         "candidate_count": len(chunks),
+                    }
+                )
+            elif not ranked_candidates and chunks and not has_substantive_query(query):
+                # 无实质内容：明确记录，便于线上快速区分「库里没有」与「问题不成句」
+                route_trace.append(
+                    {
+                        "phase": "query_without_substance",
+                        "message": "问题不含可检索的实质内容，不返回证据",
+                        "query": (query or "")[:60],
                     }
                 )
             ranked_hits = _select_diverse_chunk_hits(
@@ -3455,6 +3475,52 @@ def _query_terms(query: str) -> list[str]:
         seen.add(normalized)
         result.append(normalized)
     return result[:96]
+
+
+#: 叠字/拟声词（「嗯嗯」「哈哈」「呵呵」）：整串只是同一个字重复。
+_REPEAT_ONLY_PATTERN = re.compile(r"^(.)\1{1,3}$")
+#: 纯数字/标点组合（「42」「3.5」「1.」「90%」）：正文里俯拾皆是，无辨识度。
+_DIGITS_ONLY_PATTERN = re.compile(r"^[\d\s.,%:/\-]+$")
+
+
+def has_substantive_query(query: str) -> bool:
+    """这条查询值不值得检索——即「用户到底有没有在说一件事」。
+
+    2026-11-20 用户连发两次「1」，都被当成一次正常提问，回了整篇「修改邮箱
+    密码」。比错误答案更糟的是**答非所问**：用户只是在确认/试探，系统却把
+    库里第一个话题当成了他的意图。
+
+    这条链路此前有两道闸，都拦不住「1」：
+    - ``prefetch.is_smalltalk`` 是**封闭词典**，只收「你好」「谢谢」这类，任何
+      词典外的短消息都漏过；
+    - ``_query_terms`` 对「1」返回空列表，而空列表会触发 ``_weak_fallback_chunks``
+      ——那个兜底本意是救「怎么去啊」这种**有疑问意图但无实词**的话，结果连
+      「1」这种**连疑问意图都没有**的也一并兜了，把各桶代表块全塞进证据包。
+
+    **关键区分**：「怎么去啊」和「1」在词法上都是零信号，但前者是一句话
+    （有话要说，只是缺实体词，兜底给模型看范围是对的），后者连话都不是。
+    所以这里不判断「有没有实体词」，只判断「是不是一个成形的表达」：
+
+    - 空串、纯标点/表情 → 没有表达；
+    - 纯数字/小数（「1」「42」「3.5」）→ 正文里俯拾皆是，没有指向；
+    - 单字（「嗯」「好」「在」）、叠字拟声（「嗯嗯」「哈哈」）→ 不构成表达。
+
+    其余一律放行，包括没有实体词的疑问句——那是 weak fallback 的正当用途。
+    刻意**不**把寒暄词典并进来：``is_smalltalk`` 是封闭集合，用户总能造出集合
+    外的词；这里给的是结构化下限，两者叠加而不是替代。
+    """
+
+    text = (query or "").strip()
+    if not text:
+        return False
+    # 去掉空白与标点/符号后还剩什么（表情、全角符号都在此被清掉）
+    core = re.sub(r"[\s\W_]+", "", text)
+    if not core:
+        return False
+    if _DIGITS_ONLY_PATTERN.match(core) or _REPEAT_ONLY_PATTERN.match(core):
+        return False
+    # 单字不构成表达（「钱」「1」）；两个字的实体词（「报销」「VPN」）必须放行
+    return len(core) >= 2
 
 
 _MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\([^)\s]*\)")

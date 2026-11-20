@@ -71,6 +71,9 @@ class BindingRead(BaseModel):
     #: 这一行是不是当前登录用户自己扫的。前端据此决定「断开/删除」能不能点——
     #: 管理员能看到别人的绑定，但不该能替人断开。
     owned_by_me: bool = True
+    #: 绑定归属人的显示名。管理员会在列表里看到别人的绑定，只给 bot id 无法
+    #: 判断这行是谁的（2026-11-20 用户反馈「看到了不属于自己的绑定信息」）。
+    owner_name: str = ""
 
 
 class MountAgentsRequest(BaseModel):
@@ -108,7 +111,11 @@ def _get_owned_binding(
 
 
 def _binding_read(
-    db: Session, binding: WechatBinding, *, viewer: Optional[User] = None
+    db: Session,
+    binding: WechatBinding,
+    *,
+    viewer: Optional[User] = None,
+    owner_names: dict[str, str] | None = None,
 ) -> BindingRead:
     mounts = list(
         db.exec(
@@ -126,6 +133,11 @@ def _binding_read(
             )
         ).all()
         names = {r.id: r.name for r in rows}
+    # 归属人名：列表接口会预先批量查好传进来（避免 N+1），单行接口则现查。
+    owner_name = (owner_names or {}).get(binding.owner_user_id, "")
+    if not owner_name:
+        owner = db.get(User, binding.owner_user_id) if binding.owner_user_id else None
+        owner_name = (owner.display_name or owner.username) if owner else ""
     return BindingRead(
         id=binding.id,
         status=binding.status,
@@ -144,6 +156,7 @@ def _binding_read(
         last_seen_at=binding.last_seen_at.isoformat() if binding.last_seen_at else None,
         created_at=binding.created_at.isoformat() if binding.created_at else None,
         owned_by_me=(viewer is None or binding.owner_user_id == viewer.id),
+        owner_name=owner_name,
     )
 
 
@@ -214,16 +227,15 @@ def create_qrcode(
         )
 
     # 已登录过的 bot token 一并带上：同一微信重复扫码时服务端会恢复而非新建。
-    # 只带自己的 token——别人的凭证不该出现在这个请求里。
-    token_owner = (
-        select(WechatBinding)
-        .where(
-            WechatBinding.tenant_id == tenant_id,
-            WechatBinding.bot_token_enc != "",
-        )
+    # **只带自己的 token，管理员也不例外**。原先这里对管理员放开了全租户，
+    # 后果远不止「看到别人的绑定」：iLink 拿到别人的旧 token 会把那个 bot
+    # 恢复成新绑定，即管理员扫自己的码可能把别人的微信接管到自己名下
+    # （2026-11-20 与「看到不属于自己的绑定」同批发现）。凭证归属不做角色豁免。
+    token_owner = select(WechatBinding).where(
+        WechatBinding.tenant_id == tenant_id,
+        WechatBinding.bot_token_enc != "",
+        WechatBinding.owner_user_id == current_user.id,
     )
-    if not is_admin_user(current_user):
-        token_owner = token_owner.where(WechatBinding.owner_user_id == current_user.id)
     local_tokens = [
         token
         for token in (decrypt_secret(row.bot_token_enc) for row in db.exec(token_owner).all())
@@ -368,13 +380,25 @@ def list_bindings(
 
     绑定是**用户私有**的：你扫的是你的微信，配的是你能用的员工。
     所以默认只返回 owner 是当前用户的行。
+
+    管理员看到别人的行时，必须能分清哪行是自己的——只给 bot id 是认不出来的
+    （2026-11-20 用户反馈「看到了不属于自己的绑定信息」），因此这里批量带上
+    ``owner_name`` 供前端标注，避免逐行查库造成 N+1。
     """
     _guard_tenant(tenant_id, current_user)
     stmt = select(WechatBinding).where(WechatBinding.tenant_id == tenant_id)
     if not is_admin_user(current_user):
         stmt = stmt.where(WechatBinding.owner_user_id == current_user.id)
     rows = db.exec(stmt.order_by(WechatBinding.created_at)).all()
-    return [_binding_read(db, row, viewer=current_user) for row in rows]
+
+    owner_ids = {row.owner_user_id for row in rows if row.owner_user_id}
+    owner_names: dict[str, str] = {}
+    if owner_ids:
+        users = db.exec(select(User).where(User.id.in_(owner_ids))).all()  # type: ignore[attr-defined]
+        owner_names = {u.id: (u.display_name or u.username or "") for u in users}
+    return [
+        _binding_read(db, row, viewer=current_user, owner_names=owner_names) for row in rows
+    ]
 
 
 @router.get("/bindings/{binding_id}", response_model=BindingRead)
