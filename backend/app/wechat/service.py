@@ -288,8 +288,17 @@ def send_reply(
 
     # 图片必须摘出来单独发：留在正文里会以 "![](...)" 原样出现在微信上，
     # 那正是「回复里的图片无法显示」的直接原因。
+    total_images = len(media.MARKDOWN_IMAGE_PATTERN.findall(body))
     body, images = media.extract_inline_images(body)
     cid_base = f"staffdeck:{binding.id}:{utc_now().timestamp():.0f}"
+
+    if total_images > len(images):
+        # 超出单条上限的图被丢了：别让用户以为只有这几张
+        logger.info(
+            "微信发图：单条上限 %s，丢弃 %s 张",
+            media.MAX_IMAGES_PER_REPLY,
+            total_images - len(images),
+        )
 
     sent_images = _send_images(
         client, to_user_id, context_token, images, cid_base, tenant_id=binding.tenant_id
@@ -298,6 +307,13 @@ def send_reply(
         # 一张都没发出去：告诉用户有图但发不了，而不是悄悄少一截内容
         note = "（本条回复中的配图暂时无法在微信中显示，可在 StaffDeck 网页端查看）"
         body = f"{body}\n\n{note}" if body else note
+    elif sent_images:
+        # 微信图片消息没有 caption 位，图题不补一句就等于丢了
+        caption_note = media._caption_note(images)
+        if total_images > len(images):
+            caption_note = f"{caption_note}，另有 {total_images - len(images)} 张图超出单条上限未发送"
+        if caption_note:
+            body = f"{body}\n\n{caption_note}" if body else caption_note
 
     if body:
         client.send_text_chunked(
@@ -324,9 +340,18 @@ def _send_images(
     for index, image in enumerate(images):
         loaded = media.load_image_bytes(image.url, tenant_id=tenant_id)
         if loaded is None:
-            logger.debug("微信发图：本地取不到图片，跳过 url=%s", image.url)
+            # warning 而非 debug：这里跳过就是用户侧「图片不显示」，
+            # 用 debug 时线上完全看不到原因，只能靠猜。
+            logger.warning(
+                "微信发图：本地取不到图片（资产缺失/格式不支持/超限），跳过 url=%s",
+                image.url,
+            )
             continue
         data, mime = loaded
+        # 大图先压再传：CDN 直连对大图不稳，原图发不出去等于没修
+        shrunk = media.shrink_for_upload(data)
+        if shrunk is not data:
+            data, mime = shrunk, "image/jpeg"
         uploaded = media.upload_image(client, to_user_id, data, mime)
         if uploaded is None:
             continue
@@ -336,6 +361,7 @@ def _send_images(
                 context_token,
                 uploaded.encrypt_query_param,
                 uploaded.aes_key,
+                mid_size=uploaded.encrypted_size,
                 client_id=f"{cid_base}:img{index}",
             )
             sent += 1

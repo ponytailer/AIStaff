@@ -339,24 +339,28 @@ class WeChatClient:
         encrypt_query_param: str,
         aes_key: str,
         *,
+        mid_size: int = 0,
         client_id: str = "",
         typing_ticket: str = "",
     ) -> None:
         """发送一条图片消息。
 
         ``image_item`` 的 CDN 引用字段名是 ``media``（协议里不是 ``cdn_media``）；
-        ``aes_key`` 用 base64(raw 16 bytes)。字段写错的后果同样是
-        ``200 + 空 body`` 的静默丢弃，所以这里集中构造并配测试。
+        ``media.aes_key`` 用 **base64(hex 字符串)**（不是 base64(raw key)）；
+        ``encrypt_type: 1`` 表示 AES-128-ECB；``mid_size`` 是密文字节数，
+        微信靠它在解密前先把图片位占好。
+
+        这几处任一写错的后果都是"发出去成功、客户端显示灰框"或
+        ``200 + 空 body`` 的静默丢弃，所以集中构造并配测试。
         """
-        item = {
-            "type": ITEM_IMAGE,
-            "image_item": {
-                "media": {
-                    "encrypt_query_param": encrypt_query_param,
-                    "aes_key": aes_key,
-                }
-            },
+        media: dict[str, Any] = {
+            "encrypt_query_param": encrypt_query_param,
+            "aes_key": aes_key,
+            "encrypt_type": 1,
         }
+        item: dict[str, Any] = {"type": ITEM_IMAGE, "image_item": {"media": media}}
+        if mid_size > 0:
+            item["image_item"]["mid_size"] = int(mid_size)
         self._post(
             "/ilink/bot/sendmessage",
             self._build_message(
