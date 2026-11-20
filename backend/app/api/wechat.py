@@ -68,12 +68,9 @@ class BindingRead(BaseModel):
     last_error: str = ""
     last_seen_at: Optional[str] = None
     created_at: Optional[str] = None
-    #: 这一行是不是当前登录用户自己扫的。前端据此决定「断开/删除」能不能点——
-    #: 管理员能看到别人的绑定，但不该能替人断开。
+    #: 这一行是不是当前登录用户自己扫的。列表接口现在只返回自己的行，因此恒为
+    #: True；保留字段是为了前端在「非本人」场景下不误操作（防御性，不是常态）。
     owned_by_me: bool = True
-    #: 绑定归属人的显示名。管理员会在列表里看到别人的绑定，只给 bot id 无法
-    #: 判断这行是谁的（2026-11-20 用户反馈「看到了不属于自己的绑定信息」）。
-    owner_name: str = ""
 
 
 class MountAgentsRequest(BaseModel):
@@ -115,7 +112,6 @@ def _binding_read(
     binding: WechatBinding,
     *,
     viewer: Optional[User] = None,
-    owner_names: dict[str, str] | None = None,
 ) -> BindingRead:
     mounts = list(
         db.exec(
@@ -133,11 +129,6 @@ def _binding_read(
             )
         ).all()
         names = {r.id: r.name for r in rows}
-    # 归属人名：列表接口会预先批量查好传进来（避免 N+1），单行接口则现查。
-    owner_name = (owner_names or {}).get(binding.owner_user_id, "")
-    if not owner_name:
-        owner = db.get(User, binding.owner_user_id) if binding.owner_user_id else None
-        owner_name = (owner.display_name or owner.username) if owner else ""
     return BindingRead(
         id=binding.id,
         status=binding.status,
@@ -156,7 +147,6 @@ def _binding_read(
         last_seen_at=binding.last_seen_at.isoformat() if binding.last_seen_at else None,
         created_at=binding.created_at.isoformat() if binding.created_at else None,
         owned_by_me=(viewer is None or binding.owner_user_id == viewer.id),
-        owner_name=owner_name,
     )
 
 
@@ -376,29 +366,23 @@ def list_bindings(
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> list[BindingRead]:
-    """我的微信接入。管理员额外看到租户内全部（用于排障/收口）。
+    """我的微信接入：**只返回当前用户自己扫的那一条**。
 
-    绑定是**用户私有**的：你扫的是你的微信，配的是你能用的员工。
-    所以默认只返回 owner 是当前用户的行。
-
-    管理员看到别人的行时，必须能分清哪行是自己的——只给 bot id 是认不出来的
-    （2026-11-20 用户反馈「看到了不属于自己的绑定信息」），因此这里批量带上
-    ``owner_name`` 供前端标注，避免逐行查库造成 N+1。
+    绑定是用户私有资源，这个页面是「我的微信」，不是租户绑定管理台。
+    管理员身份不做豁免（2026-11-20 二次反馈「这里只看自己的即可，不需要看
+    别人的」）：上一版曾给管理员返回租户内全部绑定用于排障，结果页面上出现了
+    不属于自己的 bot，用户分不清哪行是自己的——排障需求不该污染这个页面。
     """
     _guard_tenant(tenant_id, current_user)
-    stmt = select(WechatBinding).where(WechatBinding.tenant_id == tenant_id)
-    if not is_admin_user(current_user):
-        stmt = stmt.where(WechatBinding.owner_user_id == current_user.id)
-    rows = db.exec(stmt.order_by(WechatBinding.created_at)).all()
-
-    owner_ids = {row.owner_user_id for row in rows if row.owner_user_id}
-    owner_names: dict[str, str] = {}
-    if owner_ids:
-        users = db.exec(select(User).where(User.id.in_(owner_ids))).all()  # type: ignore[attr-defined]
-        owner_names = {u.id: (u.display_name or u.username or "") for u in users}
-    return [
-        _binding_read(db, row, viewer=current_user, owner_names=owner_names) for row in rows
-    ]
+    rows = db.exec(
+        select(WechatBinding)
+        .where(
+            WechatBinding.tenant_id == tenant_id,
+            WechatBinding.owner_user_id == current_user.id,
+        )
+        .order_by(WechatBinding.created_at)
+    ).all()
+    return [_binding_read(db, row, viewer=current_user) for row in rows]
 
 
 @router.get("/bindings/{binding_id}", response_model=BindingRead)

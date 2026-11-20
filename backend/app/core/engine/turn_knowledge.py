@@ -433,6 +433,15 @@ class _KnowledgeWorkflowMixin:
             # ``_weak_fallback_chunks`` 兜底，把各桶代表块塞成证据，于是回了整篇
             # 「修改邮箱密码」——答非所问比答错更糟。这里在检索之前就拦掉。
             if is_smalltalk(message) or not has_substantive_query(message):
+                # 打一条 WARNING 级日志：这个分支是「用户没在提问」的唯一出口，
+                # 线上排查「又去检索了」时，先看这里有没有出现、query 是什么。
+                # trace 事件只在会话记录里可见，日志才能直接 grep 到进程输出
+                # （2026-11-20 排查「1 仍走 knowledge_search」时吃过没日志的亏）。
+                logger.info(
+                    "知识工作流：跳过检索 message=%r reason=%s",
+                    message[:60],
+                    "smalltalk" if is_smalltalk(message) else "no_substance",
+                )
                 reply = self._answer_direct_reply(
                     message,
                     persona_prompt,

@@ -227,12 +227,17 @@ def test_admin_can_delete_member_binding(db):
     assert db.get(WechatBinding, "bind_1") is None
 
 
-# ---- owned_by_me 字段 -----------------------------------------------------
+# ---- 列表只返回自己的绑定（2026-11-20）------------------------------------
 
 
-def test_binding_read_marks_foreign_rows_for_admin(db):
-    """管理员看别人的绑定：owned_by_me=False，前端据此不显示「断开」。"""
+def test_admin_only_sees_own_binding(db):
+    """管理员也不能看到别人的绑定。
+
+    上一版给管理员返回租户内全部用于排障，结果「我的微信」里出现了别人的
+    bot（用户两次反馈）。这个页面是「我的微信」，排障需求不该污染它。
+    """
     admin = make_user(db, "admin1", role="admin")
+    make_user(db, "u1")
     make_binding(db, "bind_mine", owner="admin1")
     make_binding(db, "bind_other", owner="u1", status="disconnected")
     client = client_for(db, admin)
@@ -240,10 +245,22 @@ def test_binding_read_marks_foreign_rows_for_admin(db):
     response = client.get(f"{BASE}/bindings", params={"tenant_id": TENANT})
 
     assert response.status_code == 200
-    rows = {row["id"]: row for row in response.json()}
-    assert set(rows) == {"bind_mine", "bind_other"}
-    assert rows["bind_mine"]["owned_by_me"] is True
-    assert rows["bind_other"]["owned_by_me"] is False
+    rows = response.json()
+    assert [row["id"] for row in rows] == ["bind_mine"]
+    assert rows[0]["owned_by_me"] is True
+
+
+def test_admin_without_binding_sees_empty_list(db):
+    """管理员自己没接入时列表为空——不能因为租户里别人接了就显示内容。"""
+    admin = make_user(db, "admin1", role="admin")
+    make_user(db, "u1")
+    make_binding(db, "bind_other", owner="u1")
+    client = client_for(db, admin)
+
+    response = client.get(f"{BASE}/bindings", params={"tenant_id": TENANT})
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_member_only_sees_own_binding(db):
@@ -261,35 +278,15 @@ def test_member_only_sees_own_binding(db):
     assert rows[0]["owned_by_me"] is True
 
 
-# ---- 归属人标注（2026-11-20 用户反馈「看到了不属于自己的绑定信息」）----------
-
-
-def test_binding_read_carries_owner_name_for_admin(db):
-    """管理员看到别人的行时必须能认出是谁的：只给 bot id 是认不出来的。"""
-    admin = make_user(db, "admin1", role="admin")
-    make_user(db, "u1")
-    make_binding(db, "bind_mine", owner="admin1")
-    make_binding(db, "bind_other", owner="u1")
-    client = client_for(db, admin)
-
-    rows = {
-        row["id"]: row
-        for row in client.get(f"{BASE}/bindings", params={"tenant_id": TENANT}).json()
-    }
-
-    assert rows["bind_mine"]["owner_name"] == "admin1"
-    assert rows["bind_other"]["owner_name"] == "u1"
-
-
-def test_member_binding_carries_own_name(db):
-    """普通成员的行也带 owner_name，前端无需区分身份就能统一渲染。"""
+def test_binding_payload_has_no_owner_name(db):
+    """归属人字段已随「只看自己的」一并移除，避免残留无用契约。"""
     member = make_user(db, "u2")
     make_binding(db, "bind_2", owner="u2")
     client = client_for(db, member)
 
     rows = client.get(f"{BASE}/bindings", params={"tenant_id": TENANT}).json()
 
-    assert rows[0]["owner_name"] == "u2"
+    assert "owner_name" not in rows[0]
 
 
 # ---- 凭证归属：管理员也不能带别人的 bot token --------------------------------

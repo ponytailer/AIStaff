@@ -25,10 +25,9 @@ interface WechatBindingRead {
   last_error: string;
   last_seen_at: string | null;
   created_at: string | null;
-  /** 这条绑定是不是我自己扫的：管理员能看到别人的，但不该能替人断开。 */
+  /** 这条绑定是不是我自己扫的。
+   * 列表接口现在只返回自己的行，恒为 true；保留是为了在异常数据下不误操作。 */
   owned_by_me?: boolean;
-  /** 归属人显示名：后端只在列表里带上，用于标注别人的行是谁的。 */
-  owner_name?: string;
 }
 
 interface QrcodeResponse {
@@ -329,14 +328,13 @@ export default function WechatPage({ currentUser }: Props) {
   // 所以候选集里排除掉。
   const selectableAgents = agents.filter((agent) => !agent.is_overall);
 
-  // 一次只允许接入一个微信：只要**自己**已有生效中的绑定，「扫码接入」就灰掉。
+  // 一次只允许接入一个微信：只要已有生效中的绑定，「扫码接入」就灰掉。
   // 后端 /qrcode 有同样的拦截（409），这里置灰是为了让规则在点击之前可见。
   //
-  // 必须只看自己的行：管理员能在列表里看到别人的绑定，若无条件 find，
-  // 别人接了微信就会让管理员的「扫码接入」被灰掉——标题写着「我的微信」，
-  // 却因为别人的状态不能操作（2026-11-20 用户反馈）。
+  // 列表接口只返回自己的绑定；这里再过滤一次 owned_by_me 是纯防御——万一拿到
+  // 别人的行（旧接口缓存、直连调试、后端回滚），宁可不显示，也不能让用户在
+  // 「我的微信」里看到、甚至操作别人的 bot（2026-11-20 两次反馈）。
   const myBindings = bindings.filter((row) => row.owned_by_me !== false);
-  const otherBindings = bindings.filter((row) => row.owned_by_me === false);
   const activeBinding = myBindings.find((row) => row.status === 'active');
   const scanLocked = activeBinding !== undefined;
 
@@ -344,11 +342,11 @@ export default function WechatPage({ currentUser }: Props) {
     'rounded-[20px] border border-[#e8e6e1] bg-white p-[24px] shadow-[0_1px_2px_rgba(26,26,26,0.04)]';
 
   /**
-   * 一条绑定行。自己的行可以配员工/断开/删除；别人的行一律只读。
+   * 一条绑定行。列表接口只返回自己的绑定，所以这里就是「我的」行：
+   * 配员工 / 断开 / 删除三件事都可以做（删除仍要求先断开）。
    *
-   * 为什么别人的行连「配置员工」也不给：`PUT /bindings/{id}/agents` 用的是
-   * `_get_owned_binding`，管理员虽然能通过，但改的是**别人的**微信能跟谁对话，
-   * 属于替人做决定。排障要看配置，看就够了。
+   * 保留 `owned_by_me` 守卫而不是直接删掉：万一拿到别人的行（旧接口缓存、
+   * 直连调试、后端回滚），宁可少给按钮，也不要让用户对别人的微信下手。
    */
   const renderBinding = (binding: WechatBindingRead) => {
     const isMine = binding.owned_by_me !== false;
@@ -373,12 +371,6 @@ export default function WechatPage({ currentUser }: Props) {
             <span className="truncate text-[14px] font-medium text-[#1a1a1a]">
               {binding.display_name || binding.ilink_bot_id || '微信 bot'}
             </span>
-            {/* 别人的行标注归属人：只显示 bot id 时根本分不清这是谁的 */}
-            {!isMine && (
-              <span className="shrink-0 rounded-full bg-[#f2f1ee] px-[10px] py-[2px] text-[12px] text-[#6b6b6f]">
-                {binding.owner_name || '其他成员'}
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-[8px]">
             {isMine && (
@@ -454,7 +446,7 @@ export default function WechatPage({ currentUser }: Props) {
           <div>
             <h2 className="text-[16px] font-medium text-[#1a1a1a]">我的微信</h2>
             <p className="mt-[4px] text-[13px] text-[#6b6b6f]">
-              这里只显示你自己扫的微信；管理员会在下方额外看到其他人的接入，仅用于排障。
+              每个微信只管自己的对话：你在微信里 /员工 看到的就是你名下有权限的员工。
             </p>
             {scanLocked && (
               <p className="mt-[4px] text-[12px] text-[#8a8a8f]">
@@ -481,26 +473,6 @@ export default function WechatPage({ currentUser }: Props) {
           )}
           {myBindings.map((binding) => renderBinding(binding))}
         </div>
-
-        {/* 管理员视角：别人接的微信。与「我的微信」分开列出，避免把别人的
-            状态误读成自己的（2026-11-20 用户反馈）。只读，不提供任何改动
-            入口——需要收口时走管理员专属接口，不在这个页面做主操作。 */}
-        {otherBindings.length > 0 && (
-          <>
-            <div className="mt-[20px] flex items-center gap-[8px]">
-              <span className="text-[13px] font-medium text-[#4a4a4d]">其他人的微信</span>
-              <span className="rounded-full bg-[#f2f1ee] px-[8px] py-[1px] text-[11px] text-[#6b6b6f]">
-                {otherBindings.length}
-              </span>
-              <span className="text-[12px] text-[#8a8a8f]">
-                仅管理员可见，用于排障；不能替成员操作
-              </span>
-            </div>
-            <div className="mt-[10px] flex flex-col gap-[12px]">
-              {otherBindings.map((binding) => renderBinding(binding))}
-            </div>
-          </>
-        )}
       </section>
 
       {/* 微信侧指令说明 */}
