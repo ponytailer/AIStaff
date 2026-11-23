@@ -262,4 +262,90 @@ describe('WechatPage', () => {
     );
     expect(deletions).toHaveLength(0);
   });
+
+  // ---- 连接健康度（2026-11-23 反馈：只有 `最近错误：ReadTimeout` 看不出死活）----
+
+  it('错误码翻成人话，不把 ReadTimeout 原样怼给用户', async () => {
+    stubFetch([{ ...bindings[0], last_error: 'network_timeout' }]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    expect(screen.getByText(/连接超时/)).toBeTruthy();
+    expect(screen.queryByText(/ReadTimeout/)).toBeNull();
+  });
+
+  it('心跳新鲜时标明会自动重试', async () => {
+    // 刚抖了一下但轮询还活着：用户不需要做任何事
+    stubFetch([
+      {
+        ...bindings[0],
+        last_error: 'network_timeout',
+        last_seen_at: new Date(Date.now() - 30 * 1000).toISOString(),
+      },
+    ]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    expect(screen.getByText('（已自动重试）')).toBeTruthy();
+    expect(screen.getByText(/最近连接：刚刚/)).toBeTruthy();
+    expect(screen.queryByText(/轮询可能已经停了/)).toBeNull();
+  });
+
+  it('心跳停了三天时明确指出掉线并建议重扫', async () => {
+    stubFetch([
+      {
+        ...bindings[0],
+        last_error: 'network_timeout',
+        last_seen_at: new Date(Date.now() - 3 * 86400 * 1000).toISOString(),
+      },
+    ]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    expect(screen.getByText(/最近连接：3 天前/)).toBeTruthy();
+    expect(screen.getByText(/轮询可能已经停了/)).toBeTruthy();
+    // 已经掉线就不该说「会自动重试」
+    expect(screen.queryByText('（已自动重试）')).toBeNull();
+  });
+
+  it('已接入但从没收到过响应、也没有错误时显示「正在建立连接」', async () => {
+    // 刚扫码的头几秒就是这状态，不能一上来就报红
+    stubFetch([{ ...bindings[0], last_seen_at: null, last_error: '' }]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    expect(screen.getByText(/正在建立连接/)).toBeTruthy();
+    expect(screen.queryByText(/轮询可能已经停了/)).toBeNull();
+  });
+
+  it('已接入但没收到响应、同时有错误时才判定掉线', async () => {
+    stubFetch([
+      { ...bindings[0], last_seen_at: null, last_error: 'network_unreachable' },
+    ]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    expect(screen.getByText(/尚未收到服务器响应/)).toBeTruthy();
+    expect(screen.getByText(/轮询可能已经停了/)).toBeTruthy();
+  });
+
+  it('断开的行不展示心跳（不轮询，说「三天前」没有信息量）', async () => {
+    stubFetch([
+      {
+        ...bindings[0],
+        status: 'disconnected',
+        last_seen_at: new Date(Date.now() - 3 * 86400 * 1000).toISOString(),
+      },
+    ]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    expect(screen.queryByText(/最近连接/)).toBeNull();
+  });
 });

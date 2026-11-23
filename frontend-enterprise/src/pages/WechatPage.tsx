@@ -6,6 +6,7 @@ import type { EnterpriseAuthUser } from '../auth';
 import { notify } from '@/components/ui/app-toast';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { parseBackendDateTime } from '@/lib/timezone';
 import type { AgentProfileRead } from '../types';
 
 /** 与后端 app/api/wechat.py 的响应模型一一对应。 */
@@ -112,6 +113,44 @@ const STATUS_LABEL: Record<string, string> = {
   pending: '待确认',
   disconnected: '已断开',
 };
+
+/**
+ * 后端把异常收敛成稳定错误码（见 app/wechat/poller.py::_failure_code），
+ * 文案在这里翻译。技术字符串（`ReadTimeout`）直接给用户看等于没说：
+ * 既看不出严重程度，也不知道该不该动手。
+ */
+const ERROR_LABEL: Record<string, string> = {
+  network_timeout: '连接超时。长轮询偶尔会超时，通常下一轮自动恢复',
+  network_unreachable: '连不上微信服务器，检查网络后会自动重试',
+  network_error: '网络异常，正在自动重试',
+  session_expired_need_rescan: '登录已失效，需要重新扫码接入',
+};
+
+function errorText(code: string): string {
+  const label = ERROR_LABEL[code];
+  if (label) return label;
+  if (code.startsWith('api_error:')) return `微信接口报错（${code.slice('api_error:'.length)}）`;
+  if (code.startsWith('http_')) return `微信服务器返回 ${code.slice('http_'.length)}`;
+  // 未知错误原样展示：排障时至少还能看到现场，不要吞掉
+  return code;
+}
+
+/** 超过这个秒数没有一次成功的轮询，就认为这条绑定已经掉线。 */
+const HEALTH_STALE_SECONDS = 600;
+
+function heartbeatAge(iso: string | null): number | null {
+  if (!iso) return null;
+  const ts = parseBackendDateTime(iso).getTime();
+  if (Number.isNaN(ts)) return null;
+  return Math.max(0, Math.floor((Date.now() - ts) / 1000));
+}
+
+function ageText(seconds: number): string {
+  if (seconds < 60) return '刚刚';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟前`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} 小时前`;
+  return `${Math.floor(seconds / 86400)} 天前`;
+}
 
 /**
  * 微信接入管理页。
@@ -350,6 +389,17 @@ export default function WechatPage({ currentUser }: Props) {
    */
   const renderBinding = (binding: WechatBindingRead) => {
     const isMine = binding.owned_by_me !== false;
+    // 心跳只对「已接入」有意义：断开/待确认的行本来就不轮询。
+    const age = binding.status === 'active' ? heartbeatAge(binding.last_seen_at) : null;
+    const stale = age !== null && age > HEALTH_STALE_SECONDS;
+    // 有错误但心跳新鲜 = 刚抖了一下，会自愈；心跳也停了 = 真的掉线了。
+    // 这两种情况给用户的动作完全不同，不能都甩一句「最近错误」。
+    //
+    // `age === null` 要分两种：刚接入（首轮长轮询还没回来）是正常的启动中，
+    // 已经有错误才是真异常——否则新扫码的用户一进页面就看到红字。
+    const starting = age === null && !binding.last_error;
+    const stalled =
+      binding.status === 'active' && (stale || (age === null && Boolean(binding.last_error)));
     return (
       <div
         key={binding.id}
@@ -424,7 +474,21 @@ export default function WechatPage({ currentUser }: Props) {
 
         {binding.last_error && (
           <div className="mt-[10px] text-[12px] text-[#b4483c]">
-            最近错误：{binding.last_error}
+            最近错误：{errorText(binding.last_error)}
+            {binding.status === 'active' && !stalled && (
+              <span className="text-[#8a8a8f]">（已自动重试）</span>
+            )}
+          </div>
+        )}
+        {/* 心跳只对「已接入」展示：断开的行不轮询，说「3 天前」没有任何信息量 */}
+        {binding.status === 'active' && (
+          <div className={`mt-[6px] text-[12px] ${stalled ? 'text-[#b4483c]' : 'text-[#8a8a8f]'}`}>
+            {age !== null
+              ? `最近连接：${ageText(age)}`
+              : starting
+                ? '正在建立连接…'
+                : '尚未收到服务器响应'}
+            {stalled && ' — 轮询可能已经停了，建议断开后重新扫码接入'}
           </div>
         )}
       </div>
