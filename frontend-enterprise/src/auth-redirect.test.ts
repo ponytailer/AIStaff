@@ -77,6 +77,52 @@ describe('isAllowedRedirectTarget', () => {
     const mod = await loadModule('  S2C.Example.COM  ');
     expect(mod.isAllowedRedirectTarget('https://s2c.example.com/login')).toBe(true);
   });
+
+  it('运行时配置优先于构建期配置', async () => {
+    // 顺序至关重要：`ALLOWED_HOSTS` 是模块级常量，在模块求值那一刻定下来。
+    // 所以必须**先**设 window、**再** loadModule —— 反过来 loadModule 会读到
+    // 旧的（没有运行时配置的）状态，测试就会因为错误的原因变绿。
+    (window as unknown as Record<string, unknown>).__STAFFDECK_RUNTIME_CONFIG__ = {
+      authRedirectHosts: 'runtime.example.com',
+    };
+    try {
+      const mod = await loadModule('build-time.example.com');
+      expect(mod.isAllowedRedirectTarget('https://runtime.example.com/login')).toBe(true);
+      expect(mod.isAllowedRedirectTarget('https://build-time.example.com/login')).toBe(false);
+    } finally {
+      delete (window as unknown as Record<string, unknown>).__STAFFDECK_RUNTIME_CONFIG__;
+    }
+  });
+
+  it('无运行时配置时，构建期白名单行为完全不变（现有部署形态）', async () => {
+    // 这条是**回归护栏**：用户当前就是靠构建期白名单工作的，产物里烧的是
+    // `27.115.78.122,127.0.0.1,222.71.129.171,10.58.144.52`。
+    // 改成「运行时优先」之后，没有运行时注入的部署必须逐字节保持原有行为 ——
+    // 否则用户下次重新构建就会莫名其妙失去登录回跳。
+    delete (window as unknown as Record<string, unknown>).__STAFFDECK_RUNTIME_CONFIG__;
+    const mod = await loadModule(
+      '27.115.78.122,127.0.0.1,222.71.129.171,10.58.144.52',
+    );
+    expect(mod.isAllowedRedirectTarget('http://10.58.144.52:5100/login')).toBe(true);
+    expect(mod.isAllowedRedirectTarget('http://222.71.129.171:5100/login')).toBe(true);
+    expect(mod.isAllowedRedirectTarget('http://127.0.0.1:5173/login')).toBe(true);
+    // 白名单外仍然拒绝 —— 放宽了来源不等于放宽了校验
+    expect(mod.isAllowedRedirectTarget('https://evil.example.com/login')).toBe(false);
+  });
+
+  it('运行时配置为空串时退回构建期配置', async () => {
+    // 后端未配置时**不注入**脚本，但防御式地处理"注入了空值"这种情况：
+    // 空串等同于没配，不能因此把回跳通路关掉。
+    (window as unknown as Record<string, unknown>).__STAFFDECK_RUNTIME_CONFIG__ = {
+      authRedirectHosts: '   ',
+    };
+    try {
+      const mod = await loadModule('build-time.example.com');
+      expect(mod.isAllowedRedirectTarget('https://build-time.example.com/login')).toBe(true);
+    } finally {
+      delete (window as unknown as Record<string, unknown>).__STAFFDECK_RUNTIME_CONFIG__;
+    }
+  });
 });
 
 describe('readRedirectTarget', () => {

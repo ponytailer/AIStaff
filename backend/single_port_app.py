@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 from pathlib import Path
@@ -6,7 +7,13 @@ from pathlib import Path
 import httpx
 import websockets
 from fastapi import HTTPException
-from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from starlette.requests import Request
 from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
@@ -30,6 +37,12 @@ SPA_INDEX_HEADERS = {
     "Pragma": "no-cache",
     "Expires": "0",
 }
+# 外部站点「登录回跳」的 host 白名单（运行时配置，逗号分隔，可带端口）。
+# 刻意走**运行时**而不是前端构建期：内网 IP 会变，烧进产物的白名单每变一次
+# 就要重打一次前端，而症状是「登录成功却回不到原站点」，很难定位。
+# 与前端 `VITE_AUTH_REDIRECT_HOSTS` 同义；这里配了就以这里为准。
+# 为空 = 回跳通路关闭（默认关闭，防开放重定向）。
+AUTH_REDIRECT_HOSTS = os.getenv("STAFFDECK_AUTH_REDIRECT_HOSTS", "").strip()
 SITE_CHAT_UPSTREAM = os.getenv(
     "STAFFDECK_SITE_CHAT_UPSTREAM",
     "http://127.0.0.1:10187",
@@ -290,8 +303,30 @@ class FrontendStaticFiles(StaticFiles):
         return response
 
 
-def spa_index_response(index_path: Path) -> FileResponse:
-    return FileResponse(index_path, headers=SPA_INDEX_HEADERS)
+def auth_redirect_config_script() -> str:
+    """把回跳白名单注入到 index.html 的 `window.__STAFFDECK_RUNTIME_CONFIG__`。
+
+    未配置时返回空串（不注入），前端会退回构建期的 `VITE_AUTH_REDIRECT_HOSTS`，
+    行为与改动前完全一致。
+    """
+    if not AUTH_REDIRECT_HOSTS:
+        return ""
+    payload = json.dumps({"authRedirectHosts": AUTH_REDIRECT_HOSTS})
+    # `<` 必须转义：`</script>` 会提前闭合脚本块，把后面的 HTML 当代码执行。
+    payload = payload.replace("<", "\\u003c")
+    return f"<script>window.__STAFFDECK_RUNTIME_CONFIG__={payload}</script>"
+
+
+def spa_index_response(index_path: Path) -> Response:
+    html = index_path.read_text(encoding="utf-8")
+    script = auth_redirect_config_script()
+    if script:
+        if "</head>" in html:
+            html = html.replace("</head>", f"    {script}\n  </head>", 1)
+        else:
+            # 没有 </head> 的极端情况下也要注入，否则配置静默丢失。
+            html = script + html
+    return HTMLResponse(html, headers=SPA_INDEX_HEADERS)
 
 
 @app.api_route(
@@ -498,7 +533,7 @@ def brand_icon(request: Request) -> FileResponse:
 
 @app.get("/enterprise", include_in_schema=False)
 @app.get("/enterprise/{path:path}", include_in_schema=False)
-def enterprise_app(path: str = "") -> FileResponse:
+def enterprise_app(path: str = "") -> Response:
     return spa_index_response(ENTERPRISE_DIST / "index.html")
 
 
@@ -507,13 +542,13 @@ def enterprise_app(path: str = "") -> FileResponse:
 @app.get("/chat/{path:path}", include_in_schema=False)
 @app.get("/workspace", include_in_schema=False)
 @app.get("/workspace/{path:path}", include_in_schema=False)
-def chat_app(path: str = "") -> FileResponse:
+def chat_app(path: str = "") -> Response:
     return spa_index_response(ENTERPRISE_DIST / "index.html")
 
 
 @app.get("/share", include_in_schema=False)
 @app.get("/share/{path:path}", include_in_schema=False)
-def share_app(path: str = "") -> FileResponse:
+def share_app(path: str = "") -> Response:
     # 数字员工分享落地页：免登录 SPA 路由（App.tsx 的 /share/:token）。
     # 没有这条路由的话，访客打开分享链接会拿到 FastAPI 的 {"detail":"Not Found"}。
     return spa_index_response(ENTERPRISE_DIST / "index.html")

@@ -21,12 +21,21 @@
  * 受害者，受害者点开就会被静默跳去钓鱼站并**把真 token 交出去**。
  * 所以回调地址必须按 host 白名单校验，不是「格式看起来像 URL」就放行。
  *
- * 白名单通过构建期环境变量配置，逗号分隔：
+ * 白名单优先读**后端运行时下发**的配置（`window.__STAFFDECK_RUNTIME_CONFIG__`，
+ * 见 `backend/single_port_app.py` 的 `auth_redirect_config_script`），
+ * 构建期的 `VITE_AUTH_REDIRECT_HOSTS` 只作为兜底：
  *
  *   VITE_AUTH_REDIRECT_HOSTS="127.0.0.1:5173,lvh.me:5173,s2c.example.com"
  *
- * 为空时整条回跳通路关闭（默认关闭）—— 没配置就等于「本部署不需要它」，
- * 这比「默认放行所有域名」安全得多。
+ * ## 为什么优先运行时
+ *
+ * 构建期变量被烧进产物，而内网 IP 会变（上次是 `222.71.129.171`，这次是
+ * `10.58.144.52`）。每换一次就要重新 `npm run build` 一遍前端，而这类问题在
+ * 线上表现为「登录成功但回不来」，排查成本极高。改成后端下发之后，重启后端
+ * 即可生效，前端产物不用重打。
+ *
+ * 两者都为空时整条回跳通路关闭（默认关闭）—— 没配置就等于「本部署不需要
+ * 它」，这比「默认放行所有域名」安全得多。
  */
 
 /** 允许作为回跳目标的 host（含端口）白名单。未配置则功能整体关闭。 */
@@ -38,7 +47,29 @@ function parseAllowedHosts(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
-const ALLOWED_HOSTS = parseAllowedHosts(import.meta.env.VITE_AUTH_REDIRECT_HOSTS);
+/** 后端注入的运行时配置（见 `backend/single_port_app.py` 的 `auth_redirect_config_script`）。 */
+interface StaffdeckRuntimeConfig {
+  authRedirectHosts?: string;
+}
+
+/**
+ * 读后端注入的运行时白名单。
+ *
+ * 单测里在 `import` 模块**之前**设好 `window.__STAFFDECK_RUNTIME_CONFIG__`
+ * 就能影响这里 —— 下面这行 `ALLOWED_HOSTS` 是模块级常量，在模块求值那一刻
+ * 就定下来了。
+ */
+function readRuntimeHosts(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const value = (window as { __STAFFDECK_RUNTIME_CONFIG__?: StaffdeckRuntimeConfig })
+    .__STAFFDECK_RUNTIME_CONFIG__?.authRedirectHosts;
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+// 优先级：运行时 > 构建期。两者都没有 = 通路关闭（默认值不变）。
+const ALLOWED_HOSTS = parseAllowedHosts(
+  readRuntimeHosts() ?? import.meta.env.VITE_AUTH_REDIRECT_HOSTS,
+);
 
 /**
  * 回跳地址是否可信。不可信时调用方必须忽略它，而不是「尽力跳一下」。

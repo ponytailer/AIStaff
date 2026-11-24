@@ -3,8 +3,6 @@ from pathlib import Path
 
 import httpx
 
-from fastapi.responses import FileResponse
-
 import single_port_app as single_port_app
 import pytest
 from fastapi import FastAPI
@@ -329,10 +327,67 @@ def test_share_route_serves_spa_index(monkeypatch, tmp_path: Path) -> None:
     """数字员工分享落地页：/share/{token} 必须回 SPA，否则访客拿到 {"detail":"Not Found"}。"""
     dist = tmp_path / "dist"
     dist.mkdir()
-    (dist / "index.html").write_text("<!doctype html><html></html>", encoding="utf-8")
+    (dist / "index.html").write_text(
+        '<!doctype html><html><head></head><body><div id="root"></div></body></html>',
+        encoding="utf-8",
+    )
     monkeypatch.setattr(single_port_app, "ENTERPRISE_DIST", dist)
 
     html = single_port_app.share_app("tMAY")
-    assert isinstance(html, FileResponse)
-    assert html.path.name == "index.html"
+    # `spa_index_response` 现在返回 `HTMLResponse`（要往 </head> 里注入运行时
+    # 配置），不再是 `FileResponse` —— 所以断言落到 body 上，而不是 path 上。
+    assert html.status_code == 200
+    assert b'<div id="root">' in html.body
     assert single_port_app.share_app("") is not None
+
+
+def _write_dist_with_head(tmp_path: Path) -> Path:
+    """准备一个带 `</head>` 的最小 index.html，供注入类用例复用。"""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text(
+        "<!doctype html><html><head></head><body></body></html>", encoding="utf-8"
+    )
+    return dist
+
+
+def test_spa_index_injects_auth_redirect_hosts(monkeypatch, tmp_path: Path) -> None:
+    """白名单必须能在**运行时**下发，避免内网 IP 变化就要重打前端。"""
+    dist = _write_dist_with_head(tmp_path)
+    monkeypatch.setattr(single_port_app, "ENTERPRISE_DIST", dist)
+    monkeypatch.setattr(
+        single_port_app, "AUTH_REDIRECT_HOSTS", "10.58.144.52:5100"
+    )
+
+    html = single_port_app.share_app("tMAY")
+    body = html.body.decode("utf-8")
+    assert "__STAFFDECK_RUNTIME_CONFIG__" in body
+    assert "10.58.144.52:5100" in body
+    # 注入必须发生在 </head> 之前
+    assert body.index("__STAFFDECK_RUNTIME_CONFIG__") < body.index("</head>")
+
+
+def test_spa_index_skips_injection_when_hosts_unset(monkeypatch, tmp_path: Path) -> None:
+    """未配置时不注入 —— 行为与改动前一致，前端退回构建期白名单。"""
+    dist = _write_dist_with_head(tmp_path)
+    monkeypatch.setattr(single_port_app, "ENTERPRISE_DIST", dist)
+    monkeypatch.setattr(single_port_app, "AUTH_REDIRECT_HOSTS", "")
+
+    html = single_port_app.share_app("tMAY")
+    assert "__STAFFDECK_RUNTIME_CONFIG__" not in html.body.decode("utf-8")
+
+
+def test_spa_index_escapes_script_breakout(monkeypatch, tmp_path: Path) -> None:
+    """白名单里塞 `</script>` 不能闭合脚本块 —— 否则就是存储型 XSS。
+
+    注入是往 HTML 里拼字符串，所以引号和尖括号必须由 `json.dumps` + 手动
+    `<` 转义共同挡住。这里模拟"有人从环境变量注入恶意内容"的最坏情况。
+    """
+    dist = _write_dist_with_head(tmp_path)
+    monkeypatch.setattr(single_port_app, "ENTERPRISE_DIST", dist)
+    monkeypatch.setattr(
+        single_port_app, "AUTH_REDIRECT_HOSTS", "a.com</script><script>alert(1)"
+    )
+
+    body = single_port_app.share_app("tMAY").body.decode("utf-8")
+    assert "</script><script>alert(1)" not in body
