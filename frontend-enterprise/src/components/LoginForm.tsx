@@ -9,6 +9,7 @@ import {
   writeRememberLoginPreference,
   type EnterpriseAuthSession,
 } from '../auth';
+import { finishExternalRedirect } from '../auth-redirect';
 import IconFieldClear from '../assets/icons/field-clear.svg?react';
 import IconFieldEye from '../assets/icons/field-eye.svg?react';
 import IconFieldEyeOn from '../assets/icons/field-eye-on.svg?react';
@@ -54,6 +55,19 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
       writeRememberLoginPreference(remember);
       writeRememberedUsername(remember ? trimmedUsername : null);
       setEnterpriseAuthSession(session);
+      /**
+       * 跨域外部站点的回跳：本次是从 `?redirect=<外部地址>` 进来的，就把
+       * token 带回去，而不是进本站应用。
+       *
+       * 放在 `setEnterpriseAuthSession` **之后**：本地登录态要先落盘，
+       * 这样即使用户回跳后立刻又开本站，也已经是登录状态。
+       * 放在 `onLogin` **之前**：`onLogin` 会让 App 切到 `AuthedApp` 并开始
+       * 拉大量数据，那些请求对一个马上要被跳走的页面纯属浪费。
+       *
+       * 回跳地址已在 `finishExternalRedirect` 内部做过 host 白名单校验，
+       * 未配置白名单时该函数恒返回 false，走正常的站内登录流程。
+       */
+      if (finishExternalRedirect(session.token)) return;
       onLogin(session);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : '';
