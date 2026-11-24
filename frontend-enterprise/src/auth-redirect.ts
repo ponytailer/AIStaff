@@ -40,7 +40,28 @@ function parseAllowedHosts(raw: string | undefined): string[] {
 
 const ALLOWED_HOSTS = parseAllowedHosts(import.meta.env.VITE_AUTH_REDIRECT_HOSTS);
 
-/** 回跳地址是否可信。不可信时调用方必须忽略它，而不是「尽力跳一下」。 */
+/**
+ * 回跳地址是否可信。不可信时调用方必须忽略它，而不是「尽力跳一下」。
+ *
+ * ## 端口匹配规则：白名单项**不带端口**时放开任意端口
+ *
+ * 写成 `127.0.0.1` 表示「这台机器上的任何端口都可信」（本地开发会换 5173/5100/…）；
+ * 写成 `127.0.0.1:5100` 表示「只信这一个端口」。
+ *
+ * 为什么需要这条：`url.host` **包含端口**，所以 `127.0.0.1:5100` 与白名单里的
+ * `127.0.0.1` 字符串不相等。严格执行「不带端口也得精确等于」会让开发机换一个
+ * 端口就整条通路失效，而错误表现是「登录成功但回不来」——极难定位到是配置问题。
+ *
+ * ## 比端口时必须用「有效端口」，不能比 `url.host`
+ *
+ * `new URL('https://a.com/')` 会把默认端口 443 **规范化掉**，`url.host` 是
+ * `a.com` 而不是 `a.com:443`。所以白名单写 `a.com:443` 时若拿 `url.host` 去比
+ * 字符串，永远匹配不上 —— 这正是最该被信任的那一条配置反而失效。这里改用
+ * `url.port || scheme 的默认端口` 得出有效端口再比。
+ *
+ * 安全边界没有因此松掉：开放重定向的危害是**跨站**把 token 送出去，而单个 host
+ * 的端口变化仍属于同一台的信任域。生产环境应写完整 `host:port`，把范围收到最小。
+ */
 export function isAllowedRedirectTarget(raw: string): boolean {
   if (ALLOWED_HOSTS.length === 0) return false;
 
@@ -55,7 +76,17 @@ export function isAllowedRedirectTarget(raw: string): boolean {
   // 虽然 `new URL('javascript:...')` 能成功解析，但跳转过去就是 XSS 入口。
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
 
-  return ALLOWED_HOSTS.includes(url.host.toLowerCase());
+  const hostname = url.hostname.toLowerCase();
+  const effectivePort = url.port || (url.protocol === "https:" ? "443" : "80");
+
+  return ALLOWED_HOSTS.some((allowed) => {
+    const sep = allowed.lastIndexOf(":");
+    // 不带端口 → 该 host 的任意端口都可信。
+    if (sep === -1) return allowed === hostname;
+    const allowedHost = allowed.slice(0, sep);
+    const allowedPort = allowed.slice(sep + 1);
+    return allowedHost === hostname && allowedPort === effectivePort;
+  });
 }
 
 /**

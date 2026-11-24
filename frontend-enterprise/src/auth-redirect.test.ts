@@ -37,13 +37,26 @@ describe('isAllowedRedirectTarget', () => {
     expect(mod.isAllowedRedirectTarget('https://s2c.example.com/login')).toBe(true);
   });
 
+  it('白名单项不带端口时放开该 host 的任意端口', async () => {
+    // 开发机会换端口（5173/5100/…）。若严格要求「不带端口也得精确相等」，
+    // 换一个端口整条通路就失效，而症状是「登录成功但回不来」，极难定位。
+    const mod = await loadModule('127.0.0.1,s2c.example.com');
+    expect(mod.isAllowedRedirectTarget('http://127.0.0.1:5100/login')).toBe(true);
+    expect(mod.isAllowedRedirectTarget('http://127.0.0.1:5173/login')).toBe(true);
+    expect(mod.isAllowedRedirectTarget('http://127.0.0.1/login')).toBe(true);
+    // 但换 host 依然拒绝：放开端口不等于放开域名。
+    expect(mod.isAllowedRedirectTarget('http://127.0.0.2:5100/login')).toBe(false);
+  });
+
   it('白名单外的 host 拒绝', async () => {
     const mod = await loadModule('s2c.example.com');
     expect(mod.isAllowedRedirectTarget('https://evil.com/steal')).toBe(false);
   });
 
-  it('端口不同的同一 host 视为不同目标', async () => {
+  it('白名单项带端口时只信那一个端口', async () => {
+    // 生产环境应写完整 host:port，把范围收到最小。
     const mod = await loadModule('s2c.example.com:443');
+    expect(mod.isAllowedRedirectTarget('https://s2c.example.com/login')).toBe(true);
     expect(mod.isAllowedRedirectTarget('https://s2c.example.com:8443/login')).toBe(false);
   });
 
