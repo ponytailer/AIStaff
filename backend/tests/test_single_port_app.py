@@ -300,10 +300,29 @@ def test_root_redirects_to_the_plaza_home() -> None:
     tab，故 /enterprise/home 退化为跳转到 /enterprise/platform 的别名
     （后端 single_port_app.root_redirect、前端 App.tsx 两处保持一致）。
     """
-    response = single_port_app.root_redirect()
+    response = single_port_app.root_redirect(_request(b""))
 
     assert response.status_code == 307
     assert response.headers["location"] == "/enterprise/platform"
+
+
+def test_root_redirect_preserves_query_string() -> None:
+    """/ 必须把 query string 带到落地页。
+
+    外部站点（截图转代码）的登录回跳走的就是 `/?redirect=<回调地址>`：登录成功
+    后要凭这个参数把 token 送回调用方。写死 `/enterprise/platform` 会把它整串
+    丢掉，症状是「用户在 AIStaff 登录成功却回不到原站点」——而且看起来像对方
+    站点的 bug，非常难排查。
+    """
+    response = single_port_app.root_redirect(
+        _request(b"", query_string=b"redirect=https%3A%2F%2Fs2c.example.com%2Flogin")
+    )
+
+    assert response.status_code == 307
+    assert (
+        response.headers["location"]
+        == "/enterprise/platform?redirect=https%3A%2F%2Fs2c.example.com%2Flogin"
+    )
 
 
 def test_share_route_serves_spa_index(monkeypatch, tmp_path: Path) -> None:

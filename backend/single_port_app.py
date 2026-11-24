@@ -464,9 +464,16 @@ app.mount(
 
 
 @app.get("/", include_in_schema=False)
-def root_redirect() -> RedirectResponse:
+def root_redirect(request: Request) -> RedirectResponse:
     # 站点默认落地页 = 开放广场「全部」tab（原首页能力已并入，2026-10-13）；对话端入口仍在 /chat/。
-    return RedirectResponse(url="/enterprise/platform")
+    #
+    # ⚠️ 必须把 query string 带过去。外部站点（截图转代码）走的是
+    # `/?redirect=<回调地址>` 这条入口 —— 登录成功后要凭它把 token 送回调用方。
+    # 只写死 `/enterprise/platform` 会把 `?redirect=` 整串丢掉，表现为
+    # 「用户点了登录、在 AIStaff 登录成功，却回不到原站点」。
+    query = request.url.query
+    target = "/enterprise/platform" + (f"?{query}" if query else "")
+    return RedirectResponse(url=target)
 
 
 @app.get("/pilotdeck", include_in_schema=False)
