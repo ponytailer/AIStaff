@@ -164,4 +164,20 @@ describe('finishExternalRedirect', () => {
     expect(mod.finishExternalRedirect('tok-abc')).toBe(true);
     expect(replaceSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('已登录分支与登录分支共用闩锁，只跳一次', async () => {
+    const replaceSpy = vi.fn();
+    vi.stubGlobal('location', {
+      ...window.location,
+      search: `?redirect=${encodeURIComponent('https://s2c.example.com/login')}`,
+      replace: replaceSpy,
+    });
+
+    const mod = await loadModule('s2c.example.com');
+    // 真实顺序：App 的会话校验先跑（已登录场景），或登录回调先跑（未登录场景）。
+    // 两条路径中任意一条生效后，另一条都必须变成 no-op。
+    expect(mod.finishExternalRedirectIfSignedIn('tok')).toBe(true);
+    expect(mod.finishExternalRedirect('tok')).toBe(false);
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+  });
 });

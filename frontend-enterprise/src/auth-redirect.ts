@@ -70,6 +70,15 @@ export function readRedirectTarget(search: string = window.location.search): str
 }
 
 /**
+ * 一次性闩锁：回跳只允许发生一次。
+ *
+ * 已登录用户带着 `?redirect=` 打开本站时，`App` 的会话校验 effect 与登录页
+ * 的登录回调**都可能**走到这里；没有闩锁就会连跳两次，第二次落到外部站时
+ * 首次的参数已经被消费掉了。
+ */
+let redirectHandled = false;
+
+/**
  * 把 token 追加到回调地址并跳过去。
  *
  * 用 `location.replace` 而不是 `assign`：回跳发生后，浏览器的「后退」不该把
@@ -78,6 +87,7 @@ export function readRedirectTarget(search: string = window.location.search): str
  * 保留回调地址原有的 hash（若有）并追加参数，避免覆盖外部站点自己的路由状态。
  */
 export function redirectWithToken(target: string, token: string): void {
+  redirectHandled = true;
   const url = new URL(target);
   const params = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash);
   params.set('staffdeck_token', token);
@@ -91,8 +101,21 @@ export function redirectWithToken(target: string, token: string): void {
  * 返回 `true` 表示已发起跳转（调用方不必再渲染站内应用）。
  */
 export function finishExternalRedirect(token: string): boolean {
+  if (redirectHandled) return false;
   const target = readRedirectTarget();
   if (!target) return false;
   redirectWithToken(target, token);
   return true;
+}
+
+/**
+ * 用户**本来就登录着**、根本没经过登录页时也要把 token 送回去。
+ *
+ * 这是跨域通路最容易漏掉的一条：已登录用户打开
+ * `https://ai-staff/#?redirect=…` 时，`App` 直接渲染站内应用，`LoginForm`
+ * 的登录回调永远不会执行 —— 外部站点会一直停在「等待登录」上。所以
+ * `App` 在会话校验通过后必须显式调一次本函数。
+ */
+export function finishExternalRedirectIfSignedIn(token: string): boolean {
+  return finishExternalRedirect(token);
 }

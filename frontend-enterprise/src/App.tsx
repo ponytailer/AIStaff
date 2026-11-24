@@ -18,6 +18,7 @@ import {
   type EnterpriseAuthSession,
   type EnterpriseAuthUser,
 } from "./auth";
+import { finishExternalRedirectIfSignedIn } from "./auth-redirect";
 import AppSidebar from "./components/AppSidebar";
 import UpdateReminder from "./components/UpdateReminder";
 import StaffdeckIcon from "./components/StaffdeckIcon";
@@ -1157,6 +1158,10 @@ export default function App() {
         setEnterpriseAuthSession(refreshed);
         setAuth(refreshed);
         setAuthChecked(true);
+        // 已登录用户被外部站点用 `?redirect=` 打开时，这里是唯一的回跳点：
+        // 站内应用直接渲染，LoginForm 的登录回调根本不会执行，若不在这里
+        // 把 token 送回去，外部站点会一直停在「等待登录」。
+        finishExternalRedirectIfSignedIn(refreshed.token);
       })
       .catch((error) => {
         if (cancelled) return;
