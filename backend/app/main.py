@@ -27,6 +27,7 @@ from app.api import (
     memories,
     mock,
     model_configs,
+    model_configs_sync,
     oa_assistant,
     persona,
     plaza_hot,
@@ -204,6 +205,8 @@ app.include_router(skills.router)
 app.include_router(static_assets.router)
 app.include_router(static_assets.public_router)
 app.include_router(model_configs.router)
+# 明文 key 的唯一出口（供 screenshot-to-code 一键同步），单独 include 便于审计
+app.include_router(model_configs_sync.router)
 app.include_router(plaza_news.router)
 app.include_router(plaza_hot.router)
 app.include_router(api_key_applications.router)
