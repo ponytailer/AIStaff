@@ -33,6 +33,22 @@ export function isBlockKind(value: unknown): value is BlockKind {
  *
  * `data` 的形状由 `kind` 定死（arch §2.2）。module 只读不造，也不许往里塞 UI 描述字段
  * （没有 title / color / layout）。**这是「代码驱动」与「配置驱动」的分界线。**
+ *
+ * ## ⚠️ 名称与类型都有两个，别找错
+ *
+ * | 类型 | 在哪 | `kind` 类型 | 职责 |
+ * |---|---|---|---|
+ * | **`SceneUiBlock`**（本类型） | `src/scenes/types.ts` | `BlockKind`（收窄枚举） | **渲染契约**，交给 module |
+ * | `A2UIBlock` | `src/pages/chat/chatTypes.ts` | `string`（容错） | 消息 metadata 的**容器**，来自后端 JSON |
+ *
+ * 两者**不能互相赋值**（`string → BlockKind` 就是 `TS2322`），转换点在
+ * `src/pages/chat/messageBlockSlots.ts` 的 `toSceneBlock()`。为什么不能合成一个：
+ * metadata 必须容忍未知 kind（后端可能先上线新 kind），而 module 的入参必须收窄
+ * （否则 module 内部要写一堆 `default` 分支）。**容错与收窄是两个相反的要求，
+ * 只能靠一个显式转换点隔开。**
+ *
+ * 文档（PRD）里写的是 `SceneUIBlock`（`UI` 全大写），代码是 `SceneUiBlock`（`Ui` 驼峰）。
+ * **在代码里 grep `SceneUIBlock` 是零命中**——这不是缺文件，是拼写不同。
  */
 export type SceneUiBlock = {
   kind: BlockKind;
@@ -207,16 +223,56 @@ export type SceneInstanceRef = {
   scene_type: SceneType;
 };
 
-/** 入口胶囊。来自 `GET /api/chat/scenes?tenant_id=&agent_id=`。 */
+/**
+ * 入口胶囊。来自 `GET /api/chat/scenes?tenant_id=&agent_id=`。
+ *
+ * ## 逐字对齐后端，不要在这里「补充」字段
+ *
+ * 唯一事实来源是 `backend/app/scenes/schema.py` 的 `SceneModuleRead`，
+ * 由 `backend/app/scene_modules/chips.py` 的 `list_scene_chips()` 构造。
+ * 九个字段一个不多一个不少：
+ *
+ * | 字段 | 后端有无 | 说明 |
+ * |---|---|---|
+ * | `scene_id` | ✓ | |
+ * | `module_key` | ✓ | 空串表示老场景没写 module（前端要降级） |
+ * | `module_version` | ✓ | |
+ * | `label` | ✓ | 三级回落算出的**展示文案** |
+ * | `icon` | ✓ | 空串 = 不画图标，不要回落到某个默认 emoji |
+ * | `send_text` | ✓ | `send_text` 型入口点下去发的话 |
+ * | `slots` | ✓ | 字段定义，**后端已合并** module + 实例覆盖 |
+ * | `scene_name` | ✓ | 场景原始名，比 `label` 长，只配放 `title` |
+ * | `scene_type` | ✓ | |
+ * | ~~`entry_behavior`~~ | **✗** | 见下 |
+ *
+ * ## 为什么没有 `entry_behavior`
+ *
+ * 入口行为由 module 的 `meta.entry_behavior` 声明（PRD §19 第 6 条），
+ * **后端不持有这个事实**——后端没有 module 的 meta（`chips.py:33-37` 写着
+ * 「刻意没有 `on_click`」）。抄一份进 DB 会让「改了代码线上行为没变」，
+ * 而且两处都看不到对方。
+ *
+ * 所以前端要用 `module_key` 去 `loadModule()` 查 meta 才知道是弹表单还是发文本。
+ * 本类型上放一个 `entry_behavior` 字段的后果是：它永远 `undefined`，
+ * 而 `open_form` / `send_text` 会被静默当成 `undefined` 处理掉——
+ * 正是「类型看着有、运行时没有」的静默故障。
+ */
 export type SceneChip = {
   scene_id: string;
+  /** `=== 目录名`。空串 = 老场景，前端按「纯文本入口」降级，不要抛错。 */
+  module_key: string;
+  module_version: number;
+  /** 展示文案（`shortcut_json.label` → `trigger_json.shortcut_label` → 场景名）。 */
   label: string;
-  icon?: string;
-  /** 点击后的行为。`open_form` 弹表单，`send_text` 直接发一句话。 */
-  entry_behavior: 'open_form' | 'send_text';
-  /** `send_text` 时发出去的话；缺省用 label。 */
-  send_text?: string;
-  module_key?: string;
+  /** 空串 = 不画图标。 */
+  icon: string;
+  /** `send_text` 型入口点下去发的话；空串则由父级回落用 `label`。 */
+  send_text: string;
+  /** 入口点开后立刻要画的字段定义。后端已合并，前端不要自己再合并一次。 */
+  slots: Array<Record<string, unknown>>;
+  /** 场景原始名。比 `label` 长，只配放 `title`（hover 才看）。 */
+  scene_name: string;
+  scene_type: string;
 };
 
 /**
@@ -361,23 +417,48 @@ export function effectiveNeedsTable(
  *
  * warning 走 `tableCountWarnings()`，**不混进这个通道**：混进来前端会渲染成
  * 「不能发布」，正好退回本次重构要消灭的「缺表阻断」。
+ *
+ * ## 第三个参数不是「可选装饰」，是 `required` 唯一的来源
+ *
+ * 类型层四档里**没有** `required`（见 `SCENE_TYPE_META`），它只可能来自
+ * module 声明（`travel.itinerary` 就是）。所以档位必须用
+ * `effectiveNeedsTable(type, moduleNeeds)` 现算，**不能**只读
+ * `sceneTypeMeta(type).needs_table` —— 那只看得见类型那半边。
+ *
+ * 漏传 `moduleNeeds` 的后果是「定制 module 缺表也能发布」，而发布出去后
+ * 这个 module 画不出空态，用户看到的是白块。所以调用点手里有 module meta
+ * 就必须传。
  */
-export function tableCountIssues(type: string | undefined, count: number): string[] {
+export function tableCountIssues(
+  type: string | undefined,
+  count: number,
+  moduleNeeds?: NeedsTable,
+): string[] {
   const n = Math.max(0, Math.trunc(Number(count) || 0));
   // 上限必须先判：倒了会被最后的 return [] 放过，而 table_match 是唯一能传多表的类型。
   if (n > MAX_TABLES_PER_SCENE) {
     return [`一个场景最多 ${MAX_TABLES_PER_SCENE} 张表，当前 ${n} 张`];
   }
-  if (sceneTypeMeta(type).needs_table === 'required' && n === 0) {
+  if (effectiveNeedsTable(type, moduleNeeds) === 'required' && n === 0) {
     return ['这个场景至少需要 1 张数据表'];
   }
   return [];
 }
 
-/** 不阻断、但要在定义器/发布检查里提示的问题。与 `tableCountIssues()` 严格互补。 */
-export function tableCountWarnings(type: string | undefined, count: number): string[] {
+/**
+ * 不阻断、但要在定义器/发布检查里提示的问题。与 `tableCountIssues()` 严格互补。
+ *
+ * 档位同样走 `effectiveNeedsTable()`：module 收紧到 `required` 后，0 张表
+ * 是**阻断**，此时不能再返回「发布后只会提示未配表」——那是把阻断说成提示，
+ * 两条通道同时命中会让界面既报错又安抚，读起来像 bug。
+ */
+export function tableCountWarnings(
+  type: string | undefined,
+  count: number,
+  moduleNeeds?: NeedsTable,
+): string[] {
   const n = Math.max(0, Math.trunc(Number(count) || 0));
-  const needs = sceneTypeMeta(type).needs_table;
+  const needs = effectiveNeedsTable(type, moduleNeeds);
   if (needs === 'optional' && n === 0) {
     return ['这个场景还没有数据表，发布后用户触发时只会提示未配表'];
   }

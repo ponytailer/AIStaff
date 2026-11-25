@@ -1,4 +1,6 @@
 import type { SceneQualityIssue, SceneRead, SceneRunResult, SceneSlot, SceneStatus } from '@/api/scenes';
+import type { NeedsTable } from '@/scenes/types';
+import { tableCountIssues } from '@/scenes/types';
 
 /**
  * 场景页面的纯逻辑层。
@@ -104,13 +106,43 @@ export function qualityLevelText(level: SceneQualityIssue['level']): string {
  *
  * 这里刻意不把「没绑员工」算作问题：场景可以先建好，之后在员工档案里挂。
  * 但「没配槽位」和「没配回答方式」发布出去就是这个场景永远答不出东西。
+ *
+ * ## 表数量为什么不在这里判
+ *
+ * 表数量阻断**必须**走 `tableCountIssues(scene_type, table_ids.length)`，
+ * 因为档位随场景类型变（PRD §4.3.1 三档）：
+ *
+ * | scene_type | needs_table | 0 张表时 |
+ * |---|---|---|
+ * | `table_match` | `optional` | **不阻断**（只 warning） |
+ * | `sop_flow` / `handoff` / `script` | `none` | **不阻断** |
+ *
+ * 曾经这里写的是 `if (!scene.table_id) blockers.push('还没选数据表')`。
+ * 后果：`table_id` 字段在 v3 已被删除、恒 `undefined`，于是**任何场景都发布不了**，
+ * 连 `script` 这种本来就不该要表的类型也被卡住。所以现在把表数量判断
+ * 完全交给 `tableCountIssues()`，本函数只负责非表类阻断。
+ *
+ * ## `moduleNeeds` 为什么必须有
+ *
+ * 「0 张表能不能发布」在不同 module 下答案不同：`generic.table_match` 是
+ * `optional`（0 张表只 warning），`travel.itinerary` 声明了 `required`
+ * （没表画不出空态，必须阻断）。类型层四档里没有 `required`，它只能来自
+ * module —— 所以这个参数漏传，`required` 那条路就永远走不到。
+ *
+ * 传 `undefined` = 按类型档位判（最宽松，P0 默认）。调用点手里有 module meta 时
+ * 请传 `effectiveNeedsTable(scene.scene_type, meta.needs_table)`。
  */
 export function publishBlockers(
-  scene: Pick<SceneRead, 'table_id' | 'slots' | 'respond_action'>,
+  scene: Pick<SceneRead, 'table_ids' | 'scene_type' | 'slots' | 'respond_action'>,
   columnKeys: string[],
+  moduleNeeds?: NeedsTable,
 ): string[] {
   const blockers: string[] = [];
-  if (!scene.table_id) blockers.push('还没选数据表');
+  // 阻断只来自 tableCountIssues；warning（比如 table_match 缺表建议补）
+  // 由调用方另行渲染，**不要**在这里 push 进去。
+  blockers.push(
+    ...tableCountIssues(scene.scene_type, (scene.table_ids ?? []).length, moduleNeeds),
+  );
   if (!scene.slots || scene.slots.length === 0) blockers.push('还没配置要问用户的字段（槽位）');
   const issues = checkSlotMappings(scene.slots ?? [], columnKeys, []);
   if (issues.some((issue) => issue.level === 'error')) {

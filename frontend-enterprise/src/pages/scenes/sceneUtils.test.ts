@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SceneQualityIssue, SceneSlot } from '@/api/scenes';
+import { tableCountWarnings } from '@/scenes/types';
 
 import {
   bindingText,
@@ -112,7 +113,8 @@ describe('publishBlockers', () => {
   it('配完整时没有阻塞项', () => {
     const blockers = publishBlockers(
       {
-        table_id: 't1',
+        table_ids: ['t1'],
+        scene_type: 'table_match',
         slots: [slot('people', '人数'), slot('days', '天数'), slot('budget', '预算')],
         respond_action: { mode: 'template', template: '{{预算}}' },
       },
@@ -121,21 +123,54 @@ describe('publishBlockers', () => {
     expect(blockers).toEqual([]);
   });
 
-  it('没选表 / 没配槽位 / 模板空 都要拦住', () => {
+  it('没配槽位 / 模板空 都要拦住', () => {
     const blockers = publishBlockers(
-      { table_id: '', slots: [], respond_action: { mode: 'template', template: '  ' } },
+      {
+        table_ids: [],
+        scene_type: 'table_match',
+        slots: [],
+        respond_action: { mode: 'template', template: '  ' },
+      },
       [],
     );
-    expect(blockers).toContain('还没选数据表');
     expect(blockers.some((item) => item.includes('槽位'))).toBe(true);
     // 模板空且 mode=template 才算问题；mode=llm 不需要模板
     expect(blockers.some((item) => item.includes('模版') || item.includes('模板'))).toBe(true);
   });
 
+  /**
+   * 这条是本文件最重要的一条断言。
+   *
+   * 曾经的 bug：`publishBlockers` 里写 `if (!scene.table_id) blockers.push('还没选数据表')`。
+   * v3 删掉 `table_id` 之后该字段恒 `undefined` → **任何场景都发布不了**，
+   * 而当时所有夹具都还带着 `table_id: 'tbl_x'`，所以 66 条测试全绿。
+   *
+   * 现在把「表数量」口头交给 `tableCountIssues`，档位随类型变：
+   * `table_match` 是 `optional`（0 张表不阻断），`script` 是 `none`（也不阻断）。
+   * 这两个类型 0 张表时必须**没有**表相关阻断。
+   */
+  it('table_match / script 在 0 张表时不得产生表相关阻断（回归：曾恒阻断）', () => {
+    const base = {
+      slots: [slot('people', '人数')],
+      respond_action: { mode: 'template' as const, template: 'x' },
+    };
+    for (const type of ['table_match', 'script'] as const) {
+      const blockers = publishBlockers(
+        { ...base, table_ids: [], scene_type: type },
+        table,
+      );
+      expect(
+        blockers.some((item) => item.includes('表')),
+        `${type} 在 0 张表时不该有表相关阻断，实际得到 ${JSON.stringify(blockers)}`,
+      ).toBe(false);
+    }
+  });
+
   it('mode=llm 时不要求模板', () => {
     const blockers = publishBlockers(
       {
-        table_id: 't1',
+        table_ids: ['t1'],
+        scene_type: 'table_match',
         slots: [slot('people', '人数')],
         respond_action: { mode: 'llm', template: '' },
       },
@@ -144,10 +179,58 @@ describe('publishBlockers', () => {
     expect(blockers.some((item) => item.includes('模版') || item.includes('模板'))).toBe(false);
   });
 
+  /**
+   * 这两条是「0 张表可发布」与「required 要阻断」的唯一分界线。
+   *
+   * 少了第二条，实现里很容易把两件事合并成「一律不阻断」——所有用例照样绿，
+   * 但 `travel.itinerary`（`needs_table: 'required'`）缺表也能发布，发布后
+   * 它画不出空态，用户看到白块。
+   *
+   * 关键点：`table_match` 在类型层是 `optional`，`required` **只可能来自
+   * module**。所以第二条必须走 moduleNeeds 参数，不能靠换 scene_type 达到——
+   * 类型层根本没有 required 档。
+   */
+  it('0 张表的 table_match 场景可以发布（只 warning 不阻断）', () => {
+    const blockers = publishBlockers(
+      {
+        table_ids: [],
+        scene_type: 'table_match',
+        slots: [slot('people', '人数')],
+        respond_action: { mode: 'template', template: 'x' },
+      },
+      table,
+    );
+    expect(blockers).not.toContain('还没选数据表');
+    expect(blockers.some((item) => item.includes('数据表'))).toBe(false);
+    // 同时断言 warning 通道**确实有话说**：不阻断 ≠ 不提示。
+    // 若这里也空，说明「只 warning」退化成了「什么都不说」。
+    expect(tableCountWarnings('table_match', 0)).toHaveLength(1);
+  });
+
+  it('module 声明 required 时 0 张表阻断（与上一条的唯一区别）', () => {
+    const scene = {
+      table_ids: [] as string[],
+      scene_type: 'table_match' as const,
+      slots: [slot('people', '人数')],
+      respond_action: { mode: 'template' as const, template: 'x' },
+    };
+    const optional = publishBlockers(scene, table, 'optional');
+    const required = publishBlockers(scene, table, 'required');
+    // 同一种 scene_type、同一个表数量，只因 module 档位不同结论就相反。
+    expect(optional.some((item) => item.includes('数据表'))).toBe(false);
+    expect(required.length).toBeGreaterThan(optional.length);
+    expect(required.some((item) => item.includes('数据表'))).toBe(true);
+  });
+
+  it('required 档在 0 张表时不再同时进 warning 通道（避免又报错又安抚）', () => {
+    expect(tableCountWarnings('table_match', 0, 'required')).toEqual([]);
+  });
+
   it('槽位指向不存在的列时拦住发布', () => {
     const blockers = publishBlockers(
       {
-        table_id: 't1',
+        table_ids: ['t1'],
+        scene_type: 'table_match',
         slots: [slot('people', '不存在的列')],
         respond_action: { mode: 'template', template: 'x' },
       },
@@ -159,7 +242,8 @@ describe('publishBlockers', () => {
   it('「没绑员工」不算阻塞项（可以先建后挂）', () => {
     const blockers = publishBlockers(
       {
-        table_id: 't1',
+        table_ids: ['t1'],
+        scene_type: 'table_match',
         slots: [slot('people', '人数')],
         respond_action: { mode: 'template', template: 'x' },
       },
