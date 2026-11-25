@@ -347,8 +347,19 @@ export default function SceneEditor({
           respond_action: { mode: respondMode, template: respondTemplate },
         },
         columnKeys,
+        // module 可以收紧档位（`travel.itinerary` 声明 required）。
+        // 漏传的后果见 `tableCountWarnings` 调用点的注释 —— 三处必须同时传。
+        selectedModuleMeta?.needs_table,
       ),
-    [columnKeys, respondMode, respondTemplate, sceneType, slots, tableIds],
+    [
+      columnKeys,
+      respondMode,
+      respondTemplate,
+      sceneType,
+      selectedModuleMeta?.needs_table,
+      slots,
+      tableIds,
+    ],
   );
 
   async function handleUpload(file: File | undefined) {
@@ -431,6 +442,7 @@ export default function SceneEditor({
           respond_action: { mode: respondMode, template: respondTemplate },
         },
         columnKeys,
+        selectedModuleMeta?.needs_table,
       );
       if (issues.length > 0) {
         notify.error(`还不能发布：${issues.join('；')}`);
@@ -832,15 +844,10 @@ export default function SceneEditor({
                   {/* 表数量提示（不阻断）。**不要**渲染成红色错误样式 ——
                       table_match 缺表只是建议，不拦发布。
 
-                      ⚠️ 这里**没传第三个参数 `moduleNeeds`**，因为定义器还没有
-                      module 选择器（自然也没有 module meta 可读）。后果是：
-                      一旦用户选了 `travel.itinerary` 这种声明 `needs_table:
-                      'required'` 的 module，发布校验会放过 0 张表。
-                      等「场景界面」区块做完（要能选 module 并读到它的 meta），
-                      这里和上面两处 `publishBlockers` 调用都要补
-                      `effectiveNeedsTable(sceneType, meta.needs_table)`。
-                      三者必须同时补，漏一处就会出现「提示说没事、保存却 400」。 */}
-                  {tableCountWarnings(sceneType, tableIds.length).map((text) => (
+                      ⚠️ 第三个参数 `moduleNeeds` 必须与上面两处 `publishBlockers`
+                      同时传。漏一处的表现是「提示说没事、保存却 400」，比全都不传
+                      更难查：因为 warning 说可以、按钮却报错，用户会以为界面坏了。 */}
+                  {tableCountWarnings(sceneType, tableIds.length, selectedModuleMeta?.needs_table).map((text) => (
                     <p
                       key={text}
                       className="m-0 mt-[8px] text-[12px] leading-[18px] text-[#b45309]"
