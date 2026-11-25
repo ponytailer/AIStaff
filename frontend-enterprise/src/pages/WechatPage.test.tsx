@@ -348,4 +348,38 @@ describe('WechatPage', () => {
 
     expect(screen.queryByText(/最近连接/)).toBeNull();
   });
+
+  // ---- 「正在自动恢复」不能劝人重扫（2026-11-25 反馈：总要重新扫码）-------
+
+  it('恢复中状态下明说「无需重新扫码」，且不劝重扫', async () => {
+    // 后端在 -14 冷却重试期间写 session_recovering。用户上次的抱怨就是：
+    // 这里被判成掉线 → 提示「建议断开后重新扫码」→ 用户照做，白白重扫。
+    stubFetch([
+      {
+        ...bindings[0],
+        last_error: 'session_recovering',
+        last_seen_at: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
+      },
+    ]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    expect(screen.getByText(/正在用原凭证自动重连/)).toBeTruthy();
+    expect(screen.getByText('（线程仍在运行，无需重新扫码）')).toBeTruthy();
+    // 关键反向断言：心跳已 40 分钟（超过 10 分钟判死窗口）也不能劝重扫
+    expect(screen.queryByText(/轮询可能已经停了/)).toBeNull();
+    expect(screen.queryByText(/建议断开后重新扫码接入/)).toBeNull();
+  });
+
+  it('真的失效时才提示重新扫码', async () => {
+    stubFetch([
+      { ...bindings[0], status: 'disconnected', last_error: 'session_expired_need_rescan' },
+    ]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(LOADED)).toBeTruthy());
+
+    expect(screen.getByText(/登录已失效，需要重新扫码接入/)).toBeTruthy();
+  });
 });

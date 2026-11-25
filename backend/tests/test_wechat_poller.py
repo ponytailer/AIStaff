@@ -19,6 +19,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.db.models import WechatBinding
 from app.wechat import poller as poller_mod
+from app.wechat.client import WeChatApiError
 from app.wechat.poller import BindingPoller, _failure_code
 
 
@@ -306,3 +307,165 @@ def test_stop_interrupts_backoff(engine, binding_id, monkeypatch):
         timer.cancel()
 
     assert p._stop.is_set()
+
+
+# ---- 5. -14 自愈（2026-11-25 反馈：总要重新扫码）--------------------------
+#
+# 现场表现：用户隔三差五被要求重新扫码。线上日志给出的决定性证据是
+#   「-14 冷却 3600s 第 1/5 次」→「Shutting down」→「凭证已失效，需重新扫码」，
+# 计数只有 1/5 却判死了：停机打断了冷却，`_try_recover` 返回 False 被当成
+# 「恢复失败达上限」。于是每次重启服务都干掉一条绑定。
+#
+# 另外两处叠加：`_recovery_failures` 只增不减（与「连续失败」语义不符）、
+# 冷却固定 1 小时（> 前端 10 分钟判死窗口，必然劝用户重扫）。
+
+
+class _ExpiringClient(FakeClient):
+    """按脚本吐 -14 / 正常响应；跑够轮数后自己叫停 poller。"""
+
+    def __init__(self, script: list[BaseException | None], *, stop_after: int, poller=None):
+        super().__init__(base_url="", token="")
+        self._script = list(script)
+        self._stop_after = stop_after
+        self._poller = poller
+
+    def get_updates(self, cursor: str = "", *, timeout_seconds: float = 40.0) -> dict:
+        self.calls += 1
+        if self.calls >= self._stop_after and self._poller is not None:
+            self._poller._stop.set()
+        if self._script:
+            err = self._script.pop(0)
+            if err is not None:
+                raise err
+        return {"get_updates_buf": cursor, "msgs": []}
+
+
+def _session_expired() -> WeChatApiError:
+    return WeChatApiError(-14, "session timeout")
+
+
+def test_recovery_counter_resets_after_a_successful_poll(engine, binding_id, monkeypatch):
+    """连续 5 次 -14 之后只要成功一轮，计数就必须归零。
+
+    反向验证：去掉 ``_run`` 里的 ``self._recovery_failures = 0``，序列
+    「5 次 -14 → 成功 → 再来一次 -14」会让第 7 轮判定为失效（计数变成 6），
+    这条用例就会红。
+    """
+    monkeypatch.setattr(poller_mod, "RECOVERY_COOLDOWN_START", 0.0)
+    monkeypatch.setattr(poller_mod, "RECOVERY_COOLDOWN_MAX", 0.0)
+    # 5 次 -14 → 成功一轮（计数必须归零）→ 再来一次 -14 → 恢复重试成功
+    script = [_session_expired() for _ in range(5)] + [None, _session_expired(), None]
+
+    p = make_poller(engine, binding_id, clients=[])
+    # 第 8 轮是成功响应，在同一轮里置 stop：循环正常退出，而不是在恢复重试途中
+    # 被判成「stop 被 set ⇒ 放弃自愈」（那是 stop() 打断的正常路径，不是失效）
+    client = _ExpiringClient(script, stop_after=8, poller=p)
+    p._client = client
+    p._client_key = ("https://ilinkai.weixin.qq.com", "tok_v1")
+
+    p._run()
+
+    row = read(engine, binding_id)
+    assert row.status == "active", "偶发 -14 自愈后不该被判成永久失效"
+    assert row.last_error == "", "成功那轮已经清过错误"
+    assert p._recovery_failures == 0, "成功之后计数必须从 0 重新数"
+
+
+def test_stop_during_recovery_cooldown_does_not_expire_binding(engine, binding_id, monkeypatch):
+    """停机打断 -14 冷却 ≠ 凭证失效。
+
+    这是「总要重新扫码」的真实主因（2026-11-25 线上日志）：
+        微信会话过期（-14），冷却 3600s 第 1/5 次 binding=wxbind_xxx
+        Shutting down
+        微信凭证已失效，需重新扫码 binding=wxbind_xxx
+    计数才 1/5，却因为 ``_try_recover`` 里 ``return not self._stop.is_set()``
+    返回 False，被 _run 当成「恢复失败达上限」而永久判死。于是**每次重启服务**
+    都会把当时正在冷却的绑定干掉，用户重扫完下次重启又中招。
+    """
+    monkeypatch.setattr(poller_mod, "RECOVERY_COOLDOWN_START", 600.0)
+
+    p = make_poller(engine, binding_id, clients=[])
+    client = _ExpiringClient([], stop_after=99, poller=p)
+    client._script = [_session_expired()]
+    p._client = client
+    p._client_key = ("https://ilinkai.weixin.qq.com", "tok_v1")
+
+    import threading
+
+    # 冷却中（600s）时外部叫停，模拟服务重启
+    timer = threading.Timer(0.05, p.stop)
+    timer.start()
+    try:
+        p._run()
+    finally:
+        timer.cancel()
+
+    row = read(engine, binding_id)
+    assert row.status == "active", "停机不是凭证失效，不能置 disconnected"
+    assert row.last_error != "session_expired_need_rescan"
+
+
+def test_consecutive_session_expiry_still_marks_expired(engine, binding_id, monkeypatch):
+    """自愈不能变成无限重试：连续第 6 次 -14 仍然要判真失效。"""
+    monkeypatch.setattr(poller_mod, "RECOVERY_COOLDOWN_START", 0.0)
+    monkeypatch.setattr(poller_mod, "RECOVERY_COOLDOWN_MAX", 0.0)
+    script = [_session_expired() for _ in range(6)]
+
+    p = make_poller(engine, binding_id, clients=[])
+    client = _ExpiringClient(script, stop_after=99, poller=p)
+    p._client = client
+    p._client_key = ("https://ilinkai.weixin.qq.com", "tok_v1")
+
+    p._run()
+
+    row = read(engine, binding_id)
+    assert row.status == "disconnected"
+    assert row.last_error == "session_expired_need_rescan"
+
+
+def test_recovery_cooldown_is_exponential_not_flat(engine, binding_id, monkeypatch):
+    """冷却必须退避：固定 1 小时会让偶发 -14 在界面上表现为「掉线」。"""
+    slept: list[float] = []
+    client = FakeClient(base_url="", token="")
+    p = make_poller(engine, binding_id, clients=[client])
+    p._sleep = lambda seconds: slept.append(seconds)  # type: ignore[method-assign]
+
+    for _ in range(5):
+        assert p._try_recover() is True
+
+    assert slept == [30.0, 60.0, 120.0, 240.0, 300.0], "30s 起翻倍、300s 封顶"
+    # 第 6 次直接判死，不再冷却
+    assert p._try_recover() is False
+    assert len(slept) == 5
+
+
+def test_recovery_marks_binding_as_recovering(engine, binding_id, monkeypatch):
+    """冷却期间要落一个「恢复中」状态：否则前端看到的只有变旧的心跳 → 劝重扫。"""
+    monkeypatch.setattr(poller_mod, "RECOVERY_COOLDOWN_START", 600.0)
+    client = FakeClient(base_url="", token="")
+    p = make_poller(engine, binding_id, clients=[client])
+    p._sleep = lambda seconds: None  # type: ignore[method-assign]
+    p._last_heartbeat = 0.0
+
+    p._try_recover()
+
+    row = read(engine, binding_id)
+    assert row.last_error == "session_recovering"
+    # 顺带刷心跳：线程此刻确实活着，不能让它落进 10 分钟判死窗口
+    assert row.last_seen_at is not None
+
+
+def test_successful_poll_clears_recovering_state(engine, binding_id):
+    """恢复成功后「恢复中」必须被清掉，否则界面一直停在「正在重连」。"""
+    with Session(engine) as db:
+        row = db.get(WechatBinding, binding_id)
+        assert row is not None
+        row.last_error = "session_recovering"
+        db.add(row)
+        db.commit()
+
+    client = FakeClient(base_url="", token="")
+    p = make_poller(engine, binding_id, clients=[client])
+    p._poll_once()
+
+    assert read(engine, binding_id).last_error == ""

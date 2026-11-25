@@ -123,6 +123,10 @@ const ERROR_LABEL: Record<string, string> = {
   network_timeout: '连接超时。长轮询偶尔会超时，通常下一轮自动恢复',
   network_unreachable: '连不上微信服务器，检查网络后会自动重试',
   network_error: '网络异常，正在自动重试',
+  // 后端在 -14（会话过期）冷却重试期间写这个码：线程还活着，正在用原 token
+  // 重试，用户什么都不用做。别和下面那条混在一起——那是真的判死了。
+  // 尾缀已在渲染处补「无需重新扫码」，这里不要再写一遍「无需操作」。
+  session_recovering: '会话过期，正在用原凭证自动重连',
   session_expired_need_rescan: '登录已失效，需要重新扫码接入',
 };
 
@@ -398,8 +402,13 @@ export default function WechatPage({ currentUser }: Props) {
     // `age === null` 要分两种：刚接入（首轮长轮询还没回来）是正常的启动中，
     // 已经有错误才是真异常——否则新扫码的用户一进页面就看到红字。
     const starting = age === null && !binding.last_error;
+    // 「恢复中」是后端明确告知的活状态（线程在跑、正用原 token 重连），
+    // 不能因为心跳偶尔超出窗口就把它算成掉线——那正是让用户白重扫的原因。
+    const recovering = binding.last_error === 'session_recovering';
     const stalled =
-      binding.status === 'active' && (stale || (age === null && Boolean(binding.last_error)));
+      binding.status === 'active' &&
+      !recovering &&
+      (stale || (age === null && Boolean(binding.last_error)));
     return (
       <div
         key={binding.id}
@@ -473,10 +482,19 @@ export default function WechatPage({ currentUser }: Props) {
         </div>
 
         {binding.last_error && (
-          <div className="mt-[10px] text-[12px] text-[#b4483c]">
-            最近错误：{errorText(binding.last_error)}
-            {binding.status === 'active' && !stalled && (
-              <span className="text-[#8a8a8f]">（已自动重试）</span>
+          // 「恢复中」不是故障，是过渡态：别用报错红，否则用户第一眼就以为坏了。
+          <div
+            className={`mt-[10px] text-[12px] ${recovering ? 'text-[#a06a1a]' : 'text-[#b4483c]'}`}
+          >
+            {/* 恢复中叫「连接状态」而不是「最近错误」：正在自愈的过渡态不是故障，
+                写成错误会让人以为要手动处理。 */}
+            {recovering ? '连接状态：' : '最近错误：'}
+            {errorText(binding.last_error)}
+            {recovering ? (
+              <span className="text-[#8a8a8f]">（线程仍在运行，无需重新扫码）</span>
+            ) : (
+              binding.status === 'active' &&
+              !stalled && <span className="text-[#8a8a8f]">（已自动重试）</span>
             )}
           </div>
         )}

@@ -12,6 +12,9 @@ iLink 的 ``getupdates`` 是长轮询（服务端最多 hold ~35s 才返回）�
 - **连续失败熔断** — 连败 5 次暂停 5 分钟，避免把临时故障放大成持续压测。
 - **-14 自愈** — 该错误码是「会话过期」，官方插件的做法是冷却后用原 token
   重试；连续恢复失败达到上限才判定为真失效（置 disconnected，等重新扫码）。
+  「连续」是字面意思：只要中间成功拉到一轮，计数就归零。冷却用指数退避
+  （30s 起、5 分钟封顶）而不是固定值——固定 1 小时会让一次偶发抖动在界面上
+  表现为「轮询停了，建议重新扫码」，用户于是真的去重扫（2026-11-25 反馈）。
 - **心跳可观测** — 每轮成功都清 ``last_error``，并按 ``POLL_HEARTBEAT_SECONDS``
   节流刷新 ``last_seen_at``。前端靠它区分「刚抖了一下」和「已经掉线」。
 """
@@ -39,7 +42,11 @@ POLL_FAILURE_CIRCUIT_SECONDS = 300.0
 #: 前端就是靠 ``last_seen_at`` 判断「这条绑定的轮询还活着吗」（10 分钟判死）。
 POLL_HEARTBEAT_SECONDS = 60.0
 SESSION_EXPIRED_ERRCODE = -14
-RECOVERY_COOLDOWN_SECONDS = 3600.0
+#: -14 冷却起点。偶发一次 -14 时腾讯那边往往几秒到几十秒就恢复，等 30s 足够；
+#: 原先固定 3600s，一次抖动就让绑定「静默」一小时（前端 10 分钟判掉线）。
+RECOVERY_COOLDOWN_START = 30.0
+RECOVERY_COOLDOWN_MAX = 300.0
+#: 连续（中间没有一次成功）恢复失败到这次数，才认定 token 真的废了。
 RECOVERY_MAX_FAILURES = 5
 
 _threads: dict[str, "BindingPoller"] = {}
@@ -92,6 +99,9 @@ class BindingPoller:
         self._client_key: tuple[str, str] = ("", "")
         # 心跳上次落库的时间（time.monotonic，不受系统时钟调整影响）
         self._last_heartbeat = 0.0
+        # 「有错误待清除」：心跳节流不能把「清 last_error」一起节掉，否则自愈
+        # 成功后界面还要挂着「恢复中」最多一个心跳窗口（实测就是被这条挡住）。
+        self._error_clear_pending = False
 
     # ---- 生命周期 --------------------------------------------------
 
@@ -149,10 +159,25 @@ class BindingPoller:
                 try:
                     self._poll_once()
                     self._failures = 0
+                    # -14 的「连续」语义靠这里兑现：中间只要成功拉到一轮，之前的
+                    # 会话过期就算翻篇了。原先只在 __init__ 里归零，等于进程活着
+                    # 就单调累加——跨天累计 5 次（每次都能自愈）就会被判成永久
+                    # 失效，用户被迫重扫。这是「总要重新扫码」的第二个来源；
+                    # 更常见的那个见下面 stop 守卫的注释。
+                    self._recovery_failures = 0
                 except WeChatApiError as exc:
-                    if exc.code == SESSION_EXPIRED_ERRCODE and self._try_recover():
-                        continue
                     if exc.code == SESSION_EXPIRED_ERRCODE:
+                        if self._try_recover():
+                            continue
+                        # 冷却被 stop() 打断时 _try_recover 同样返回 False，
+                        # 但那不是「凭证失效」，只是我们要关机了。漏掉这一行的
+                        # 后果非常实际：每次重启服务，当时正在 -14 冷却的绑定
+                        # 都被判成永久失效，用户被迫重新扫码（2026-11-25 线上
+                        # 日志：`-14 冷却 3600s 第 1/5 次` 紧跟 `Shutting down`
+                        # 再紧跟 `凭证已失效，需重新扫码`）。这里与 _on_failure
+                        # 的停机守卫是同一个道理，只是那条分支当时没覆盖到 -14。
+                        if self._stop.is_set():
+                            return
                         self._mark_expired()
                         return
                     self._on_failure(f"api_error:{exc.code}")
@@ -199,7 +224,9 @@ class BindingPoller:
         """记一次成功的拉取：推进游标、清错误、按节流刷心跳。"""
         now = time.monotonic()
         heartbeat_due = now - self._last_heartbeat >= POLL_HEARTBEAT_SECONDS
-        if new_cursor is None and not heartbeat_due:
+        # 清错误不受心跳节流：_mark_recovering 刚刷过心跳，如果这里被节流挡住，
+        # 「恢复中」会再挂满一个 POLL_HEARTBEAT_SECONDS 才消失。
+        if new_cursor is None and not heartbeat_due and not self._error_clear_pending:
             return
         with self._db() as db:
             row = db.get(WechatBinding, self.binding_id)
@@ -212,6 +239,7 @@ class BindingPoller:
             db.add(row)
             db.commit()
         self._last_heartbeat = now
+        self._error_clear_pending = False
 
     def _notify_unsupported(self, raw: dict, client: WeChatClient | None = None) -> None:
         """图片/文件消息暂不支持，明确告知而不是当成没收到。"""
@@ -261,16 +289,43 @@ class BindingPoller:
         self._sleep(backoff)
 
     def _try_recover(self) -> bool:
-        """-14 自愈：冷却后原 token 重试一次；连续失败到上限返回 False。"""
+        """-14 自愈：冷却后原 token 重试；连续失败到上限返回 False。
+
+        冷却用指数退避（30s → 60s → 120s → 240s → 300s 封顶），不是固定值：
+        偶发 -14 通常在第一次冷却后就能恢复，固定 1 小时纯属白等，而且等待
+        期间心跳不刷新，前端会判成掉线并劝用户重扫。
+        """
         self._recovery_failures += 1
         if self._recovery_failures > RECOVERY_MAX_FAILURES:
             return False
+        cooldown = min(
+            RECOVERY_COOLDOWN_START * (2 ** (self._recovery_failures - 1)),
+            RECOVERY_COOLDOWN_MAX,
+        )
+        # 冷却期间要让界面知道「正在自动恢复」而不是「已经死了」。
+        # 线程此刻确实还活着（刚接住异常，马上重试），所以顺带刷心跳：
+        # 否则 10 分钟判死窗口一到，前端就会劝用户重新扫码——用户照做，
+        # 而服务端其实几秒前已经自愈了。
+        self._mark_recovering()
         logger.warning(
             "微信会话过期（-14），冷却 %.0fs 后用原 token 重试（第 %s/%s 次） binding=%s",
-            RECOVERY_COOLDOWN_SECONDS, self._recovery_failures, RECOVERY_MAX_FAILURES, self.binding_id,
+            cooldown, self._recovery_failures, RECOVERY_MAX_FAILURES, self.binding_id,
         )
-        self._sleep(RECOVERY_COOLDOWN_SECONDS)
+        self._sleep(cooldown)
         return not self._stop.is_set()
+
+    def _mark_recovering(self) -> None:
+        """写入「恢复中」状态码，前端据此显示「正在自动恢复」而不是劝重扫。"""
+        with self._db() as db:
+            row = db.get(WechatBinding, self.binding_id)
+            if row is None:
+                return
+            row.last_error = "session_recovering"
+            row.last_seen_at = utc_now()
+            db.add(row)
+            db.commit()
+        self._last_heartbeat = time.monotonic()
+        self._error_clear_pending = True
 
     def _mark_expired(self) -> None:
         logger.error("微信凭证已失效，需重新扫码 binding=%s", self.binding_id)
