@@ -109,8 +109,9 @@ export function qualityLevelText(level: SceneQualityIssue['level']): string {
  *
  * ## 表数量为什么不在这里判
  *
- * 表数量阻断**必须**走 `tableCountIssues(scene_type, table_ids.length)`，
- * 因为档位随场景类型变（PRD §4.3.1 三档）：
+ * 表数量阻断**必须**走
+ * `tableCountIssues(scene_type, table_ids.length, moduleNeeds)`，
+ * 因为档位是「类型档位」与「module 档位」取更严的那个（PRD §4.3.1 三档）：
  *
  * | scene_type | needs_table | 0 张表时 |
  * |---|---|---|

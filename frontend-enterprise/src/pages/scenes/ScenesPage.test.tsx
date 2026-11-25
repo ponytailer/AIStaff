@@ -16,7 +16,9 @@ import ScenesPage from './ScenesPage';
  *
  * 断言重点放在「用户会不会被误导」：
  * 1. 成员看不到建/改/删入口（不是点了才 403）；
- * 2. 没有数据表时不能让人点「新建」进定义器（进去也是空转）；
+ * 2. 没有数据表时**仍然能**新建场景（`table_match` 是 `optional` 档，
+ *    「先建场景、绑员工、后补表」是管理员最自然的顺序；曾经这里拦过，
+ *    对 `script` / `handoff` 是纯粹的错误拦截）；
  * 3. 绑定员工 0 个 / 3 个的文案不能长得一样；
  * 4. 表被删除的场景不能显示成正常状态。
  */
@@ -62,7 +64,13 @@ function scene(overrides: Partial<Record<string, unknown>> = {}) {
     description: '按人数天数预算推荐行程',
     icon: '🎿',
     status: 'published',
-    table_id: 'sctable_1',
+    scene_type: 'table_match',
+    // module 身份是 v3 新增的两列（「类型」「界面组件」）的数据源。
+    // 夹具不带这两个字段的话，新列只会在「未指定」分支上被跑到，
+    // 有 module 的那条路径永远没测过。
+    module_key: 'generic.table_match',
+    module_version: 1,
+    table_ids: ['sctable_1'],
     trigger: { shortcut: true, keywords: ['滑雪'], shortcut_label: '', examples: [], require_slots: true, bypass_llm_router: true },
     slots: [
       { key: 'people', label: '人数', target: '人数' },
@@ -192,22 +200,47 @@ describe('ScenesPage 列表', () => {
   });
 
   it('数据表被删掉后不显示成正常状态', async () => {
-    mockFetch({ scenes: [scene({ table_id: 'sctable_gone' })] });
+    mockFetch({ scenes: [scene({ table_ids: ['sctable_gone'] })] });
     renderPage({ currentUser: admin });
     expect(await screen.findByText('表已删除')).toBeTruthy();
   });
 
-  it('没有场景时给出「新建」引导（有表的前提下）', async () => {
+  /**
+   * 「界面组件」列的两个分支都要测。
+   *
+   * 最容易写错的是空 `module_key`：它是**老场景的合法状态**（v3 之前建的，
+   * 前端按纯文本降级），不是加载失败。若渲染成空白，管理员看不出
+   * 「这个场景没有界面组件」和「组件加载出错了」的区别 —— 前者要补配置，
+   * 后者要重试，处理方式完全相反。
+   */
+  it('有 module 时显示 module_key，并带版本号在 title 里', async () => {
+    mockFetch({ scenes: [scene()] });
+    renderPage({ currentUser: admin });
+    const cell = await screen.findByText('generic.table_match');
+    expect(cell.getAttribute('title')).toContain('v1');
+  });
+
+  it('空 module_key（老场景）显示成「未指定（纯文本）」而不是空白', async () => {
+    mockFetch({ scenes: [scene({ module_key: '' })] });
+    renderPage({ currentUser: admin });
+    expect(await screen.findByText('未指定（纯文本）')).toBeTruthy();
+  });
+
+  it('没有场景时给出「新建」引导', async () => {
     mockFetch({ scenes: [] });
     renderPage({ currentUser: admin });
     expect(await screen.findByText(/还没有场景/)).toBeTruthy();
   });
 
-  it('一张表都没有时，空态指向「先导入表」而不是「新建场景」', async () => {
-    // 直接引导去新建，用户点进去会发现定义器里选不了表 —— 白跑一趟
+  it('一张表都没有时，空态仍然指向「新建场景」而不是「先去导入表」', async () => {
+    // 这条原来断言的是相反的行为（「先导入一张表」），v3 改掉了：
+    // `table_match` 是 optional 档、其余三类是 none 档，没有表照样能建场景。
+    // 旧文案会把用户引去导表，导完回来列表还是空的 —— 而且定义器里
+    // 照样能选「不配表」，所以那次导表完全是白跑。
     mockFetch({ scenes: [], tables: [] });
     renderPage({ currentUser: admin });
-    expect(await screen.findByText(/先导入一张表/)).toBeTruthy();
+    expect(await screen.findByText(/还没有场景/)).toBeTruthy();
+    expect(screen.queryByText(/先导入一张表/)).toBeNull();
   });
 });
 
@@ -242,7 +275,20 @@ describe('ScenesPage 权限', () => {
 });
 
 describe('ScenesPage 新建入口的前置条件', () => {
-  it('没有数据表时点「新建」给出明确提示，不打开定义器', async () => {
+  /**
+   * v3 口径变了：**一张表都没有时也可以新建场景**。
+   *
+   * 旧行为是 `openCreate` 里 `if (tables.length === 0) notify.error('先导入一张数据表')`
+   * 直接拦掉。但 PRD §4.3.1 三档里：
+   * - `table_match` → `optional`，0 张表合法
+   * - `sop_flow` / `handoff` / `script` → `none`，根本不用表
+   *
+   * 所以那条拦截对 4 个类型里 4 个都是错的。对 `script` 尤其荒谬：
+   * 一个纯话术场景被要求先导入 Excel 才能建。
+   *
+   * 「先建场景、绑员工、后补表」是管理员最自然的操作顺序，必须走得通。
+   */
+  it('没有数据表时也能新建场景（table_match 是 optional 档）', async () => {
     mockFetch({ scenes: [], tables: [] });
     const user = userEvent.setup();
     renderPage({ currentUser: admin });
@@ -250,10 +296,8 @@ describe('ScenesPage 新建入口的前置条件', () => {
     const button = await screen.findByText('＋ 新建场景');
     await user.click(button);
 
-    // 定义器的标题不会出现 —— 因为压根没进定义器
-    await waitFor(() => {
-      expect(screen.queryByLabelText('新建场景')).toBeNull();
-    });
+    // 直接进定义器，不再被「先导入表」拦住
+    expect(await screen.findByLabelText('新建场景')).toBeTruthy();
   });
 
   it('有表时点「新建」打开定义器', async () => {

@@ -2354,7 +2354,18 @@ export function slotSubmissionText(
  */
 export function uiBlocksForMessage(
   item: ChatMessage,
-  options: { hideKnowledgeCitations?: boolean; dismissedDraftMessageIds?: string[] } = {},
+  options: {
+    hideKnowledgeCitations?: boolean;
+    /** 已忽略的定时任务草案所属消息 id（与 `MessageList` 的 dismissedDraftMessageIds 同源）。 */
+    dismissedDraftMessageIds?: string[];
+    /**
+     * 正文（已按 `hideKnowledgeCitations` 剥过编号）。
+     *
+     * 知识引用的编号与合并要读正文里的 `[n]`，而正文是渲染期才确定的 ——
+     * 所以由调用方传进来，而不是让这个函数自己再算一遍（算两遍必然有一遍口径不同）。
+     */
+    visibleContent?: string;
+  } = {},
 ): A2UIBlock[] {
   if (item.role !== 'assistant') return [];
   const blocks: A2UIBlock[] = [];
@@ -2406,7 +2417,14 @@ export function uiBlocksForMessage(
     // （它需要正文里的 [n]，那是渲染期才知道的）。
     const rawCitations = item.metadata?.knowledge_citations;
     if (Array.isArray(rawCitations) && rawCitations.length > 0) {
-      blocks.push({ kind: 'knowledge_citations', data: { citations: rawCitations } });
+      const resolved = typeof options.visibleContent === 'string'
+        ? knowledgeCitations(item, options.visibleContent)
+        : [];
+      // 正文剥掉 [n] 后（`hideCitations` 或模型没写编号）解析结果可能为空 ——
+      // 此时不要挂一块只有标题、没有条目的空壳。
+      if (resolved.length > 0) {
+        blocks.push({ kind: 'knowledge_citations', data: { citations: resolved } });
+      }
     }
   }
 
@@ -2426,13 +2444,17 @@ export function uiBlocksForMessage(
   }
 
   // ---- ⑦ 定时任务草案 ----
-  const draft = scheduledDraftForMessage(item);
-  if (draft) {
-    blocks.push({
-      kind: 'scheduled_task_draft',
-      data: { draft },
-      fallback_text: draft.title || '定时任务草案',
-    });
+  // 用户点过「忽略」的草案不再出现（判定在 UI 侧，所以由调用方传进来）。
+  const dismissed = options.dismissedDraftMessageIds ?? [];
+  if (!dismissed.includes(item.id)) {
+    const draft = scheduledDraftForMessage(item);
+    if (draft) {
+      blocks.push({
+        kind: 'scheduled_task_draft',
+        data: { draft },
+        fallback_text: draft.title || '定时任务草案',
+      });
+    }
   }
 
   // ---- ⑧ 可点动作（「转人工」等） ----

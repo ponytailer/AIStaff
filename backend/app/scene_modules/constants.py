@@ -152,6 +152,11 @@ def table_count_warnings(needs: NeedsTable, n: int) -> list[str]:
     与 ``table_count_issues`` 严格互补：``issues`` 非空即阻断，本函数永不阻断。
     两者分开是为了让调用点只需判断「``issues`` 是否为空」就能决定放不放行，
     不必在同一个列表里区分 blocking / non-blocking。
+
+    注意：本函数只判断「档位 + 数量」。「配了槽位却没表」这类要看
+    ``slots_json`` 的提示，由**调用点**在拿到本函数返回值后再做一次过滤 ——
+    不要把 ``has_slots`` 塞进来当参数：那会让本函数无法脱离调用点测试真实数据流，
+    测试得先构造一个假的 ``has_slots``，测的就不是「配了槽位但没表」这个状态了。
     """
     count = max(0, int(n or 0))
     if needs == "optional" and count == 0:

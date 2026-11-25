@@ -24,6 +24,13 @@ import {
   type SceneTableRead,
   type SceneTrigger,
 } from '../../api/scenes';
+import type { SceneType } from '@/scenes/types';
+import { SCENE_TYPES, sceneTypeMeta, tableCountWarnings } from '@/scenes/types';
+import {
+  metaForModule,
+  modulesForSceneType,
+  useSceneModuleCatalog,
+} from '@/scenes/registry';
 import { api, TENANT_ID } from '../../api/client';
 import type { AgentProfileRead } from '../../types';
 import {
@@ -43,16 +50,27 @@ import {
 /**
  * 场景定义器。
  *
- * 六个区块按「配一个场景时人类真实的思考顺序」排：
+ * 区块按「配一个场景时人类真实的思考顺序」排。v3 目标是八个（契约 §4.2 的
+ * 区块显隐表）：
  * 1. 基础信息（叫什么、干什么）
- * 2. 数据表（查哪张表）
+ * 2. 场景界面（用哪个 module + 它的参数 + 兜底文本）  ← 待补
  * 3. 触发条件（什么时候轮到它）
  * 4. 槽位（问用户什么）
- * 5. 匹配策略（怎么算命中、空结果怎么办）
- * 6. 命中后回答（怎么组织语言）
+ * 5. 数据表（查哪张表）        ← 仅 needs_table !== 'none' 时渲染
+ * 6. 匹配策略（怎么算命中）    ← 同上
+ * 7. 兜底文本                  ← 待补
+ * 8. 绑定员工                  ← 待补
+ *
+ * **当前实现覆盖 1-8 全部区块**（v3 形状）：基础信息含类型选择器、
+ * 场景界面含 module 单选卡 + params_schema 驱动的参数 + 兜底文本、
+ * 数据表支持 0..N 张且可排序、按类型显隐。
  *
  * 顺序不能按后端字段顺序排（trigger 在 slots 前、match_action 在 respond 前），
  * 那样管理员要来回跳：「想改回答方式」得先滑过三个不相干的区块。
+ *
+ * **区块显隐必须是「不渲染」而不是置灰**（契约 §4.2 + §7.3）：类型创建后基本
+ * 不变，置灰会让管理员以为「以后能开」，而实际上永远开不了。这是 demo 与实现
+ * 唯一刻意不同处，不要按 demo 的置灰去「对齐」。
  *
  * 试跑面板固定在右侧，改任何一项都能立刻验证 —— 没有试跑，调策略就是盲调。
  */
@@ -79,7 +97,46 @@ export default function SceneEditor({
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('');
   const [status, setStatus] = useState<SceneStatus>('draft');
-  const [tableId, setTableId] = useState(tables[0]?.id ?? '');
+  /**
+   * 归属于本场景的表，**有序**（顺序即合并池的 `order_index`）。0..N 张。
+   *
+   * v3 起一个场景私有 0 到 N 张表（PRD §4.3.1）。曾经这里是单值 `tableId`，
+   * 那会让「同构合并查多张价目表」这个核心能力无处表达。
+   *
+   * 用数组而不是 `Set`：顺序有意义，且要能原样发给后端 `tables`。
+   */
+  const [tableIds, setTableIdsState] = useState<string[]>(
+    tables.length > 0 && tables[0].id ? [tables[0].id] : [],
+  );
+  /**
+   * 用户是否**动过**表清单（加/删/排序/导入）。
+   *
+   * 这个标记只为一件事存在：更新场景时决定要不要带 `tables` 字段。
+   * 后端语义是「`None` = 不改，`[]` = 清空」（`scenes/schema.py:152`），
+   * 而 `SceneEditor` 保存时总是把整个表单拼成一次 PUT —— 如果无条件带
+   * `tables: tableIds`，那么「只改了个场景名」也会重新提交表清单；一旦
+   * 此时 `tableIds` 还是空（加载失败、或表的响应慢于表单），管理员已有的表
+   * 就被悄悄清空了，且界面不报错。
+   *
+   * `JSON.stringify` 会丢掉 `undefined` 但保留 `[]`，所以「不发」必须靠
+   * **不赋值**实现，不能靠赋 `undefined`（那样类型上也不成立）。
+   */
+  const [tablesDirty, setTablesDirty] = useState(false);
+
+  /**
+   * 改表清单的**唯一入口**，顺带标 dirty。
+   *
+   * 刻意只收 updater 函数而不收值：写点有「导入追加 / 下拉添加 / 移除 /
+   * 上移 / 下移」五处，逐个手写 `setTablesDirty(true)` 迟早漏掉一处，而漏掉的
+   * 表现是「用户明明改了表，保存后却没生效」——比清空更难查。
+   *
+   * 「载入已有场景」是唯一例外，它走 `setTableIdsState`（见 load effect）：
+   * 回填不是用户的修改，标脏会让「只改了名字」也提交一次表清单。
+   */
+  const setTableIds = useCallback((updater: (current: string[]) => string[]) => {
+    setTablesDirty(true);
+    setTableIdsState(updater);
+  }, []);
   const [trigger, setTrigger] = useState<SceneTrigger>({ ...DEFAULT_TRIGGER });
   const [slots, setSlots] = useState<SceneSlot[]>([]);
   const [matchAction, setMatchAction] = useState<SceneMatchAction>({ ...DEFAULT_MATCH_ACTION });
@@ -88,6 +145,40 @@ export default function SceneEditor({
   const [shortcutAction, setShortcutAction] = useState<'form' | 'message' | 'url'>('form');
   const [shortcutUrl, setShortcutUrl] = useState('');
   const [agentIds, setAgentIds] = useState<string[]>(defaultAgentId ? [defaultAgentId] : []);
+
+  /**
+   * 场景类型。决定「数据表 / 匹配策略 / 槽位」三个区块显不显（契约 §4.2）。
+   *
+   * 显隐必须是**不渲染**而不是置灰：类型创建后基本不变，置灰会让管理员
+   * 以为「以后能开」，而实际上永远开不了。这是 demo 与实现唯一刻意不同处。
+   */
+  const [sceneType, setSceneType] = useState<SceneType>('table_match');
+  /**
+   * 用哪个前端 module 来画这块 UI。`''` = 没选（后端会用 `generic.*` 预填）。
+   *
+   * 它必须能改：module 决定「消息里那块 UI 长什么样」，是场景最核心的
+   * 可视能力；只读回填等于管理员永远用默认 module。
+   */
+  const [moduleKey, setModuleKey] = useState('');
+  /** module 私有参数，键由 module 的 `params_schema` 定，框架只透传不解释。 */
+  const [moduleParams, setModuleParams] = useState<Record<string, unknown>>({});
+  /** UI 渲染不出来时的纯文本兜底。**必填**（契约 §4.2）。 */
+  const [fallbackText, setFallbackText] = useState('');
+
+  /**
+   * 定义器里的 module 目录。会拉下每个 module 的 chunk —— 只在管理页面发生，
+   * 聊天端不走这条路径（见 `registry.ts` 的 `loadSceneModuleCatalog` 注释）。
+   */
+  const { metas: moduleMetas, loading: moduleMetasLoading } = useSceneModuleCatalog();
+  /** 只列支持当前类型的 module（PRD §6.1：事前不可选，不是选了报错）。 */
+  const candidateModules = useMemo(
+    () => modulesForSceneType(moduleMetas, sceneType),
+    [moduleMetas, sceneType],
+  );
+  const selectedModuleMeta = useMemo(
+    () => metaForModule(moduleMetas, moduleKey),
+    [moduleMetas, moduleKey],
+  );
 
   const [agents, setAgents] = useState<AgentProfileRead[]>([]);
   const [tablePreview, setTablePreview] = useState<SceneTablePreview | null>(null);
@@ -98,9 +189,17 @@ export default function SceneEditor({
   const [runResult, setRunResult] = useState<SceneRunResult | null>(null);
   const [running, setRunning] = useState(false);
 
+  /**
+   * 预览用哪张表：取已选列表里的第一张。
+   *
+   * 为什么只预览第一张：列定义用来配槽位，而槽位是**跨表同一套**的
+   * （多表要求同构，见 PRD §4.2）。逐张预览会让「到底按哪张配槽位」变模糊。
+   * 真正的多表数据核对在「试跑」面板里做——那里才看得到合并后的命中行。
+   */
+  const previewTableId = tableIds[0] ?? '';
   const currentTable = useMemo(
-    () => localTables.find((table) => table.id === tableId) ?? null,
-    [localTables, tableId],
+    () => localTables.find((table) => table.id === previewTableId) ?? null,
+    [localTables, previewTableId],
   );
   const columnKeys = useMemo(
     () => (currentTable?.columns ?? []).map((column) => column.key),
@@ -126,7 +225,21 @@ export default function SceneEditor({
         setDescription(row.description);
         setIcon(row.icon);
         setStatus(row.status);
-        setTableId(row.table_id);
+        // 读侧字段是 `table_ids`（后端 `SceneRead.table_ids`），不是 `table_id`。
+        // 写成 `row.table_id` 会恒 undefined → 打开已配好表的场景显示「未选表」，
+        // 然后管理员一保存就把原有的表全清了。这是二次伤害，比读不出来更糟。
+        setTableIdsState(Array.isArray(row.table_ids) ? row.table_ids : []);
+        setSceneType((row.scene_type as SceneType) ?? 'table_match');
+        setModuleKey(row.module_key ?? '');
+        // `ui_config` 是 `{schema_version, params, fallback_text}`（后端 `ui_config`
+        // 字段，刻意不冗余 module_key）。这里三个都要回填——只回填 params 会让
+        // 「打开已有场景，兜底文本变空」然后一保存就把它清掉。
+        setModuleParams(
+          row.ui_config && typeof row.ui_config.params === 'object'
+            ? { ...(row.ui_config.params as Record<string, unknown>) }
+            : {},
+        );
+        setFallbackText(row.ui_config?.fallback_text ?? '');
         setTrigger({ ...DEFAULT_TRIGGER, ...row.trigger });
         setSlots(row.slots ?? []);
         setMatchAction({ ...DEFAULT_MATCH_ACTION, ...row.match_action });
@@ -165,16 +278,16 @@ export default function SceneEditor({
     };
   }, []);
 
-  // 表变了就拉预览（需要列定义来配槽位）
+  // 预览表变了就拉预览（需要列定义来配槽位）
   useEffect(() => {
-    if (!tableId) {
+    if (!previewTableId) {
       setTablePreview(null);
       return;
     }
     let alive = true;
     void (async () => {
       try {
-        const preview = await getSceneTable(tableId, 20);
+        const preview = await getSceneTable(previewTableId, 20);
         if (!alive) return;
         // 结构校验：拿到的必须是 {table, rows}。直接透传会让下游 ?.table.quality
         // 在异常响应上炸掉整个定义器，而这类响应在代理/老接口下是会发生的事。
@@ -186,7 +299,7 @@ export default function SceneEditor({
     return () => {
       alive = false;
     };
-  }, [tableId]);
+  }, [previewTableId]);
 
   /**
    * 切表时把槽位重置成新表的三个语义槽位。
@@ -227,10 +340,15 @@ export default function SceneEditor({
   const blockers = useMemo(
     () =>
       publishBlockers(
-        { table_id: tableId, slots, respond_action: { mode: respondMode, template: respondTemplate } },
+        {
+          table_ids: tableIds,
+          scene_type: sceneType,
+          slots,
+          respond_action: { mode: respondMode, template: respondTemplate },
+        },
         columnKeys,
       ),
-    [columnKeys, respondMode, respondTemplate, slots, tableId],
+    [columnKeys, respondMode, respondTemplate, sceneType, slots, tableIds],
   );
 
   async function handleUpload(file: File | undefined) {
@@ -240,7 +358,9 @@ export default function SceneEditor({
       const preview = await importSceneTable(file);
       const table = preview.table;
       setLocalTables((current) => [table, ...current.filter((row) => row.id !== table.id)]);
-      setTableId(table.id);
+      // 追加到已选列表末尾（不是替换）：多表场景要「再传一张」，
+      // 替换会让刚配好的第一张表被悄悄踢掉。
+      setTableIds((current) => (current.includes(table.id) ? current : [...current, table.id]));
       setTablePreview(preview);
       const { blocking } = splitQuality(table.quality);
       if (blocking.length > 0) {
@@ -260,7 +380,25 @@ export default function SceneEditor({
       name: name.trim(),
       description: description.trim(),
       icon: icon.trim(),
-      table_id: tableId,
+      scene_type: sceneType,
+      // 请求侧字段名是 `tables`（不是 `table_ids`）：写侧用「我提交的表清单」，
+      // 读侧用「后端算给我的表清单」。两边名字不同是刻意的，见 api/scenes.ts。
+      //
+      // 更新时按 `tablesDirty` 条件展开：后端语义是「不传 = 不改，传 [] = 清空」。
+      // 无条件带 `tables` 会让「只改个名字」也重提交表清单，而 `[]` 会被当成
+      // 「把表全删了」——管理员上传的价目表就这么没了，界面还不报错。
+      // 新建时必须带（`isNew` 为真），否则后端拿不到首张表。
+      ...(isNew || tablesDirty ? { tables: tableIds } : {}),
+      // module 身份必须发：不发等于「保存成功但消息 UI 一直是默认 module」。
+      // `fallback_text` 进 ui_config，不进 module_config —— 前者是「渲染不出来给谁看」，
+      // 后者是「module 自己的业务参数」，两者生命周期不同。
+      module_key: moduleKey,
+      module_config: moduleParams,
+      ui_config: {
+        schema_version: 1,
+        params: moduleParams,
+        fallback_text: fallbackText.trim(),
+      },
       status,
       trigger,
       slots,
@@ -281,15 +419,17 @@ export default function SceneEditor({
       setActiveSection(1);
       return;
     }
-    if (!tableId) {
-      notify.error('先选一张数据表');
-      setActiveSection(2);
-      return;
-    }
+    // 表数量阻断由 publishBlockers 内的 tableCountIssues 统一判，这里不再硬拦
+    // 「必须先选表」——table_match 是 optional 档，先建后补表是合法路径。
     // 发布前必须过完整性检查；草稿允许半成品（用户就是要边配边存）
     if (targetStatus === 'published') {
       const issues = publishBlockers(
-        { table_id: tableId, slots, respond_action: { mode: respondMode, template: respondTemplate } },
+        {
+          table_ids: tableIds,
+          scene_type: sceneType,
+          slots,
+          respond_action: { mode: respondMode, template: respondTemplate },
+        },
         columnKeys,
       );
       if (issues.length > 0) {
@@ -413,6 +553,32 @@ export default function SceneEditor({
                     className={INPUT_CLASS}
                   />
                 </Field>
+                {/*
+                  场景类型：与名称同排（契约 §4 基础信息区块的 `row2`）。
+                  选项文案 `中文 · type` 照抄 demo —— 只写中文会让人对不上
+                  后端字段，只写英文则管理员看不懂。
+                  切换它会收放「数据表 / 匹配策略 / 槽位」三个区块。
+                */}
+                <Field label="场景类型" required hint="决定这个场景怎么处理，建好后基本不改">
+                  <select
+                    value={sceneType}
+                    onChange={(event) => {
+                      setSceneType(event.target.value as SceneType);
+                      // 切类型后旧的试跑结果不再有意义（换了处理通道）
+                      setRunResult(null);
+                    }}
+                    className={`${INPUT_CLASS} w-[280px]`}
+                  >
+                    {SCENE_TYPES.map((type) => {
+                      const meta = sceneTypeMeta(type);
+                      return (
+                        <option key={type} value={type}>
+                          {`${meta.label} · ${type}`}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </Field>
                 <Field label="场景描述" hint="告诉员工什么时候该用它，会进模型的系统提示">
                   <textarea
                     value={description}
@@ -432,34 +598,256 @@ export default function SceneEditor({
                 </Field>
               </Section>
 
-              {/* 2 数据表 */}
-              <Section index={2} title="数据表" active={activeSection} onEnter={setActiveSection}>
-                <div className="flex flex-wrap items-center gap-[10px]">
-                  <select
-                    value={tableId}
-                    onChange={(event) => {
-                      setTableId(event.target.value);
-                      setRunResult(null);
-                    }}
-                    className={`${INPUT_CLASS} w-[280px]`}
-                  >
-                    <option value="">选择数据表</option>
-                    {localTables.map((table) => (
-                      <option key={table.id} value={table.id}>
-                        {table.name}（{table.row_count} 行）
-                      </option>
+              {/* 2 场景界面（选 module）—— 契约 §4.1 */}
+              <Section index={2} title="场景界面" active={activeSection} onEnter={setActiveSection}>
+                <p className="m-0 mb-[8px] text-[12px] leading-[18px] text-[#9a9b95]">
+                  下面只列出<b>支持当前类型</b>的 module。选中后，消息里那块 UI 由它的代码决定。
+                </p>
+                {moduleMetasLoading ? (
+                  <p className="m-0 text-[12px] text-[#9a9b95]">加载 module 目录…</p>
+                ) : candidateModules.length === 0 ? (
+                  // 空态要说清是「这个类型还没有 module」而不是「加载失败」——
+                  // 两者的处置完全不同（前者去找开发加 module，后者刷新即可）。
+                  <p className="m-0 rounded-[8px] bg-[#fff2e5] px-[10px] py-[8px] text-[12px] leading-[18px] text-[#b45309]">
+                    还没有支持「{sceneTypeMeta(sceneType).label}」的 module。保存后消息里只会显示兜底文本。
+                  </p>
+                ) : (
+                  candidateModules.map((meta) => {
+                    const picked = meta.module_key === moduleKey;
+                    return (
+                      <button
+                        key={meta.module_key}
+                        type="button"
+                        onClick={() => {
+                          setModuleKey(meta.module_key);
+                          // 换 module 后旧的参数不再对得上新的 params_schema，
+                          // 保留会让「改文案不用发版」变成「改出一堆无效键」。
+                          setModuleParams({});
+                        }}
+                        className={`mb-[7px] flex w-full gap-[10px] rounded-[10px] border px-[11px] py-[9px] text-left transition-colors ${
+                          picked
+                            ? 'border-[#0f766e] bg-[#e1f1ed]'
+                            : 'border-[#ded7cc] bg-white hover:border-[#0f766e]'
+                        }`}
+                      >
+                        <span
+                          className={`mt-[2px] grid size-[13px] shrink-0 place-items-center rounded-full border-[1.5px] ${
+                            picked ? 'border-[#0f766e]' : 'border-[#cfc5b7]'
+                          }`}
+                        >
+                          {picked ? <span className="size-[6px] rounded-full bg-[#0f766e]" /> : null}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="flex items-baseline gap-[6px]">
+                            <span className="text-[12px] font-semibold text-[#18181a]">
+                              {meta.display_name || meta.module_key}
+                            </span>
+                            <span className="font-mono text-[11px] text-[#9a9b95]">
+                              {meta.module_key}
+                            </span>
+                          </span>
+                          <span className="mt-[2px] block text-[11px] leading-[1.5] text-[#9a9b95]">
+                            {meta.summary}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+
+                {/* module 参数：由 params_schema 驱动，加新 module 时这里零改动 */}
+                {selectedModuleMeta && selectedModuleMeta.params_schema.length > 0 && (
+                  <div className="mt-[11px] border-t border-[#e7dfd3] pt-[11px]">
+                    <p className="m-0 mb-[7px] text-[12px] font-semibold text-[#343633]">
+                      这个 module 的参数
+                      <span className="ml-[6px] font-normal text-[11px] text-[#9a9b95]">
+                        改文案不用发版
+                      </span>
+                    </p>
+                    {selectedModuleMeta.params_schema.map((field) => (
+                      field.type === 'boolean' ? (
+                        // 布尔项直接渲染成一行开关，不再套 Field —— 套了会出现
+                        // 「label 一行、空 label 的开关又一行」，同一个参数两个标题。
+                        <ToggleRow
+                          key={field.key}
+                          label={field.label}
+                          hint=""
+                          checked={Boolean(moduleParams[field.key] ?? field.default ?? false)}
+                          onChange={(next) =>
+                            setModuleParams((current) => ({ ...current, [field.key]: next }))
+                          }
+                        />
+                      ) : (
+                        <Field key={field.key} label={field.label}>
+                          <input
+                            value={String(moduleParams[field.key] ?? '')}
+                            onChange={(event) =>
+                              setModuleParams((current) => ({
+                                ...current,
+                                [field.key]: event.target.value,
+                              }))
+                            }
+                            placeholder={
+                              field.type === 'column' ? field.help ?? '填写表列 key' : field.placeholder
+                            }
+                            className={INPUT_CLASS}
+                          />
+                        </Field>
+                      )
                     ))}
-                  </select>
-                  <label className="cursor-pointer rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[6px] text-[12.5px] transition-colors hover:border-[rgba(24,24,26,0.3)]">
-                    {uploading ? '导入中…' : '＋ 导入 xlsx / csv'}
-                    <input
-                      type="file"
-                      accept=".xlsx,.xlsm,.csv"
-                      className="hidden"
-                      onChange={(event) => void handleUpload(event.target.files?.[0])}
-                    />
-                  </label>
-                </div>
+                  </div>
+                )}
+
+                {/*
+                  兜底文本：必填（契约 §4.2「兜底文本 显示（必填）」）。
+                  这是 module chunk 加载失败 / 后端上了新 kind / 非 UI 渠道
+                  三种情况下**唯一**还能给用户看的东西。不是可选项。
+                */}
+                <Field
+                  label="兜底文本"
+                  required
+                  hint="UI 渲染不出来时用户看到的纯文本，别写「暂无数据」"
+                >
+                  <textarea
+                    value={fallbackText}
+                    onChange={(event) => setFallbackText(event.target.value)}
+                    rows={2}
+                    placeholder="例如：找到了合适的套餐，详情看上面的卡片"
+                    className={cnTextarea}
+                  />
+                </Field>
+              </Section>
+
+              {/* 3 数据表 —— 按 scene_type 显隐（契约 §4.2：不渲染，不置灰） */}
+              {sceneTypeMeta(sceneType).blocks.tables && (
+                <Section index={3} title="数据表" active={activeSection} onEnter={setActiveSection}>
+                  {/* 已选表按顺序列出：顺序即合并池的 order_index，
+                      调整顺序会改变命中优先级，所以要让人看见并挪得动。 */}
+                  {tableIds.length > 0 ? (
+                    <ul className="m-0 mb-[10px] flex list-none flex-col gap-[6px] p-0">
+                      {tableIds.map((id, index) => {
+                        const table = localTables.find((row) => row.id === id);
+                        return (
+                          <li
+                            key={id}
+                            className="flex items-center gap-[8px] rounded-[8px] border border-[rgba(24,24,26,0.10)] bg-[#fbfaf6] px-[10px] py-[7px]"
+                          >
+                            <span className="grid size-[17px] shrink-0 place-items-center rounded-[5px] bg-[#e1f1ed] text-[10px] font-bold text-[#0f766e]">
+                              {index + 1}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[12.5px] text-[#18181a]">
+                              {table?.name ?? '表已删除'}
+                              {table ? (
+                                <span className="ml-[5px] text-[11px] text-[#9a9b95]">
+                                  {table.row_count} 行
+                                </span>
+                              ) : null}
+                            </span>
+                            {/* 上移/下移：顺序有意义，但没有顺序就调不了优先级 */}
+                            <button
+                              type="button"
+                              disabled={index === 0}
+                              onClick={() =>
+                                setTableIds((current) => {
+                                  const next = [...current];
+                                  [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                  return next;
+                                })
+                              }
+                              className="rounded-[5px] px-[5px] py-[2px] text-[11px] text-[#6d6d72] hover:bg-[#eeece4] disabled:opacity-30"
+                              aria-label="上移"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              disabled={index === tableIds.length - 1}
+                              onClick={() =>
+                                setTableIds((current) => {
+                                  const next = [...current];
+                                  [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                                  return next;
+                                })
+                              }
+                              className="rounded-[5px] px-[5px] py-[2px] text-[11px] text-[#6d6d72] hover:bg-[#eeece4] disabled:opacity-30"
+                              aria-label="下移"
+                            >
+                              ↓
+                            </button>
+                            {/* 移除只是从本场景解绑，不删表本身 —— 文案要说清，
+                                否则管理员不敢点，怕把上传的数据删了。 */}
+                            <button
+                              type="button"
+                              onClick={() => setTableIds((current) => current.filter((row) => row !== id))}
+                              className="rounded-[5px] px-[5px] py-[2px] text-[11px] text-[#b45309] hover:bg-[#fff2e5]"
+                              title="从本场景移除（不会删除表本身）"
+                            >
+                              移除
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="m-0 mb-[10px] rounded-[8px] bg-[#fbfaf6] px-[10px] py-[8px] text-[12px] leading-[18px] text-[#9a9b95]">
+                      还没有配数据表。这个类型可以先建好再补表。
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-[10px]">
+                    <select
+                      value=""
+                      onChange={(event) => {
+                        const id = event.target.value;
+                        if (!id) return;
+                        // 追加到末尾，不替换已有选择。
+                        setTableIds((current) => (current.includes(id) ? current : [...current, id]));
+                        setRunResult(null);
+                      }}
+                      className={`${INPUT_CLASS} w-[280px]`}
+                    >
+                      <option value="">＋ 添加已有数据表</option>
+                      {localTables
+                        .filter((table) => !tableIds.includes(table.id))
+                        .map((table) => (
+                          <option key={table.id} value={table.id}>
+                            {table.name}（{table.row_count} 行）
+                          </option>
+                        ))}
+                    </select>
+                    <label className="cursor-pointer rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[6px] text-[12.5px] transition-colors hover:border-[rgba(24,24,26,0.3)]">
+                      {uploading ? '导入中…' : '＋ 导入 xlsx / csv'}
+                      <input
+                        type="file"
+                        accept=".xlsx,.xlsm,.csv"
+                        className="hidden"
+                        onChange={(event) => void handleUpload(event.target.files?.[0])}
+                      />
+                    </label>
+                    <span className="text-[11px] text-[#9a9b95]">
+                      {tableIds.length > 0 ? `已配 ${tableIds.length} 张表` : '尚未配数据表'}
+                    </span>
+                  </div>
+
+                  {/* 表数量提示（不阻断）。**不要**渲染成红色错误样式 ——
+                      table_match 缺表只是建议，不拦发布。
+
+                      ⚠️ 这里**没传第三个参数 `moduleNeeds`**，因为定义器还没有
+                      module 选择器（自然也没有 module meta 可读）。后果是：
+                      一旦用户选了 `travel.itinerary` 这种声明 `needs_table:
+                      'required'` 的 module，发布校验会放过 0 张表。
+                      等「场景界面」区块做完（要能选 module 并读到它的 meta），
+                      这里和上面两处 `publishBlockers` 调用都要补
+                      `effectiveNeedsTable(sceneType, meta.needs_table)`。
+                      三者必须同时补，漏一处就会出现「提示说没事、保存却 400」。 */}
+                  {tableCountWarnings(sceneType, tableIds.length).map((text) => (
+                    <p
+                      key={text}
+                      className="m-0 mt-[8px] text-[12px] leading-[18px] text-[#b45309]"
+                    >
+                      {text}
+                    </p>
+                  ))}
 
                 {/* 质量问题必须显式呈现：静默通过会让用户以为表里没这些数据 */}
                 {(blocking.length > 0 || warnings.length > 0) && (
@@ -519,10 +907,11 @@ export default function SceneEditor({
                     </table>
                   </div>
                 )}
-              </Section>
+                </Section>
+              )}
 
               {/* 3 触发条件 */}
-              <Section index={3} title="触发条件" active={activeSection} onEnter={setActiveSection}>
+              <Section index={4} title="触发条件" active={activeSection} onEnter={setActiveSection}>
                 <ToggleRow
                   label="显示快捷按钮"
                   hint="聊天输入框上方显示一颗按钮，点开直接填表"
@@ -563,7 +952,7 @@ export default function SceneEditor({
               </Section>
 
               {/* 4 槽位 */}
-              <Section index={4} title="槽位（要问用户什么）" active={activeSection} onEnter={setActiveSection}>
+              <Section index={5} title="槽位（要问用户什么）" active={activeSection} onEnter={setActiveSection}>
                 <p className="m-0 mb-[10px] text-[12px] leading-[18px] text-[#9a9a9f]">
                   三个语义槽位对应匹配的三层：人数是硬约束、天数允许 ±1、预算按相对偏差排序。
                   key 不能改（匹配层按它取值），只需要把「对应列」指对。
@@ -666,7 +1055,7 @@ export default function SceneEditor({
               </Section>
 
               {/* 5 匹配策略 */}
-              <Section index={5} title="匹配策略" active={activeSection} onEnter={setActiveSection}>
+              <Section index={6} title="匹配策略" active={activeSection} onEnter={setActiveSection}>
                 <div className="grid grid-cols-2 gap-[12px]">
                   <NumberField
                     label="天数容差（天）"
@@ -718,7 +1107,7 @@ export default function SceneEditor({
               </Section>
 
               {/* 6 命中后回答 */}
-              <Section index={6} title="命中后回答" active={activeSection} onEnter={setActiveSection}>
+              <Section index={7} title="命中后回答" active={activeSection} onEnter={setActiveSection}>
                 <Field label="回答方式">
                   <select
                     value={respondMode}
@@ -784,7 +1173,7 @@ export default function SceneEditor({
               </Section>
 
               {/* 绑定员工 */}
-              <Section index={7} title="绑定员工" active={activeSection} onEnter={setActiveSection}>
+              <Section index={8} title="绑定员工" active={activeSection} onEnter={setActiveSection}>
                 {agents.length === 0 ? (
                   <p className="m-0 text-[12px] text-[#9a9a9f]">还没有可绑定的员工。</p>
                 ) : (

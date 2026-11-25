@@ -47,7 +47,8 @@ const SCENE = {
   description: '按人数天数预算推荐行程',
   icon: '🎿',
   status: 'published',
-  table_id: 'sctable_1',
+  scene_type: 'table_match',
+  table_ids: ['sctable_1'],
   trigger: { shortcut: true, keywords: [], shortcut_label: '', examples: [], require_slots: true, bypass_llm_router: true },
   slots: [
     { key: 'people', label: '人数', target: '人数', unit: '人' },

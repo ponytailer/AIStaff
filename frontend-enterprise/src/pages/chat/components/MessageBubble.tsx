@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import EmployeeAvatar from '@/components/EmployeeAvatar';
 import { notify } from '@/components/ui/app-toast';
@@ -17,7 +17,6 @@ import type {
   KnowledgeCitation,
   ScheduledTaskDraftRead,
   ScheduledTaskRead,
-  SuggestedMessageAction,
 } from '@/types';
 
 import {
@@ -80,9 +79,18 @@ import {
   dispatchNoticeInfo,
   formatTraceDuration,
   isDispatchNotice,
+  parseA2UIForm,
+  suggestedActionsOf,
+  uiBlocksForMessage,
 } from '../chatHelpers';
-import type { TraceLine } from '../chatTypes';
+import type { A2UIBlock, TraceLine } from '../chatTypes';
 import type { A2UIForm } from '../chatTypes';
+import {
+  formPayloadOf,
+  sceneParamsOf,
+  splitBlocksByMountSlot,
+  tailSegments,
+} from '../messageBlockSlots';
 import type { UseChatSession } from '../useChatSession';
 import ExecutionRecord from './ExecutionRecord';
 import HarnessArtifactDownloads from './HarnessArtifactDownloads';
@@ -91,6 +99,8 @@ import ScheduledDraftCard from './ScheduledDraftCard';
 import SlashCommandChip from './SlashCommandChip';
 import SlotFormCard from './SlotFormCard';
 import { slashCommandMessage } from '../slashCommands';
+import SceneBlockList from '@/scenes/SceneBlockList';
+import type { SceneUiBlock } from '@/scenes/types';
 
 export type TurnTraceTiming = {
   startedAt: number;
@@ -115,6 +125,16 @@ export type MessageRender = {
   harnessArtifacts: HarnessWorkspaceArtifact[];
   statusOnly: boolean;
   traceTiming?: TurnTraceTiming;
+  /**
+   * 这条消息的全部 UI 块（**有序**，由 `uiBlocksForMessage` 解析）。
+   *
+   * `MessageBubble` 只按 `kind` 决定把它放在哪个挂载位（见
+   * `messageBlockSlots.ts` 的四格表），不再自己判断「有没有引用」「有没有表单」。
+   *
+   * 可选：现有测试直接构造 `MessageRender` 时不传它，此时组件回落到自己解析
+   * （`render.blocks ?? uiBlocksForMessage(item, ...)`），既有用例一行不用改。
+   */
+  blocks?: A2UIBlock[];
   /** A2UI：缺槽询问附带的表单（只有最新一条助手消息才挂，避免过期表单被重复提交）。 */
   slotForm?: A2UIForm | null;
   /** 调度入口：这条答案是哪位同事答的（`metadata.dispatch`）。 */
@@ -384,21 +404,6 @@ function activeTeamProgress(item: ChatMessage): { phase: string; statusText: str
  * - 总耗时  = 消息发出 → 答案落库（含路由/检索/工具/落库，口径更宽）
  * 两者差距大时，用户一眼能看出慢在「等第一个字」还是「收尾」。
  */
-/**
- * 答案尾部可点动作（如「转人工」）。判定在后端落库时做过一次，这里只做形状
- * 收窄——metadata 是 index-signature，直接渲染可能拿到脏数据。
- */
-function suggestedActionsOf(item: ChatMessage): SuggestedMessageAction[] {
-  if (item.role !== 'assistant') return [];
-  const raw = item.metadata?.suggested_actions;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((row): row is SuggestedMessageAction => {
-    if (!row || typeof row !== 'object') return false;
-    const action = row as { label?: unknown; text?: unknown };
-    return typeof action.label === 'string' && Boolean(action.label) && typeof action.text === 'string';
-  });
-}
-
 function TurnDurationNote({ timing }: { timing: TurnTraceTiming }) {
   const running = timing.completedAt === undefined && timing.durationMs === undefined;
   const [now, setNow] = useState(() => Date.now());
@@ -474,6 +479,7 @@ export default function MessageBubble({
     slotForm,
     dispatchInfo,
   } = render;
+
   const queuedMessage = item.role === 'user' && item.metadata?.queued === true;
   // 调度入口的「转接通知」：由路由自己说「已转交给 X」，成员答案在它后面一条。
   // 它不是答案，所以不参与点赞、不显示 trace、也不走普通答案气泡的排版。
@@ -506,6 +512,83 @@ export default function MessageBubble({
   const authUser = chat.authUser;
   const senderName = (authUser?.display_name || authUser?.username || '你').trim() || '你';
   const senderInitial = senderName.charAt(0);
+
+  /**
+   * 这条消息的块数组 —— **渲染的唯一输入**。
+   *
+   * - `render.blocks` 存在就用它（`MessageList` 已经算过，含「已忽略的草案」过滤
+   *   与按正文算好的引用编号）；
+   * - 不存在时（单测直接构造 `MessageRender`）就用上面那几个具名字段**就地合成**
+   *   同样形状的块。
+   *
+   * 为什么合成而不是「重新从 item 解析一遍」：`citations` / `harnessArtifacts` /
+   * `slotForm` / `scheduledDraft` 已经是**调用方判定过的结果**（比如「只有最新一条
+   * 助手消息才挂表单」），重新解析会绕过那些判定 —— 那是行为变更，不是重构。
+   * 合成保证两条路径渲染出完全一样的 DOM。
+   */
+  const synthesizedBlocks: A2UIBlock[] = [];
+  if (dispatchInfo) {
+    // 挂载位 A。`MessageList` 会连同同轮去重一起算好并直接给 `blocks`；
+    // 这里是为了「测试/其它容器只传 `dispatchInfo`」时也不丢这个 chip。
+    synthesizedBlocks.push({
+      kind: 'dispatch',
+      data: {
+        memberName: dispatchInfo.memberName,
+        memberAgentId: dispatchInfo.memberAgentId,
+        intent: dispatchInfo.intent,
+      },
+    });
+  }
+  if (teamProgress) {
+    synthesizedBlocks.push({ kind: 'team_progress', data: { ...teamProgress } });
+  }
+  if (harnessArtifacts.length > 0) {
+    synthesizedBlocks.push({ kind: 'harness_artifacts', data: { artifacts: harnessArtifacts } });
+  }
+  if (citations.length > 0) {
+    synthesizedBlocks.push({ kind: 'knowledge_citations', data: { citations } });
+  }
+  if (slotForm) {
+    synthesizedBlocks.push({ kind: 'slot_form', data: { form: slotForm } });
+  }
+  if (scheduledDraft) {
+    synthesizedBlocks.push({ kind: 'scheduled_task_draft', data: { draft: scheduledDraft } });
+  }
+  if (quickActions.length > 0) {
+    synthesizedBlocks.push({ kind: 'suggested_actions', data: { actions: quickActions } });
+  }
+  const blocks: A2UIBlock[] = render.blocks ?? synthesizedBlocks;
+  const { head: headBlocks, body: bodyBlocks, below: belowBlocks, tail: tailBlocks }
+    = splitBlocksByMountSlot(blocks);
+  const tailGroups = tailSegments(tailBlocks);
+
+  /**
+   * 平台内置渲染器（注入给场景 module 用，见 `SceneBlockList` 的 render prop 说明）。
+   *
+   * `form` 块落回 `SlotFormCard`：后端 `form` 块的 `data` 就是
+   * `build_slot_form()` 的输出，与 legacy `metadata.a2ui` 同形，走同一份解析
+   * （`parseA2UIForm`）与同一个提交入口（`chat.submitSlotForm`）。
+   * 返回 `null` 表示「我不管这块」，`SceneBlockList` 会继续往下兜底
+   * （`text`/`handoff` 走平台默认渲染器，其余走兜底文本）。
+   */
+  const renderFormForScene = (data: Record<string, unknown>): ReactNode => {
+    const form = parseA2UIForm(data);
+    if (!form) return null;
+    return (
+      <SlotFormCard
+        form={form}
+        disabled={Boolean(teamProgress)}
+        onSubmit={(values) => chat.submitSlotForm(form, values)}
+      />
+    );
+  };
+
+  const renderBuiltinForScene = (block: SceneUiBlock): ReactNode => {
+    // 目前只有 `form` 类内置块需要平台接管；其余（定时任务草案 / 可点动作）
+    // 都是聊天页自己的块，不会出现在场景块的 data 里。
+    if (block.kind === 'form') return renderFormForScene(block.data ?? {});
+    return null;
+  };
 
   // 转接通知单独成一块：只显示「路由 → 转给了谁（+ 判定意图）」，
   // 不渲染 trace、点赞、引用卡片——它不是答案，成员答案在紧跟的下一条气泡里。
@@ -662,24 +745,33 @@ export default function MessageBubble({
               <StaffdeckIcon name="trash" size={14} />
             </button>
           )}
-          {/* 调度入口的答案来自某位同事：明确标出来，否则用户会以为入口自己在答。
+          {/* ── 挂载位 A：气泡头部 ───────────────────────────────────────
+              调度入口的答案来自某位同事：明确标出来，否则用户会以为入口自己在答。
               放在正文上方而不是下面——读者要先知道「谁在说话」。
               **同轮去重由 MessageList 负责**：一轮里已经渲染过「路由 · 已转交给 X」
-              气泡时，MessageList 会把 dispatchInfo 置空、不再挂这个 chip（用户反馈：
-              两者并存看起来像「有两段转接记录」）。本组件只负责渲染，不做跨组件判断。 */}
-          {item.role === 'assistant' && dispatchInfo && !statusOnly && (
-            <div className="mb-[7px] flex flex-wrap items-center gap-[5px] text-[11.5px]">
-              <span className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#dceee9] px-[6px] py-[2px] text-[#0f766e]">
-                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                由 {dispatchInfo.memberName} 回答
-              </span>
-              {dispatchInfo.intent && (
-                <span className="truncate text-[#9a9a9f]">{dispatchInfo.intent}</span>
-              )}
-            </div>
-          )}
+              气泡时，MessageList 不会产出这个 dispatch 块（用户反馈：两者并存看起来
+              像「有两段转接记录」）。本组件只负责渲染，不做跨组件判断。 */}
+          {!statusOnly && headBlocks.map((block, index) => {
+            if (block.kind !== 'dispatch') return null;
+            const data = block.data ?? {};
+            const memberName = typeof data.memberName === 'string' ? data.memberName : '';
+            const intent = typeof data.intent === 'string' ? data.intent : '';
+            if (!memberName) return null;
+            return (
+              <div
+                key={`head:${index}`}
+                className="mb-[7px] flex flex-wrap items-center gap-[5px] text-[11.5px]"
+              >
+                <span className="inline-flex items-center gap-[4px] rounded-[6px] bg-[#dceee9] px-[6px] py-[2px] text-[#0f766e]">
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M3 8h10M9 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  由 {memberName} 回答
+                </span>
+                {intent && <span className="truncate text-[#9a9a9f]">{intent}</span>}
+              </div>
+            );
+          })}
           {statusOnly ? (
             <div className="text-[13px] text-[#6d6d72]">{visibleContent}</div>
           ) : showInlineTrace && summary ? (
@@ -694,24 +786,35 @@ export default function MessageBubble({
 
           {!statusOnly && visibleContent ? (
             item.role === 'assistant' ? (
-              <div aria-live={teamProgress ? 'polite' : undefined} data-i18n-ignore>
+              <div aria-live={bodyBlocks.length > 0 ? 'polite' : undefined} data-i18n-ignore>
                 <MarkdownMessage content={visibleContent} />
                 {item.isStreaming && (
                   <span className={CHAT_STREAM_CURSOR_CLASS} aria-hidden="true" />
                 )}
-                {teamProgress && (
-                  <div
-                    role="status"
-                    aria-label={teamProgress.statusText}
-                    className="mt-[8px] flex items-center gap-[7px] text-[12px] text-[#6d7791]"
-                  >
-                    <span className="relative flex size-[7px]">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#1a71ff] opacity-40" />
-                      <span className="relative inline-flex size-[7px] rounded-full bg-[#1a71ff]" />
-                    </span>
-                    <span>{teamProgress.statusText}</span>
-                  </div>
-                )}
+                {/* ── 挂载位 B：正文内状态行 ──────────────────────────
+                    必须留在正文里（而不是尾部）：它是「这轮还在跑」的实时状态，
+                    挂在正文下方会和「已完成」的成果块混在一起。 */}
+                {bodyBlocks.map((block, index) => {
+                  if (block.kind !== 'team_progress') return null;
+                  const statusText = typeof block.data?.statusText === 'string'
+                    ? block.data.statusText
+                    : '';
+                  if (!statusText) return null;
+                  return (
+                    <div
+                      key={`body:${index}`}
+                      role="status"
+                      aria-label={statusText}
+                      className="mt-[8px] flex items-center gap-[7px] text-[12px] text-[#6d7791]"
+                    >
+                      <span className="relative flex size-[7px]">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#1a71ff] opacity-40" />
+                        <span className="relative inline-flex size-[7px] rounded-full bg-[#1a71ff]" />
+                      </span>
+                      <span>{statusText}</span>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className={cn(
@@ -750,51 +853,129 @@ export default function MessageBubble({
               />
           )}
 
-          {item.role === 'assistant' && harnessArtifacts.length > 0 && (
-            <HarnessArtifactDownloads
-              artifacts={harnessArtifacts}
-              tenantId={chat.tenantId}
-              sessionId={chat.activeConversationId}
-            />
-          )}
+          {/* ── 挂载位 C：正文下方 ─────────────────────────────────────
+              harness 产物与知识引用都留在这里（**不要**挪进尾列）：
+              它们是「答案的依据」，紧跟正文才读得通；挪到按钮之后会变成
+              「先看按钮再看依据」。看起来更整齐，但改掉了现有视觉。 */}
+          {belowBlocks.map((block, index) => {
+            if (block.kind === 'harness_artifacts') {
+              const artifacts = Array.isArray(block.data?.artifacts)
+                ? block.data.artifacts as typeof harnessArtifacts
+                : [];
+              if (artifacts.length === 0) return null;
+              return (
+                <HarnessArtifactDownloads
+                  key={`below:artifacts:${index}`}
+                  artifacts={artifacts}
+                  tenantId={chat.tenantId}
+                  sessionId={chat.activeConversationId}
+                />
+              );
+            }
+            if (block.kind === 'knowledge_citations') {
+              const items = Array.isArray(block.data?.citations)
+                ? block.data.citations as typeof citations
+                : [];
+              if (items.length === 0) return null;
+              return (
+                <KnowledgeCitationList
+                  key={`below:citations:${index}`}
+                  citations={items}
+                  onOpen={setActiveCitation}
+                />
+              );
+            }
+            return null;
+          })}
 
-          {item.role === 'assistant' && (
-            <KnowledgeCitationList citations={citations} onOpen={setActiveCitation} />
-          )}
+          {/* ── 挂载位 D：尾部 ─────────────────────────────────────
+              场景块 / 表单 / 定时任务草案 / 可点动作。
+              顺序即块数组的顺序（后端逐帧累加的顺序就是渲染顺序）。
 
-          {slotForm && (
-            <SlotFormCard
-              form={slotForm}
-              disabled={Boolean(teamProgress)}
-              onSubmit={(values) => chat.submitSlotForm(slotForm, values)}
-            />
-          )}
+              分两种渲染路径：
+              - `scene` 段 → 交给 `SceneBlockList`（有 module_key 查注册表，没有走
+                内置渲染器，再没有走兜底文本）；
+              - `builtin` 段 → 聊天页自己的组件（表单 / 草案 / 可点动作）。
 
-          {scheduledDraft && (
-            <ScheduledDraftCard
-              draft={scheduledDraft}
-              createdTask={createdTask}
-              onConfirm={(nextDraft) => void confirmScheduledTask(nextDraft, item.id)}
-              onDismiss={() => dismissScheduledTaskDraft(item.id)}
-            />
-          )}
-
-          {/* 可点动作贴正文，不走点评行的组尾判定：它就是答案的一部分
-              （「要不要我帮你转人工」），分开会出现「按钮跟着点赞走」的错位。 */}
-          {quickActions.length > 0 && (
-            <div className={CHAT_SUGGESTED_ACTIONS_CLASS}>
-              {quickActions.map((action) => (
-                <button
-                  key={`${action.type}:${action.text}`}
-                  type="button"
-                  className={CHAT_SUGGESTED_ACTION_BTN_CLASS}
-                  onClick={() => chat.sendQuickText(action.text)}
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          )}
+              为什么要分段而不是逐块：见 `tailSegments()` 的注释
+              （`SceneBlockList` 自带 `gap-[9px]`，插入它的块会被改掉间距）。 */}
+          {tailGroups.map((group, groupIndex) => {
+            if (group.type === 'scene') {
+              return (
+                <SceneBlockList
+                  key={`tail:scene:${groupIndex}`}
+                  blocks={group.blocks}
+                  params={sceneParamsOf(item)}
+                  onSendText={(text) => chat.sendQuickText(text)}
+                  onSubmitSlots={(values) => {
+                    const form = group.blocks
+                      .map((block) => formPayloadOf(block))
+                      .map((payload) => (payload ? parseA2UIForm(payload) : null))
+                      .find((candidate) => candidate !== null);
+                    if (!form) return;
+                    void chat.submitSlotForm(form, values);
+                  }}
+                  onOpenExternal={(url) => {
+                    if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
+                  }}
+                  disabled={Boolean(teamProgress)}
+                  renderBuiltin={renderBuiltinForScene}
+                  renderForm={renderFormForScene}
+                />
+              );
+            }
+            const block = group.block;
+            if (block.kind === 'slot_form') {
+              // 灰度期兜底：老数据只写 `metadata.a2ui`，或 v3 的 `form` 块还没带
+              // `module_key`（走不到注册表）——两种都落回同一个 `SlotFormCard`。
+              const form = parseA2UIForm(formPayloadOf(block));
+              if (!form) return null;
+              return (
+                <SlotFormCard
+                  key={`tail:form:${groupIndex}`}
+                  form={form}
+                  disabled={Boolean(teamProgress)}
+                  onSubmit={(values) => chat.submitSlotForm(form, values)}
+                />
+              );
+            }
+            if (block.kind === 'scheduled_task_draft') {
+              const draft = block.data?.draft as typeof scheduledDraft | undefined;
+              if (!draft) return null;
+              return (
+                <ScheduledDraftCard
+                  key={`tail:draft:${groupIndex}`}
+                  draft={draft}
+                  createdTask={createdTask}
+                  onConfirm={(nextDraft) => void confirmScheduledTask(nextDraft, item.id)}
+                  onDismiss={() => dismissScheduledTaskDraft(item.id)}
+                />
+              );
+            }
+            if (block.kind === 'suggested_actions') {
+              const actions = Array.isArray(block.data?.actions)
+                ? block.data.actions as ReturnType<typeof suggestedActionsOf>
+                : [];
+              if (actions.length === 0) return null;
+              // 可点动作贴正文，不走点评行的组尾判定：它就是答案的一部分
+              // （「要不要我帮你转人工」），分开会出现「按钮跟着点赞走」的错位。
+              return (
+                <div key={`tail:actions:${groupIndex}`} className={CHAT_SUGGESTED_ACTIONS_CLASS}>
+                  {actions.map((action) => (
+                    <button
+                      key={`${action.type}:${action.text}`}
+                      type="button"
+                      className={CHAT_SUGGESTED_ACTION_BTN_CLASS}
+                      onClick={() => chat.sendQuickText(action.text)}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              );
+            }
+            return null;
+          })}
 
           {/* 点评与耗时只挂在组尾：同组中间的补充说明不挂，否则一行按钮
               会把「一轮答复」从中间劈开，也把组间距撑得比换组还大。 */}

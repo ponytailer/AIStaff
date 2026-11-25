@@ -101,6 +101,33 @@ export function loadSceneModule(key: string): Promise<SceneModule | null> {
   return task;
 }
 
+/**
+ * 只取某个 module 的 `meta`（不拿组件）。
+ *
+ * ## 为什么入口胶囊要它，而不是渲染时直接读 `meta`
+ *
+ * `import.meta.glob` **不带 `eager`**（§上面第 1 条），所以构建产物里主包只有
+ * `() => import(...)` 箭头函数 —— 渲染期读不到 `meta`。而 `entry_behavior`
+ * 只存在于 `meta` 里（后端**刻意不持有**它，见 `SceneChip` 类型注释）。
+ *
+ * 所以口径是：**点击时才解析，而不是渲染时**（arch §5.8）。点击那一刻：
+ * - `send_text` 分支只是多发一句话，chunk 加载与网络请求并行，用户感知不到；
+ * - `open_form` 分支紧接着就要用同一个 chunk 里的 `SlotForm` 去画表单。
+ *
+ * **两次加载不是两次开销**：这里走 `loadSceneModule()`，它的 `moduleCache` 缓存的
+ * 是 Promise，`sceneModuleView()` 之后拿的是同一份已 resolve 的模块对象。
+ * 因此**不要**在这里直接调 `loaders[path]()` —— 那会绕过缓存，是个真的第二次加载。
+ *
+ * 返回 `null` 的两种情形都是「按 `open_form` 降级」的正常输入，不抛错：
+ * 未知 `module_key`（老场景 / 前端灰度落后）、chunk 加载失败。
+ */
+export async function loadSceneModuleMeta(moduleKey: string): Promise<SceneModuleMeta | null> {
+  if (!moduleKey) return null;
+  const mod = await loadSceneModule(moduleKey);
+  const meta = mod?.meta;
+  return meta && typeof meta.module_key === 'string' ? meta : null;
+}
+
 // ---------------------------------------------------------------------------
 // kind → module 组件
 // ---------------------------------------------------------------------------

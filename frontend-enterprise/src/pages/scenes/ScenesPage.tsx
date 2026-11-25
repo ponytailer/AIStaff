@@ -25,6 +25,7 @@ import {
   type SceneTableRead,
 } from '../../api/scenes';
 import { bindingText, statusMeta } from './sceneUtils';
+import { sceneTypeMeta } from '@/scenes/types';
 
 /**
  * 场景列表页。
@@ -112,10 +113,9 @@ export default function ScenesPage({
   );
 
   const openCreate = () => {
-    if (tables.length === 0) {
-      notify.error('先导入一张数据表，场景需要挂在表上');
-      return;
-    }
+    // 不再强制「先有表再建场景」：`table_match` 是 optional 档，其余三类是 none 档，
+    // 全都不需要预置表（PRD §4.3.1）。原来的拦截会让「先建场景、绑员工、后补表」
+    // 这条最自然的路径走不通，而且对 script / handoff 是纯粹的错误拦截。
     setCreating(true);
   };
 
@@ -154,14 +154,66 @@ export default function ScenesPage({
       ),
     },
     {
+      key: 'scene_type',
+      title: '类型',
+      width: 108,
+      render: (row) => {
+        const meta = sceneTypeMeta(row.scene_type);
+        return (
+          <span className="inline-flex items-center gap-[4px] text-[12px] text-[#6d6d72]">
+            <span aria-hidden>{meta.icon}</span>
+            {meta.label}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'module',
+      title: '界面组件',
+      width: 150,
+      render: (row) => {
+        // 空 module_key = 老场景（v3 之前建的），前端按纯文本降级。
+        // **不能显示成空白**：空白读起来像「加载失败」，而它其实是个
+        // 合法且需要管理员处理的状态（要么补 module，要么就一直纯文本）。
+        if (!row.module_key) {
+          return (
+            <span
+              className="text-[12px] text-[#9a9b95]"
+              title="这个场景没有指定界面组件，聊天里只会以纯文本呈现"
+            >
+              未指定（纯文本）
+            </span>
+          );
+        }
+        return (
+          <span
+            className="line-clamp-1 font-mono text-[11.5px] text-[#6d6d72]"
+            title={`${row.module_key} · v${row.module_version}`}
+          >
+            {row.module_key}
+          </span>
+        );
+      },
+    },
+    {
       key: 'table',
       title: '数据表',
       width: 180,
-      render: (row) => (
-        <span className="line-clamp-1 text-[12.5px] text-[#6d6d72]">
-          {tableNames[row.table_id] ?? '表已删除'}
-        </span>
-      ),
+      render: (row) => {
+        // 多表：显示「N 张」+ 首张表名。只显示首张会让人以为只有一张；
+        // 全列出来会把 180px 的列撑爆，所以给数量 + 首张 + hover 全量。
+        const ids = row.table_ids ?? [];
+        if (ids.length === 0) {
+          return <span className="text-[12.5px] text-[#9a9b95]">未配表</span>;
+        }
+        const names = ids.map((id) => tableNames[id] ?? '表已删除');
+        return (
+          <span className="line-clamp-1 text-[12.5px] text-[#6d6d72]" title={names.join('、')}>
+            {ids.length > 1 ? `${ids.length} 张 · ` : ''}
+            {names[0]}
+          </span>
+        );
+      },
     },
     {
       key: 'slots',
@@ -266,11 +318,13 @@ export default function ScenesPage({
           rowKey={(row) => row.id}
           loading={loading}
           emptyText={
-            tables.length === 0
-              ? '还没有可用的数据表。场景要挂在 excel/csv 上，先导入一张表。'
-              : canManage
-                ? '还没有场景，点右上角「新建场景」开始配置。'
-                : '这个员工还没有配置场景。'
+            // 不再按「有没有数据表」分叉文案。列表为空的原因是「还没有场景」，
+            // 与表无关——`table_match` 是 optional 档，其余三类是 none 档，
+            // 没有表照样能建场景。原来那句「先导入一张表」会把人引去做一件
+            // 并不必要的事，而且导完表回来列表还是空的，白跑一趟。
+            canManage
+              ? '还没有场景，点右上角「新建场景」开始配置。'
+              : '这个员工还没有配置场景。'
           }
         />
       </section>

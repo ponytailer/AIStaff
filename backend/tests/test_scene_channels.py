@@ -453,3 +453,47 @@ def test_empty_reason_quantifies_the_failing_layer() -> None:
     reason = empty_reason_for(_Result(), {"people": 99, "days": 5})
 
     assert "99" in reason and "人" in reason
+
+
+# ---------------------------------------------------------------------------
+# 聊天端入口胶囊（/api/chat/scenes）
+# ---------------------------------------------------------------------------
+
+
+def test_scene_chips_only_lists_published_and_active(db) -> None:
+    """胶囊只列 ``published`` + ``active``。
+
+    draft 出现在对话页会让用户点到一个「还没配完」的场景；
+    解绑后仍出现则违反「解绑即消失、不发版」这条红线。
+    """
+    from app.agents.branching import ensure_private_resource_binding
+
+    from app.scene_modules.chips import list_scene_chips
+
+    published = _make_scene(db, name="已发布")
+    ensure_private_resource_binding(db, TENANT, "agent_scene", "scene", published.id)
+    _make_scene(db, name="草稿", status="draft")
+    _make_scene(db, name="未绑定")
+    db.commit()
+
+    chips = list_scene_chips(db, tenant_id=TENANT, agent_id="agent_scene")
+
+    assert [c.scene_name for c in chips] == ["已发布"]
+
+
+def test_scene_chip_route_prefix_is_chat_scope(db) -> None:
+    """前缀必须是 ``/api/chat/``：分享访客白名单只放行该前缀。"""
+    from app.scene_modules.chips import chat_router
+
+    assert chat_router.prefix.startswith("/api/chat/")
+
+
+def test_scene_chip_payload_has_no_on_click_field() -> None:
+    """入口行为由 module 的 ``meta.entry_behavior`` 声明，后端不持有这个事实。
+
+    一旦把 ``on_click`` 塞进载荷，就等于把「点了干什么」抄进了 DB，
+    于是「改了前端代码线上行为没变」而且两处都看不到对方。
+    """
+    from app.scenes.schema import SceneModuleRead
+
+    assert "on_click" not in SceneModuleRead.model_fields

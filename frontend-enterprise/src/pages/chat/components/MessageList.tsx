@@ -25,6 +25,7 @@ import {
   traceDetails,
   traceLineAllowed,
   traceSummary,
+  uiBlocksForMessage,
 } from '../chatHelpers';
 import { staffdeckDisplayText } from '@/employee';
 import { parseBackendDateTime } from '@/lib/timezone';
@@ -200,6 +201,52 @@ export default function MessageList({
               : item.content,
           );
           const visibleContent = normalizeMessageText(rawVisibleContent) ? rawVisibleContent : '';
+          // A2UI 表单只挂最新一条助手消息：历史轮次的表单早已被提交过，
+          // 重新渲染出来只会诱导用户重复提交（后端也认不出旧步骤）。
+          // 另外，一旦后续出现了带 ``slot_submission`` 的用户消息，说明这张
+          // 表单已经提交过——刷新页面后不能再渲染出可编辑态。
+          const laterMessages = renderMessages.slice(itemIndex + 1);
+          const slotForm = item.role === 'assistant'
+            && !laterMessages.some((later) => later.role === 'assistant')
+            && !laterMessages.some((later) => Boolean(later.metadata?.slot_submission))
+            ? a2uiFormForMessage(item)
+            : null;
+          /**
+           * **一条消息 → 一个有序的块数组**（场景 v3 分发重构的核心）。
+           *
+           * 这里算完，`MessageBubble` 只负责「按 kind 决定挂在哪个位置」。
+           * 七个散落的 if 收敛到这一处 + `messageBlockSlots.ts` 的挂载位表，
+           * 于是「加一种新块」不再需要改七个地方。
+           *
+           * 注意三处「只有调用方知道」的判定必须在这里做完，不能丢给
+           * `uiBlocksForMessage`（它只看单条消息，看不到整轮）：
+           * 1. `visibleContent` —— 知识引用的编号要读正文里的 `[n]`；
+           * 2. `dismissedDraftMessageIds` —— 用户点过「忽略」的草案；
+           * 3. `slotForm` —— **只挂最新一条**（过期表单不该可编辑，见上）。
+           */
+          const blocks = uiBlocksForMessage(item, {
+            hideKnowledgeCitations,
+            dismissedDraftMessageIds,
+            visibleContent,
+          }).filter((block) => {
+            // 过期表单：`uiBlocksForMessage` 不知道「后面还有没有助手消息」，
+            // 所以这里把它掐掉。不掐的后果是历史轮次的表单又变成可填可提交，
+            // 后端认不出旧步骤，用户填完才发现没反应。
+            if (block.kind === 'slot_form') return Boolean(slotForm);
+            return true;
+          });
+          // 挂载位 A 的 dispatch 块：由 MessageList 合成（它要做同轮去重）。
+          const dispatchInfo = dispatchInfoFor(item);
+          if (item.role === 'assistant' && dispatchInfo) {
+            blocks.unshift({
+              kind: 'dispatch',
+              data: {
+                memberName: dispatchInfo.memberName,
+                memberAgentId: dispatchInfo.memberAgentId,
+                intent: dispatchInfo.intent,
+              },
+            });
+          }
           const citations = item.role === 'assistant' && !hideKnowledgeCitations
             ? knowledgeCitations(item, visibleContent)
             : [];
@@ -219,16 +266,6 @@ export default function MessageList({
           const harnessArtifacts = item.role === 'assistant'
             ? harnessWorkspaceArtifacts(item)
             : [];
-          // A2UI 表单只挂最新一条助手消息：历史轮次的表单早已被提交过，
-          // 重新渲染出来只会诱导用户重复提交（后端也认不出旧步骤）。
-          // 另外，一旦后续出现了带 ``slot_submission`` 的用户消息，说明这张
-          // 表单已经提交过——刷新页面后不能再渲染出可编辑态。
-          const laterMessages = renderMessages.slice(itemIndex + 1);
-          const slotForm = item.role === 'assistant'
-            && !laterMessages.some((later) => later.role === 'assistant')
-            && !laterMessages.some((later) => Boolean(later.metadata?.slot_submission))
-            ? a2uiFormForMessage(item)
-            : null;
           const statusOnly = stoppedStatusOnly;
           const showInlineTrace = Boolean(summaryForRender && !stoppedStatusOnly);
 
@@ -243,6 +280,11 @@ export default function MessageList({
             && attachments.length === 0
             && harnessArtifacts.length === 0
             && !slotForm
+            // 兜底：前面这些具名判断都是为了「不改变既有行为」而留下的显式条件，
+            // 真正的判据是 `blocks.length === 0` —— 块数组非空就一定有东西可画。
+            // 少了这一条，「只有场景块、正文为空」的消息会被整条丢弃：用户点了
+            // 入口胶囊、后端产了一张结果卡、气泡却不见了，且没有任何报错。
+            && blocks.length === 0
           ) {
             return null;
           }
@@ -288,6 +330,7 @@ export default function MessageList({
             harnessArtifacts,
             statusOnly,
             slotForm,
+            blocks,
             dispatchInfo: dispatchInfoFor(item),
             traceTiming,
           };

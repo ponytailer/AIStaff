@@ -78,11 +78,24 @@ def test_table_count_issues_cap_applies_to_optional() -> None:
     这条护栏就只对没有任何调用点的 ``required`` 生效 —— 等于不存在。
     """
     assert table_count_issues("optional", 20) == []
-    assert table_count_issues("optional", 21) != []
-    assert table_count_issues("required", 21) != []
     assert table_count_issues("none", 21) != []
-    # 上限判定必须**先**于下限判定：required + 21 报的是上限，不是「至少 1 张」
-    assert "最多" in table_count_issues("required", 21)[0]
+
+    # ↓ 这一行才是**唯一**顶住「判断顺序倒置」的断言。
+    #    若上限判断被 ``return []`` 抢在前面（或被人搬到 ``optional`` 分支之后），
+    #    ``optional`` + 21 会返回 ``[]``，上限护栏对 ``table_match`` 静默失效 ——
+    #    而 ``table_match`` 是唯一能传多表的类型，等于护栏不存在。
+    #    ``required`` + 21 **不能**用来检测顺序倒置，原因见下一条注释。
+    assert table_count_issues("optional", 21) != []
+
+    # 下面这行锁的是**文案归属**，不是判断顺序。
+    # 数量已超上限时，报的必须是「最多 20 张」而不是「至少需要 1 张」——
+    # 两者同时成立的场景里，后者会让用户完全不知道该做什么。
+    # 它分辨不出两个 if 的先后：``required`` 分支要求 ``n == 0``，与 ``n == 21``
+    # 互斥，那个分支根本不会进入，所以谁在前结果都一样。
+    # 用等值断言而非 ``in``，连文案变化也能发现。
+    assert table_count_issues("required", 21) == [
+        "一个场景最多 20 张表，当前 21 张"
+    ]
 
 
 def test_table_count_warnings_never_block() -> None:
