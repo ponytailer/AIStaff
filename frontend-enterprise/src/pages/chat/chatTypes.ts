@@ -119,13 +119,56 @@ export type A2UIField = {
 };
 
 export type A2UIForm = {
-  kind: 'slot_form';
+  /**
+   * 表单种类。**故意是 `string` 而不是 `'slot_form'` 字面量**：
+   *
+   * 场景 v3 之后，消息里可能同时有多套「块协议」——老的 `a2ui`（`kind: 'slot_form'`）、
+   * 新的 `ui_blocks`（`kind: 'form' | 'result' | ...`）、以及将来 module 自己声明的
+   * 其它 kind。类型收窄到 `'slot_form'` 会让「收到一个合法但未知的 kind」变成类型错误，
+   * 而运行期它必须能被安全忽略（渲染成兜底文本），不能抛。
+   *
+   * ⚠️ 放宽这个类型**不等于**要删 `chatHelpers.tsx` 里 `form.kind !== 'slot_form'`
+   * 那行收窄 —— 那是 legacy 通道的准入条件，与本类型无关（详见该处注释）。
+   */
+  kind: string;
   skill_id?: string;
   step_id?: string;
   step_name?: string;
   title?: string;
   submit_label?: string;
   fields: A2UIField[];
+};
+
+/**
+ * 消息内的一块 UI 的统一形态（场景 v3）。
+ *
+ * 字段与后端 `app/scene_modules/types.py:SceneUiBlock.to_dict()` **一一对应**，
+ * 另外多认两个 legacy 键（`id` / `type`）—— 消息 metadata 来自后端，必须容忍脏数据。
+ *
+ * ## 与 `BuiltinBlockKind` 的关系
+ *
+ * - `kind` 取 `BlockKind`（text/result/empty/step/handoff/form）= 后端产出的语义块，
+ *   有 `module_key` 就去注册表找 module 渲染，没有就走框架内置渲染器；
+ * - `kind` 取框架内置值（`suggested_actions` / `scheduled_task_draft` / `dispatch` /
+ *   `team_progress` / `harness_artifacts` / `knowledge_citations`）= **后端永不产出**，
+ *   由前端从既有 metadata 键合成，渲染器也在前端。
+ *
+ * 分发规则只有一条：**有 `module_key` 查注册表，否则走内置**。
+ */
+export type A2UIBlock = {
+  /** 语义 kind 或框架内置 kind。**不收紧成联合类型**（见 `A2UIForm.kind` 的理由）。 */
+  kind: string;
+  /** 结构化业务数据。形状由 kind 定死；module 只读不造。 */
+  data?: Record<string, unknown>;
+  /** 用哪个 scene module 渲染。缺失 → 走框架内置渲染器。 */
+  module_key?: string;
+  module_version?: number;
+  /** 场景实例 id（表单提交时要续跑同一个实例）。 */
+  scene_id?: string;
+  /** 块级兜底文本；空则用场景级 fallback_text。 */
+  fallback_text?: string;
+  /** 框架内置块自带的内容（`suggested_actions` 的 actions 等直接挂在块上）。 */
+  [extra: string]: unknown;
 };
 
 export const A2UI_FIELD_TYPES: ReadonlySet<string> = new Set([

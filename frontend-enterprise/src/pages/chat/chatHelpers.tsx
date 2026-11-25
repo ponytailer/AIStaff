@@ -14,6 +14,7 @@ import type {
   KnowledgeCitation,
   ScheduledTaskDraftRead,
   ScheduledTaskRead,
+  SuggestedMessageAction,
   UIConfigRead,
 } from '@/types';
 
@@ -27,6 +28,7 @@ import {
   CHAT_MD_TABLE_SCROLL_CLASS,
 } from './chatPageStyles';
 import type {
+  A2UIBlock,
   A2UIField,
   A2UIFieldOption,
   A2UIFieldType,
@@ -2314,8 +2316,182 @@ export function slotSubmissionText(
   return parts.length > 0 ? parts.join('；') : '（已提交表单）';
 }
 
+/**
+ * 消息里的**一块 UI** 的统一解析入口（场景 v3 分发重构的核心）。
+ *
+ * ## 这个函数统一的是「解析 + 分发 + 降级」，不是「位置」
+ *
+ * 重构前，一条助手消息里的 UI 由 7 处散落的 if 分支分别决定：
+ * `MessageBubble` 的 `suggested_actions` / `dispatch` / `team_progress` /
+ * `harness_artifacts` / `knowledge_citations` / `slotForm`，加上
+ * `chatHelpers` 的 `scheduled_task_draft` 与 `a2ui`。同一个概念（「这条消息要
+ * 画一块 UI」）被七个地方各判一次，于是：
+ * - 加一种新块（比如场景 module 的结果卡）要改七处；
+ * - 其中任意一处判错，界面上就是「少了一块」且没有任何报错；
+ * - 「块为空时整条消息要不要丢弃」这个判断也散在 `MessageList` 里。
+ *
+ * 现在统一成：**一条消息 → 一个有序的块数组**。渲染方只做一件事 ——
+ * 按 `kind` 决定把它放在哪个挂载位。
+ *
+ * ⚠️ **挂载位（位置）不由这个函数决定**，而且**同一类块的位置不许在重构中改变**：
+ *
+ * | 挂载位 | 位置 | 块 |
+ * |---|---|---|
+ * | A | 气泡头部 | `dispatch`（由 X 回答） |
+ * | B | 正文内状态行 | `team_progress` |
+ * | C | 正文下方 | `harness_artifacts` / `knowledge_citations` |
+ * | D | 尾部 | 场景块 / `slot_form` / `scheduled_task_draft` / `suggested_actions` |
+ *
+ * 把 `citations` 挪进尾列看起来更整齐，但那会改掉现有视觉 —— 这不是重构的目标。
+ *
+ * ## 降级规则（也是统一的）
+ *
+ * - `metadata.ui_blocks` 是后端 v3 通道（`SceneUiBlock.to_dict()` 的形状）；
+ * - 其余 6 个 legacy 键合成的块**一定没有 `module_key`** —— 也就是说它们
+ *   永远走框架内置渲染器，不会被误当成 scene module；
+ * - 任何一块解析失败就**跳过这块**（不是丢掉整条消息）：一条消息有 3 块，
+ *   一块脏数据不该让另外两块消失。
+ */
+export function uiBlocksForMessage(
+  item: ChatMessage,
+  options: { hideKnowledgeCitations?: boolean; dismissedDraftMessageIds?: string[] } = {},
+): A2UIBlock[] {
+  if (item.role !== 'assistant') return [];
+  const blocks: A2UIBlock[] = [];
+
+  // ---- ① 场景块（后端 v3 通道）。顺序即渲染顺序（后端逐帧累加）。 ----
+  const rawBlocks = item.metadata?.ui_blocks;
+  if (Array.isArray(rawBlocks)) {
+    for (const raw of rawBlocks) {
+      if (!isPlainRecord(raw)) continue;
+      const kind = typeof raw.kind === 'string' ? raw.kind : '';
+      if (!kind) continue;
+      blocks.push({
+        ...raw,
+        kind,
+        data: isPlainRecord(raw.data) ? raw.data : {},
+        module_key: typeof raw.module_key === 'string' ? raw.module_key : '',
+        module_version: typeof raw.module_version === 'number' ? raw.module_version : undefined,
+        fallback_text: typeof raw.fallback_text === 'string' ? raw.fallback_text : '',
+      });
+    }
+  }
+
+  // ---- ② dispatch：这条答案是哪位同事答的（内容由 MessageList 做同轮去重后传入） ----
+  // 去重逻辑留在 MessageList：它需要看整轮（alias 映射），这个函数只看单条消息。
+
+  // ---- ③ team_progress：多智能体协作的实时状态行 ----
+  const progress = item.metadata?.team_progress;
+  if (isPlainRecord(progress)) {
+    const phase = typeof progress.phase === 'string' ? progress.phase : '';
+    const statusText = typeof progress.status_text === 'string'
+      ? progress.status_text.trim()
+      : '';
+    // 只认 collecting / synthesizing：其它 phase 是历史脏值，画出来会是空状态行。
+    if (statusText && (phase === 'collecting' || phase === 'synthesizing')) {
+      blocks.push({ kind: 'team_progress', data: { phase, statusText } });
+    }
+  }
+
+  // ---- ④ harness 产物下载 ----
+  const artifacts = harnessWorkspaceArtifacts(item);
+  if (artifacts.length > 0) {
+    blocks.push({ kind: 'harness_artifacts', data: { artifacts } });
+  }
+
+  // ---- ⑤ 知识引用（正文里的 [n] 用来编号，所以这里要传 visibleContent） ----
+  if (!options.hideKnowledgeCitations) {
+    // 正文由调用方在算完 `visibleContent` 后决定；这里只判断「有没有引用数据」，
+    // 真正的编号/合并由 `knowledgeCitations(item, content)` 在渲染处完成
+    // （它需要正文里的 [n]，那是渲染期才知道的）。
+    const rawCitations = item.metadata?.knowledge_citations;
+    if (Array.isArray(rawCitations) && rawCitations.length > 0) {
+      blocks.push({ kind: 'knowledge_citations', data: { citations: rawCitations } });
+    }
+  }
+
+  // ---- ⑥ legacy a2ui 表单 ----
+  // 与 `ui_blocks` 双写期：如果 v3 通道已经给了 `form` 块，就不再合成 legacy 的
+  // `slot_form` 块 —— 否则同一张表单会被画两遍（一份能提交、一份提交到旧通道）。
+  const hasSceneForm = blocks.some((block) => block.kind === 'form');
+  if (!hasSceneForm) {
+    const form = a2uiFormForMessage(item);
+    if (form) {
+      blocks.push({
+        kind: 'slot_form',
+        data: { form },
+        fallback_text: form.title || '请补充以下信息',
+      });
+    }
+  }
+
+  // ---- ⑦ 定时任务草案 ----
+  const draft = scheduledDraftForMessage(item);
+  if (draft) {
+    blocks.push({
+      kind: 'scheduled_task_draft',
+      data: { draft },
+      fallback_text: draft.title || '定时任务草案',
+    });
+  }
+
+  // ---- ⑧ 可点动作（「转人工」等） ----
+  const actions = suggestedActionsOf(item);
+  if (actions.length > 0) {
+    blocks.push({ kind: 'suggested_actions', data: { actions } });
+  }
+
+  return blocks;
+}
+
+/**
+ * 消息尾部的「可点动作」解析（`metadata.suggested_actions`）。
+ *
+ * 判定在后端落库时做过一次，这里只做形状收窄 —— metadata 是 index-signature，
+ * 直接渲染可能拿到脏数据。
+ */
+export function suggestedActionsOf(item: ChatMessage): SuggestedMessageAction[] {
+  if (item.role !== 'assistant') return [];
+  const raw = item.metadata?.suggested_actions;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((row): row is SuggestedMessageAction => {
+    if (!row || typeof row !== 'object') return false;
+    const action = row as { label?: unknown; text?: unknown };
+    return typeof action.label === 'string' && Boolean(action.label) && typeof action.text === 'string';
+  });
+}
+
 export function a2uiFormForMessage(item: ChatMessage): A2UIForm | null {
-  const form = item.metadata?.a2ui;
+  return parseA2UIForm(item.metadata?.a2ui);
+}
+
+/**
+ * 把「表单描述」解析成可渲染的 `A2UIForm`。
+ *
+ * 抽出来是因为它有两个消费方，而**两边必须是同一份解析**：
+ * - `a2uiFormForMessage()` 读 legacy 通道 `metadata.a2ui`；
+ * - 场景 v3 的 `form` block（`data` 是 `build_slot_form()` 的输出，与 `metadata.a2ui`
+ *   同形）在灰度期可能没有 `module_key`，此时 `SceneBlockList` 要按 kind 落回
+ *   `SlotFormCard`，`MessageBubble` 的 `renderForm` 也走这条路径。
+ *
+ * 写两份解析会漂：一份容忍未知控件类型，另一份不容忍，同一条数据在两个入口
+ * 一个能填一个不能填。
+ */
+export function parseA2UIForm(payload: unknown): A2UIForm | null {
+  const form = payload;
+  // ⚠️ 这一行收窄**不能删**（PRD §16.1 第 17 条已改判为「保留」）。
+  //
+  // 它是 legacy 通道的准入条件：`metadata.a2ui` 这个老键里可能躺着任何脏数据。
+  // `A2UIForm.kind` 已放宽成 `string`（为了容纳 v3 的多种块），所以这个比较
+  // 现在看起来「多余」—— 其实两件事无关：
+  //   · 放宽类型 = 允许出现未知 kind 而不报类型错；
+  //   · 这行收窄 = 未知 kind 一律不渲染。
+  //
+  // 删掉它不会让现有用例变红（`chatHelpers.test.ts` 那两条 kind 非法的用例
+  // `fields` 都是空的，下一行 `fields.length === 0` 照样 return null），
+  // 但「kind 非法 + fields 合法」这种脏数据会被渲染成一张能填、能提交、
+  // 后端认不出 kind 的表单 —— 用户填完提交，后端静默丢弃或 422，前端全程无异常。
+  // `chatHelpers.test.ts` 里有一条专门锁它的用例（kind 非法 + fields 合法 → null）。
   if (!isPlainRecord(form) || form.kind !== 'slot_form') return null;
   if (!Array.isArray(form.fields) || form.fields.length === 0) return null;
   const fields: A2UIField[] = [];

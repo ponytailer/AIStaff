@@ -44,6 +44,11 @@ dependencies = [
   "psycopg2-binary>=2.9.9",
   # OA 表单代填：解析电子发票 PDF 价税合计，自动计算报销总金额
   "pypdf>=5.0.0",
+  # 场景功能：解析用户上传的 xlsx 数据表（只读，不用 pandas——
+  # 全量 DataFrame 对一个「读几千行做条件筛选」的需求过重，openpyxl 的
+  # read_only 迭代器足够且内存占用低一个数量级）。
+  # CSV 走标准库 csv，不额外引依赖。
+  "openpyxl>=3.1.2",
   # FAQ 采纳面板的关键词自动提取（中文分词；缺失时代码回退 2-gram）
   "jieba>=0.42.1",
 ]

@@ -322,6 +322,174 @@ class _FrameExecutionMixin:
         self.db.commit()
         return result
 
+    def _run_scene_frame(
+        self,
+        request: ChatTurnRequest,
+        session: ChatSession,
+        row: HarnessTaskFrameRecord,
+        frame: Any,
+    ) -> TaskExecutionResult | None:
+        """场景实例帧的轻量执行：走 ``scene_modules.run_scene_instance``，零 LLM。
+
+        为什么单独立一个方法而不是塞进 ``_run_direct_reply_frame``：那个方法已经
+        200 多行、承载 5 种模式，再塞第七种会让「哪条路径漏了 commit / 漏了
+        finish_frame」彻底看不出。这里照抄它的骨架（mark_running → 干活 →
+        finish_frame → finish_agent_loop → 事件 → commit），只是中间那段
+        「怎么产出回复」换成一次确定性场景执行。
+
+        返回 ``None`` 表示应降级到标准 Harness 路径。哪些情况降级：
+
+        - 帧上没有 ``scene_id``（计划是从旧版本库记录还原的，或计划生成期出错）
+        - 场景已被删除 / 解绑 / 转成草稿（``run_scene_instance`` 返回 error）
+        - 执行过程中抛异常（数据库、配置、第三方）
+
+        **降级而不是报错**：用户点了按钮，最差也该拿到一段泛泛的回答，
+        而不是一个红条。arch §5.7 的 graceful fallback 就是这条。
+        """
+        scene_id = str(getattr(frame, "scene_id", "") or "").strip()
+        if not scene_id:
+            # 没有 scene_id 的 scene_module 帧无法执行，也不可能靠重试修好
+            # （是计划生成期的缺失），直接降级。
+            self.events.record(
+                request.tenant_id,
+                session.id,
+                "task_frame_scene_fallback",
+                {
+                    "task_frame_id": row.task_id,
+                    "reason": "missing_scene_id",
+                    "execution_engine": "harness_v2",
+                },
+            )
+            return None
+
+        from app.scene_modules.runtime import run_scene_instance
+
+        self.store.mark_running(row)
+        agent_loop = self.store.ensure_agent_loop(row)
+        self.active_frame_id = row.id
+        self.active_frame_lease_owner = row.lease_owner
+        self.active_frame_attempt_no = row.attempt_no
+        self.events.record(
+            request.tenant_id,
+            session.id,
+            "task_frame_started",
+            {
+                "task_frame_id": row.task_id,
+                "kind": row.kind,
+                "execution_mode": "scene_module",
+                "scene_id": scene_id,
+                "agent_loop_id": agent_loop.id,
+                "agent_loop_kind": agent_loop.kind,
+                "execution_engine": "harness_v2",
+            },
+        )
+        try:
+            # persist=True：聊天执行要落 SceneRun（命中率与排障靠它）。
+            # session_id 传进去是因为 handoff 通道要在会话上下文里建真实工单。
+            result = run_scene_instance(
+                self.db,
+                tenant_id=request.tenant_id,
+                scene_id=scene_id,
+                slots=dict(row.slots_json or {}),
+                message=str(request.message or ""),
+                persist=True,
+                session_id=session.id,
+                user_id=request.user_id,
+            )
+        except Exception as exc:  # noqa: BLE001 - 降级到标准路径
+            row.status = "queued"
+            row.updated_at = utc_now()
+            self.db.add(row)
+            self.db.commit()
+            self.events.record(
+                request.tenant_id,
+                session.id,
+                "task_frame_scene_fallback",
+                {
+                    "task_frame_id": row.task_id,
+                    "scene_id": scene_id,
+                    "reason": str(exc)[:500],
+                    "execution_engine": "harness_v2",
+                },
+            )
+            return None
+
+        if result.status == "error":
+            # 场景不存在 / 租户不匹配 / 类型不支持：这些都不是「本帧失败」，
+            # 而是「这条场景不该被进入」。降级到普通对话比给用户看一句
+            # 「这个场景已不存在」更体面，也让用户能继续问别的。
+            row.status = "queued"
+            row.updated_at = utc_now()
+            self.db.add(row)
+            self.db.commit()
+            self.events.record(
+                request.tenant_id,
+                session.id,
+                "task_frame_scene_fallback",
+                {
+                    "task_frame_id": row.task_id,
+                    "scene_id": scene_id,
+                    "reason": "scene_status_error",
+                    "scene_text": result.text[:300],
+                    "execution_engine": "harness_v2",
+                },
+            )
+            return None
+
+        reply = result.text or ""
+        if not reply:
+            # 只产了块、没有正文（例如纯 result 卡）：仍要给一条文本，
+            # 否则非 UI 渠道（企微/微信/短信）会收到一条空消息。
+            reply = next(
+                (
+                    str((block.data or {}).get("content") or "").strip()
+                    for block in result.blocks
+                    if str((block.data or {}).get("content") or "").strip()
+                ),
+                "已为你处理这个场景。",
+            )
+
+        execution_result = TaskExecutionResult(
+            task_frame_id=row.task_id,
+            status="completed",
+            reply_fragment=reply,
+            task_summary=frame.user_intent or "场景实例执行。",
+            action_count=1,
+            ui_blocks=result.to_blocks_dicts(),
+            scene_status=result.status,
+        )
+        self.store.finish_frame(
+            row,
+            status=execution_result.status,
+            step_id=row.step_id,
+            slots=dict(row.slots_json or {}),
+            result=execution_result.model_dump(mode="json"),
+        )
+        self.store.finish_agent_loop_for_frame(
+            row,
+            result_status=execution_result.status,
+            checkpoint={},
+            last_run_id=None,
+        )
+        self.events.record(
+            request.tenant_id,
+            session.id,
+            "task_frame_finished",
+            {
+                "task_frame_id": row.task_id,
+                "kind": row.kind,
+                "execution_mode": "scene_module",
+                "scene_id": scene_id,
+                "status": execution_result.status,
+                "action_count": execution_result.action_count,
+                "agent_loop_id": agent_loop.id,
+                "agent_loop_status": execution_result.status,
+                "execution_engine": "harness_v2",
+            },
+        )
+        self.db.commit()
+        return execution_result
+
     def _run_frame(
         self,
         request: ChatTurnRequest,

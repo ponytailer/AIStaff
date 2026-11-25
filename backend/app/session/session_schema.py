@@ -61,12 +61,27 @@ class PlannedTaskFrame(BaseModel):
     # - faq_hit：反馈自进化的 FAQ 词法命中，零 LLM 直接返回标准答案
     # - handoff_intent：用户明确要转人工（点按钮/手打「转人工」），固定话术
     #   + 直接建单，零 LLM、不检索知识库
+    # - scene_module：命中管理员配置的场景实例（``scene_id`` 指定是哪一条）。
+    #   执行走 ``scene_modules.run_scene_instance``，零 LLM、不检索知识库。
+    #   注意：**这个值必须同时出现在 4 处白名单里**（本文件、planner._normalize、
+    #   turn_run 的 light_execution_mode_by_frame_id、turn_run 的帧循环分支）。
+    #   少一处不会有任何报错，只会表现为「点了按钮，等了很久，得到一段泛泛的回答」
+    #   —— 因为帧被归一化回 ``standard`` 后跑完整 Harness 循环（12-60s）。
     # 缺省/非法值一律回退 standard，不劣于现状。
     execution_mode: Literal[
-        "standard", "direct_reply", "capability_intro", "faq_hit", "handoff_intent"
+        "standard",
+        "direct_reply",
+        "capability_intro",
+        "faq_hit",
+        "handoff_intent",
+        "scene_module",
     ] = "standard"
     target_skill_id: Optional[str] = None
     target_step_id: Optional[str] = None
+    # 场景实例 id（仅 execution_mode="scene_module" 时有意义）。
+    # 与 target_step_id 并列而不是复用：一个场景实例不是 SOP 节点，
+    # 复用它会让 ``_run_scene_frame`` 去 SOP 引擎里查一个查不到的东西。
+    scene_id: Optional[str] = None
     user_intent: Optional[str] = None
     requirements: list[str] = Field(default_factory=list)
     slot_hints: dict[str, Any] = Field(default_factory=dict)
@@ -247,6 +262,18 @@ class ChatTurnRequest(BaseModel):
     # server-only and is applied only after the current employee binding has
     # been verified, so pinning a version never bypasses capability access.
     forced_sop_snapshot: Optional[dict[str, Any]] = Field(default=None, exclude=True)
+    # 内部调用方（场景胶囊点击、「选这个」按钮、表单提交轮）可以指定进入某个
+    # 场景实例。**与 ``forced_sop_id`` 同层**：两者都是「跳过意图识别、
+    # 直接进某个已确认的能力」，位置也必须在 handoff 短路之前——
+    # 用户点「选这个」发出的是「就选经典雪山五日」，一个关键词都没有，
+    # 放到 FAQ 之后会被 FAQ 先截走。
+    #
+    # 铁律：**必须校验它在该员工当前生效的绑定集内**（``resolve_scene_hit``
+    # 的第一条规则）。不校验的话，解绑后的旧请求、或伪造的 scene_id 仍能触发场景。
+    forced_scene_id: Optional[str] = Field(default=None, exclude=True)
+    # 场景胶囊点开表单后提交的那一轮：文本是「人数：4；天数：5；预算：3000」，
+    # **一个关键词都没有**，靠关键词匹配必然失败。所以表单提交轮必须由前端
+    # 带上 ``forced_scene_id``，后端再把它当 forced 处理。
     client_timezone: Optional[str] = None
     # A2UI：用户在**表单卡片**里提交的结构化槽位取值（``{字段名: 取值}``）。
     # 只作为「本轮用户消息的结构化伴随信息」参与槽位写入：确定性执行器优先

@@ -43,6 +43,7 @@ import IconAlarm from '../assets/icons/profile-alarm.svg?react';
 import IconHistory from '../assets/icons/profile-history.svg?react';
 import IconCalendar from '../assets/icons/profile-calendar.svg?react';
 import IconFolder from '../assets/icons/cap-folder.svg?react';
+import IconScenes from '../assets/icons/table.svg?react';
 import IconMagicWand from '../assets/icons/cap-magicwand.svg?react';
 import IconClipboard from '../assets/icons/cap-clipboard.svg?react';
 import IconBriefcase from '../assets/icons/cap-briefcase.svg?react';
@@ -121,6 +122,9 @@ const PROFILE_NAV: NavItem[] = [
 
 const CAPABILITY_NAV: NavItem[] = [
   { route: EnterpriseRoute.Knowledge, label: '知识库', Icon: IconFolder },
+  // 场景（excel/csv 条件筛选 + 推荐）与知识库是两条并列链路：
+  // 知识库吃文档，场景吃表格；入口必须分开，否则用户会把 xlsx 往知识库传
+  { route: EnterpriseRoute.Scenes, label: '场景', Icon: IconScenes },
   { route: EnterpriseRoute.GeneralSkills, label: '技能', Icon: IconMagicWand },
   { route: EnterpriseRoute.Skills, label: 'SOP', Icon: IconClipboard },
   { route: EnterpriseRoute.Tools, label: '工具', Icon: IconBriefcase },

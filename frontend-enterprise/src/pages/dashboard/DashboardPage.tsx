@@ -11,6 +11,7 @@ import IconProfileAlarm from '../../assets/icons/profile-alarm.svg?react';
 import IconProfileHistory from '../../assets/icons/profile-history.svg?react';
 import IconProfileCalendar from '../../assets/icons/profile-calendar.svg?react';
 import IconFolder from '../../assets/icons/cap-folder.svg?react';
+import IconScenes from '../../assets/icons/table.svg?react';
 import IconCapClipboard from '../../assets/icons/cap-clipboard.svg?react';
 import IconCapMagicWand from '../../assets/icons/cap-magicwand.svg?react';
 import IconCapBriefcase from '../../assets/icons/cap-briefcase.svg?react';
@@ -27,6 +28,7 @@ import MemoriesTab from './MemoriesTab';
 import ConversationLogsTab from './ConversationLogsTab';
 import WorkRecordTab, { ActivityTimeline } from './WorkRecordTab';
 import KnowledgeManagePage from '../KnowledgePage';
+import ScenesPage from '../scenes/ScenesPage';
 import SkillsPage from '../SkillsPage';
 import GeneralSkillsPage from '../GeneralSkillsPage';
 import FaqPage from '../FaqPage';
@@ -427,6 +429,9 @@ export default function DashboardPage({
   const selectedKnowledgeCount = visibleKnowledgeBases.length;
   const selectedGeneralSkillCount = agentResourceCount(selectedAgent, 'general_skill');
   const selectedSkillCount = agentResourceCount(selectedAgent, 'skill');
+  // 场景与工具同构：租户级定义 + 员工级绑定，没有「每员工一份副本」，
+  // 所以直接数绑定数。整体员工（广场宿主）不挂私有场景，恒 0。
+  const selectedSceneCount = selectedAgent.is_overall ? 0 : agentResourceCount(selectedAgent, 'scene');
   // 「工具」只算这个员工真正启用的：绑定状态 active（员工侧停用不算）且工具本身
   // enabled（工具被停用也不算）。整体员工（广场）没有绑定记录，回退到可见且启用。
   const selectedToolCount = selectedAgent.is_overall
@@ -566,6 +571,7 @@ export default function DashboardPage({
                 <HeroMetric value={selectedKnowledgeCount} label="资料" />
                 {/* FAQ 是「沉淀下来的标准答案」，不是资源绑定，所以单独数一次 */}
                 {faqCount ? <HeroMetric value={faqCount.faq_active} label="FAQ" /> : null}
+                <HeroMetric value={selectedSceneCount} label="场景" />
                 <HeroMetric value={selectedGeneralSkillCount} label="技能" />
                 <HeroMetric value={selectedSkillCount} label="SOP" />
                 <HeroMetric value={selectedToolCount} label="工具" />
@@ -596,6 +602,11 @@ export default function DashboardPage({
       )}
       {activeTab === 'knowledge' && (
         <KnowledgeManagePage embedded currentUser={currentUser} onLogout={onLogout} />
+      )}
+      {/* 场景：只看当前员工的。传 agentId 而不是复用全局列表，
+          否则档案页会把别人的场景也列出来，「这个员工的场景」就不成立了。 */}
+      {activeTab === 'scenes' && (
+        <ScenesPage embedded currentUser={currentUser} agentId={selectedAgent.id} onLogout={onLogout} />
       )}
       {activeTab === 'sop' && (
         <SkillsPage embedded currentUser={currentUser} onLogout={onLogout} />
@@ -1165,7 +1176,7 @@ function MetricTile({ label, value }: { label: string; value: number }) {
   );
 }
 
-type ProfileTabKey = 'work' | 'knowledge' | 'sop' | 'skills' | 'tools' | 'faq' | 'scheduled' | 'memories' | 'logs';
+type ProfileTabKey = 'work' | 'knowledge' | 'scenes' | 'sop' | 'skills' | 'tools' | 'faq' | 'scheduled' | 'memories' | 'logs';
 
 const PROFILE_TABS: {
   key: ProfileTabKey;
@@ -1175,6 +1186,9 @@ const PROFILE_TABS: {
 }[] = [
   { key: 'work', label: '工作记录', Icon: IconProfileFile, route: EnterpriseRoute.Dashboard },
   { key: 'knowledge', label: '知识库', Icon: IconFolder, route: EnterpriseRoute.Knowledge },
+  // 场景排在知识库之后：两者都是「给员工喂数据」，但一个是文档一个是表格，
+  // 位置相邻能让用户看到「哦，表格走这边」
+  { key: 'scenes', label: '场景', Icon: IconScenes, route: EnterpriseRoute.Scenes },
   { key: 'sop', label: 'SOP', Icon: IconCapClipboard, route: EnterpriseRoute.Skills },
   { key: 'skills', label: '技能', Icon: IconCapMagicWand, route: EnterpriseRoute.GeneralSkills },
   { key: 'tools', label: '工具', Icon: IconCapBriefcase, route: EnterpriseRoute.Tools },

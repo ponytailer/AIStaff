@@ -75,6 +75,7 @@ from app.db.models import (
     KnowledgeDocument,
     Message,
     ModelConfig,
+    Scene,
     ScheduledTask,
     Skill,
     Tool,
@@ -2294,6 +2295,13 @@ def _resolve_resource(
                 select(Tool).where(Tool.tenant_id == tenant_id, Tool.name == identifier)
             ).first()
         )
+    if resource_type == "scene":
+        return (
+            db.get(Scene, identifier)
+            or db.exec(
+                select(Scene).where(Scene.tenant_id == tenant_id, Scene.name == identifier)
+            ).first()
+        )
     return None
 
 
@@ -2351,6 +2359,7 @@ def _resource_binding_visible_in_agent_summary(
             "general_skill": GeneralSkill,
             "knowledge_base": KnowledgeBase,
             "tool": Tool,
+            "scene": Scene,
         }
         model = model_by_type.get(binding.resource_type)
         if model is None:
@@ -2417,6 +2426,10 @@ def _resource_binding_visible_in_agent_summary(
         return resource.status == "active"
     if isinstance(resource, Tool):
         return True
+    # 场景与工具同构：租户级定义 + 员工级绑定，没有「每员工一份副本」的概念，
+    # 所以不建 branch 表，绑定存在即可见（但要排除 archived 的场景）
+    if isinstance(resource, Scene):
+        return resource.status != "archived"
     return False
 
 
@@ -2452,6 +2465,7 @@ def _ensure_resource_exists(db: Session, tenant_id: str, item: AgentResourceBind
         "general_skill": GeneralSkill,
         "knowledge_base": KnowledgeBase,
         "tool": Tool,
+        "scene": Scene,
     }[item.resource_type]
     row = db.get(model, item.resource_id)
     if not row or row.tenant_id != tenant_id:

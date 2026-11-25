@@ -302,6 +302,13 @@ class TurnPlanner:
                     "capability_intro",
                     "faq_hit",
                     "handoff_intent",
+                    # 场景实例直通。漏加这一项的症状：帧被归一化回 standard →
+                    # 跑完整 Harness 循环（12-60s）→ **不报错**，用户只看到
+                    # 「点了按钮，等了很久，得到一段泛泛的回答」。这是
+                    # ``execution_mode`` 四处白名单里最容易漏的一处（另三处：
+                    # session_schema 的 Literal、turn_run 的
+                    # light_execution_mode_by_frame_id、turn_run 的帧循环分支）。
+                    "scene_module",
                 }:
                     frame.execution_mode = "standard"
                 if plan.decision == "handoff_human":

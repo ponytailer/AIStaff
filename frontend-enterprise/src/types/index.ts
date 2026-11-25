@@ -204,7 +204,7 @@ export type KnowledgeSearchResponse = {
   evidence_pack: KnowledgeSearchEvidence[];
 };
 
-export type AgentResourceType = 'skill' | 'general_skill' | 'knowledge_base' | 'tool';
+export type AgentResourceType = 'skill' | 'general_skill' | 'knowledge_base' | 'tool' | 'scene';
 
 export type AgentResourceBindingRead = {
   id: string;

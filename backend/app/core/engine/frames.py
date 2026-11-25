@@ -113,6 +113,12 @@ class TaskFrameStore(_FrameRunsMixin, _FrameProjectionMixin):
                     if continues_active and session.active_step_id
                     else frame.target_step_id
                 )
+            # 场景帧：``scene_id`` 与 ``step_id`` 平行，独立列。
+            # **不要塞进 slots_json**：``persist_plan`` 会把 slots_json 合并进会话
+            # 槽位、进而进 LLM 上下文，一个 ``scene_id`` 混在里面会让模型看到
+            # 一个它不认识的字段并可能拿它编话术（arch §5.2）。
+            if created:
+                row.scene_id = frame.scene_id
             row.user_intent = frame.user_intent
             row.requirements_json = list(frame.requirements)
             base_slots = (
@@ -616,6 +622,10 @@ def planned_frame_from_record(row: HarnessTaskFrameRecord) -> PlannedTaskFrame:
         decision=decision,
         target_skill_id=row.skill_id,
         target_step_id=row.step_id,
+        # 场景帧还原：不还原 ``scene_id`` 的话，计划落库后重启/续跑会得到一个
+        # ``execution_mode="scene_module"`` 但没有 ``scene_id`` 的帧 ——
+        # 那种帧只能降级成普通对话，用户看到「刚才点的那个场景不见了」。
+        scene_id=row.scene_id,
         user_intent=row.user_intent,
         requirements=list(row.requirements_json or []),
         slot_hints=dict(row.slots_json or {}),

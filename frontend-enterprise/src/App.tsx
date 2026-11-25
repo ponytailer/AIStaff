@@ -60,6 +60,7 @@ import OpenPlatformPage from "./pages/OpenPlatformPage";
 import PlatformUpdatesPage from "./pages/PlatformUpdatesPage";
 import PersonaPage from "./pages/PersonaPage";
 import SkillsPage from "./pages/SkillsPage";
+import ScenesPage from "./pages/scenes/ScenesPage";
 import {
   ScheduledTaskEditPage,
   ScheduledTaskNewPage,
@@ -199,7 +200,9 @@ function Shell({
       ? "/enterprise/platform"
         : location.pathname.startsWith("/enterprise/knowledge")
           ? "/enterprise/knowledge"
-          : location.pathname.startsWith("/enterprise/general-skills")
+          : location.pathname.startsWith("/enterprise/scenes")
+            ? "/enterprise/scenes"
+            : location.pathname.startsWith("/enterprise/general-skills")
             ? "/enterprise/general-skills"
             : location.pathname.startsWith("/enterprise/tools")
               ? "/enterprise/tools"
@@ -408,6 +411,7 @@ function Shell({
     "/enterprise/memories",
     "/enterprise/feedback",
     "/enterprise/knowledge",
+    "/enterprise/scenes",
     "/enterprise/skills",
     "/enterprise/tools",
   ];
@@ -432,6 +436,7 @@ function Shell({
     "/enterprise/skills",
     "/enterprise/general-skills",
     "/enterprise/tools",
+    "/enterprise/scenes",
     "/enterprise/memories",
   ];
   const dispatcherOnUnsupportedRoute =
@@ -718,6 +723,17 @@ function Shell({
                     currentUser={auth.user}
                     isAdmin={isAdmin}
                     profileTab="knowledge"
+                    onLogout={onLogout}
+                  />
+                }
+              />
+              <Route
+                path="/enterprise/scenes"
+                element={
+                  <DashboardPage
+                    currentUser={auth.user}
+                    isAdmin={isAdmin}
+                    profileTab="scenes"
                     onLogout={onLogout}
                   />
                 }

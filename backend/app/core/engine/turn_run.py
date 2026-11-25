@@ -70,6 +70,7 @@ from app.core.plan.planner_fastpath import (
     _faq_shortcircuit_plan,
     _handoff_shortcircuit_plan,
 )
+from app.scene_modules.runtime import _scene_shortcircuit_plan
 from app.core.base.ui_flags import knowledge_citations_hidden
 from app.db.models import (
     ChatSession,
@@ -290,20 +291,31 @@ class _TurnRunMixin:
                 planner_state,
             )
         else:
-            # 转人工直通：用户点「转人工」按钮/手打「转人工」时语义完全明确，
-            # 不值得走 LLM 规划（更不该去查知识库找依据）。命中即合成
-            # handoff_human 计划，下游轻量帧只回固定话术 + 建单。
-            handoff_plan = _handoff_shortcircuit_plan(
+            # 场景实例直通（v3）。位置在 handoff 之前、FAQ 之前，四个理由：
+            #
+            # ① **必须在 handoff 之前**：用户点胶囊「选这个」发出的是
+            #    「就选经典雪山五日」，一个关键词都没有；放到 FAQ 之后会被
+            #    FAQ 先截走，用户点了完整交互的场景入口却拿到一段标准话术。
+            # ② **必须在 FAQ 之前**：场景是管理员定制的业务能力（带 UI、表、
+            #    后续动作），FAQ 是运营沉淀的标准文本。同一句话两个都命中时，
+            #    定制业务逻辑应当赢。
+            # ③ 只在**没有 slash command** 时评估：``/skill`` 是用户显式指定
+            #    的能力，不能被场景抢走（这也是它放在这个 else 分支里的原因）。
+            # ④ 返回 None 时后续逻辑**零改动**（FAQ → 意图缓存 → planner →
+            #    普通对话）—— 那个 None 就是 graceful fallback 本身，
+            #    不需要另写兜底分支（arch §5.1）。
+            scene_plan = _scene_shortcircuit_plan(
+                self.db,
                 session,
                 execution_request.message,
-                routing_skills,
-                planner_state,
-                request.interaction_mode,
+                request,
+                on_trace=lambda text, extra: self._emit_stream_status(
+                    "scene", text, **(extra or {})
+                ),
             )
-            if handoff_plan is not None:
-                self._emit_stream_status("handoff", "转接人工同事")
+            if scene_plan is not None:
                 plan = self.planner._normalize(
-                    handoff_plan,
+                    scene_plan,
                     execution_request.message,
                     session,
                     routing_skills,
@@ -311,24 +323,20 @@ class _TurnRunMixin:
                     request.interaction_mode,
                 )
             else:
-                # FAQ 短路（反馈自进化）：词法命中已采纳的 FAQ 时零 LLM 直接返回
-                # 标准答案，绕过意图缓存与 planner——FAQ 答案编辑后必须立刻生效，
-                # 不能吃旧缓存；未命中才走意图缓存 / planner 原链路。守卫与
-                # planner fast path 同源（无 SOP 路由空间 + 非转人工）。
-                faq_plan = _faq_shortcircuit_plan(
-                    self.db,
+                # 转人工直通：用户点「转人工」按钮/手打「转人工」时语义完全明确，
+                # 不值得走 LLM 规划（更不该去查知识库找依据）。命中即合成
+                # handoff_human 计划，下游轻量帧只回固定话术 + 建单。
+                handoff_plan = _handoff_shortcircuit_plan(
                     session,
                     execution_request.message,
                     routing_skills,
                     planner_state,
                     request.interaction_mode,
-                    # 「先查 FAQ 再查知识库」要在执行过程里可见：命中/未命中都落一条
-                    # stream_status(phase=faq)，前端渲染成 trace 行。
-                    on_trace=lambda text, extra: self._emit_stream_status("faq", text, **extra),
                 )
-                if faq_plan is not None:
+                if handoff_plan is not None:
+                    self._emit_stream_status("handoff", "转接人工同事")
                     plan = self.planner._normalize(
-                        faq_plan,
+                        handoff_plan,
                         execution_request.message,
                         session,
                         routing_skills,
@@ -336,51 +344,76 @@ class _TurnRunMixin:
                         request.interaction_mode,
                     )
                 else:
-                    # 意图识别缓存：指纹含全部 planner 输入，命中即省一次模型调用；
-                    # Redis 不可用/指纹不可算 → 直接走原调用，行为与改造前一致。
-                    plan = None
-                    intent_cache_key = _intent_cache_key(
+                    # FAQ 短路（反馈自进化）：词法命中已采纳的 FAQ 时零 LLM 直接返回
+                    # 标准答案，绕过意图缓存与 planner——FAQ 答案编辑后必须立刻生效，
+                    # 不能吃旧缓存；未命中才走意图缓存 / planner 原链路。守卫与
+                    # planner fast path 同源（无 SOP 路由空间 + 非转人工）。
+                    faq_plan = _faq_shortcircuit_plan(
+                        self.db,
                         session,
+                        execution_request.message,
                         routing_skills,
-                        request,
-                        conversation_context,
-                        memory_context,
                         planner_state,
+                        request.interaction_mode,
+                        # 「先查 FAQ 再查知识库」要在执行过程里可见：命中/未命中都落一条
+                        # stream_status(phase=faq)，前端渲染成 trace 行。
+                        on_trace=lambda text, extra: self._emit_stream_status("faq", text, **extra),
                     )
-                    if intent_cache_key:
-                        cached_plan = get_json(intent_cache_key)
-                        if isinstance(cached_plan, dict):
-                            try:
-                                plan = TurnPlan.model_validate(cached_plan)
-                            except Exception:  # noqa: BLE001 - 缓存损坏按未命中处理
-                                plan = None
-                    if plan is None:
-                        # planner 是在 user_message_received 事件转发到 stream worker
-                        # 之前执行的，其 LLM span 若不显式携带 turn_id，诊断脚本就无法
-                        # 把 planner 慢调用归因到具体 turn（观测缺口）。ContextVar
-                        # 属性合并机制允许这里直接注入。
-                        from app.observability.spans import llm_span_attributes
-
-                        with llm_span_attributes(
-                            turn_id=self.user_message_id,
-                            user_message_id=self.user_message_id,
-                        ):
-                            plan = self.planner.plan(
-                                _turn_planner_message(request),
-                                session,
-                                routing_skills,
-                                planner_model_config,
-                                deepcopy(conversation_context),
-                                memory_context,
-                                planner_state,
-                                interaction_mode=request.interaction_mode,
-                            )
+                    if faq_plan is not None:
+                        plan = self.planner._normalize(
+                            faq_plan,
+                            execution_request.message,
+                            session,
+                            routing_skills,
+                            planner_state,
+                            request.interaction_mode,
+                        )
+                    else:
+                        # 意图识别缓存：指纹含全部 planner 输入，命中即省一次模型调用；
+                        # Redis 不可用/指纹不可算 → 直接走原调用，行为与改造前一致。
+                        plan = None
+                        intent_cache_key = _intent_cache_key(
+                            session,
+                            routing_skills,
+                            request,
+                            conversation_context,
+                            memory_context,
+                            planner_state,
+                        )
                         if intent_cache_key:
-                            set_json(
-                                intent_cache_key,
-                                plan.model_dump(mode="json"),
-                                ttl_seconds=INTENT_CACHE_TTL_SECONDS,
-                            )
+                            cached_plan = get_json(intent_cache_key)
+                            if isinstance(cached_plan, dict):
+                                try:
+                                    plan = TurnPlan.model_validate(cached_plan)
+                                except Exception:  # noqa: BLE001 - 缓存损坏按未命中处理
+                                    plan = None
+                        if plan is None:
+                            # planner 是在 user_message_received 事件转发到 stream worker
+                            # 之前执行的，其 LLM span 若不显式携带 turn_id，诊断脚本就无法
+                            # 把 planner 慢调用归因到具体 turn（观测缺口）。ContextVar
+                            # 属性合并机制允许这里直接注入。
+                            from app.observability.spans import llm_span_attributes
+
+                            with llm_span_attributes(
+                                turn_id=self.user_message_id,
+                                user_message_id=self.user_message_id,
+                            ):
+                                plan = self.planner.plan(
+                                    _turn_planner_message(request),
+                                    session,
+                                    routing_skills,
+                                    planner_model_config,
+                                    deepcopy(conversation_context),
+                                    memory_context,
+                                    planner_state,
+                                    interaction_mode=request.interaction_mode,
+                                )
+                            if intent_cache_key:
+                                set_json(
+                                    intent_cache_key,
+                                    plan.model_dump(mode="json"),
+                                    ttl_seconds=INTENT_CACHE_TTL_SECONDS,
+                                )
         self._renew_session_lease()
         self._raise_if_cancelled(request, session)
         slot_hydration = SlotHydrationPolicy.hydrate_plan(
@@ -477,7 +510,18 @@ class _TurnRunMixin:
             for frame in plan.task_frames
             if frame.kind == "conversation"
             and frame.execution_mode
-            in {"direct_reply", "capability_intro", "faq_hit", "handoff_intent"}
+            in {
+                "direct_reply",
+                "capability_intro",
+                "faq_hit",
+                "handoff_intent",
+                # 场景实例直通（零 LLM）。**这个白名单共 4 处**，4 处必须同时有
+                # "scene_module"：session_schema 的 Literal（值合法性）、
+                # planner._normalize 的白名单（防归一化回 standard）、
+                # 这里（决定走不走轻量分支）、以及下面帧循环里的 if 分支。
+                # 漏任何一处都**不报错**，只会静默退回完整 Harness（12-60s）。
+                "scene_module",
+            }
             and frame.task_id
         }
         self.db.commit()
@@ -580,6 +624,31 @@ class _TurnRunMixin:
             # 跳过完整 Harness 决策循环（43.6s 问题的主路径）。任何异常降级
             # 到标准路径。
             light_mode = light_execution_mode_by_frame_id.get(row.task_id)
+            if frame.kind == "conversation" and light_mode == "scene_module":
+                # 场景实例直通：确定性执行，零 LLM。放在这里而不是塞进
+                # _run_direct_reply_frame——那个方法已承载 5 种模式。
+                scene_result = self._run_scene_frame(
+                    request,
+                    session,
+                    row,
+                    frame,
+                )
+                if scene_result is not None:
+                    remaining_turn_actions = max(
+                        0,
+                        remaining_turn_actions - max(1, scene_result.action_count),
+                    )
+                    execution_results.append(scene_result)
+                    execution_payloads.append(
+                        _response_task_payload(
+                            row,
+                            scene_result,
+                            None,
+                            StepAgentResult(reply=scene_result.reply_fragment),
+                        )
+                    )
+                    continue
+                # 降级返回 None → 按标准 conversation 帧继续（用户最差也能拿到回答）。
             if frame.kind == "conversation" and light_mode:
                 direct_result = self._run_direct_reply_frame(
                     request,
@@ -738,6 +807,17 @@ class _TurnRunMixin:
         )
         if ui_form:
             assistant_metadata["a2ui"] = ui_form
+        # A2UI（v3）：块序列。与 a2ui 双写而不是替换——``a2ui`` 是单值表单，
+        # 前端 SlotFormCard 与既有读取点都还在用它；``ui_blocks`` 是「一条消息
+        # 可能同时有引言 + 结果卡 + 追问」的表达（arch §2.4）。
+        #
+        # 逐帧累加而不是取最后一个：多帧同轮时「取最后」会丢掉前面帧的块，
+        # 用户看到「刚才那个结果卡不见了」且没有任何报错。
+        ui_blocks: list[dict[str, Any]] = []
+        for item in execution_results:
+            ui_blocks.extend(list(getattr(item, "ui_blocks", None) or []))
+        if ui_blocks:
+            assistant_metadata["ui_blocks"] = ui_blocks
         if self.slash_command:
             assistant_metadata["slash_command"] = self.slash_command.model_dump(
                 mode="json"

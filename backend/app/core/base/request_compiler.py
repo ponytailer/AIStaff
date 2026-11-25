@@ -97,6 +97,19 @@ class TaskExecutionResult(BaseModel):
     # A2UI（MVP）：缺槽询问附带的**表单描述**，由 harness_v2_engine 放进助手
     # 消息 metadata，前端渲染成原生控件。纯展示契约，不参与任何判定。
     ui_form: dict[str, Any] | None = None
+    # A2UI（v3）：**块序列**，替代 ui_form 的单值表达。
+    #
+    # 为什么必须是列表：一条消息可能同时有「引言 + 结果卡 + 追问」（arch §2.4）。
+    # ui_form 单值 + 上层 ``next(reversed(...))`` 的写法在「前半帧问表单、后半帧
+    # 出结果」时会把表单整段丢掉，而用户看不到任何迹象。
+    #
+    # 与 ui_form 并存而不是替换：``ui_form`` 已被前端 SlotFormCard 消费，
+    # 且既有 ``a2ui`` metadata 键被多处读取。新块走 ``ui_blocks`` 这条**新通道**，
+    # 前端按 `chunk.module_key` 选择注册表渲染器（无 module_key 走内置渲染器）。
+    ui_blocks: list[dict[str, Any]] = Field(default_factory=list)
+    #: 场景帧的执行结果语义（ok / no_match / error）。聊天层用它决定
+    #: 「要不要把这轮当成失败来回退」，空串表示不是场景帧。
+    scene_status: str = ""
     loop_checkpoint: dict[str, Any] = Field(default_factory=dict, exclude=True)
 
 

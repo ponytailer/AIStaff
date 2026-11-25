@@ -34,6 +34,7 @@ from app.api import (
     plaza_news,
     scheduled_task_monitor,
     scheduled_tasks,
+    scenes,
     sessions,
     skills,
     static_assets,
@@ -52,6 +53,7 @@ from app.core.engine.recovery import (
 )
 from app.db import engine, init_db
 from app.db.seed import seed_demo_data
+from app.scene_modules import chips as scene_chips
 from app.public_api import create_public_api_app
 from app.public_api.jobs import cleanup_public_api_records, recover_public_jobs
 from app.public_api.maintenance import start_public_api_maintenance, stop_public_api_maintenance
@@ -221,6 +223,11 @@ app.include_router(scheduled_tasks.enterprise_router)
 app.include_router(scheduled_tasks.chat_router)
 app.include_router(scheduled_tasks.chat_draft_router)
 app.include_router(scheduled_task_monitor.enterprise_router)
+app.include_router(scenes.router)
+# 聊天端场景入口胶囊。前缀必须是 /api/chat/ —— 分享访客的路径白名单只放行
+# 该前缀与 /api/public/agent-shares/（见本文件 _SHARE_SCOPE_ALLOWED_PREFIXES）。
+# 挂在 /api/enterprise/ 下会让分享页 403，且失败信息看不出根因。
+app.include_router(scene_chips.chat_router)
 app.include_router(ui_config.enterprise_router)
 app.include_router(tools.router)
 app.include_router(tools.mcp_router)

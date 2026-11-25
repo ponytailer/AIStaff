@@ -1419,6 +1419,11 @@ class HarnessTaskFrameRecord(SQLModel, table=True):
     sequence: int = 0
     skill_id: Optional[str] = Field(default=None, index=True)
     step_id: Optional[str] = Field(default=None, index=True)
+    # 场景帧专用（execution_mode="scene_module"）。与 skill_id 语义平行：
+    # 一个帧要么跑 SOP，要么跑场景实例，要么是普通对话。
+    # 独立列而不是塞进 slots_json —— 后者会被 persist_plan 合并进会话槽位、
+    # 进而污染 LLM 上下文（见 arch §5.2）。
+    scene_id: Optional[str] = Field(default=None, index=True)
     user_intent: Optional[str] = None
     requirements_json: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     slots_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -2142,3 +2147,155 @@ class WechatIdentityLink(SQLModel, table=True):
     user_id: str = Field(index=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+# ============================================================
+# 场景（Scene）：数据表驱动的结构化业务应答
+#
+# 与知识库是两条完全独立的链路：Excel/CSV 的解析结果**不进 chunk 池**，
+# 单独落列定义与行数据，用结构化条件匹配，而不是词法/向量检索。
+# 设计依据见 docs/scenes/scene-design.md。
+# ============================================================
+
+
+class SceneTable(SQLModel, table=True):
+    """场景数据表：一张 Excel/CSV 的结构化形态。
+
+    一个 SceneTable 由一个上传文件而来（复用知识库的附件/权限体系），
+    但解析结果不进 chunk 池，单独落 columns_json + SceneTableRow。
+
+    归属关系（v3）：``scene_id`` 表达「这张表属于哪个场景」——一张表只属于
+    一个场景，不是「被引用」（多对多 join 表会引入共享表的引用计数问题）。
+    ``tenant_id`` 保留：多租户隔离与既有查询仍走它。
+
+    ``scene_id`` 默认空串是为了让**存量孤儿表**（v2 及以前没有归属的表）
+    能被安全忽略而不是让查询报错；孤儿表永远不会进 ``load_scene_tables``。
+    """
+
+    __tablename__ = "scene_tables"
+
+    id: str = Field(default_factory=lambda: new_id("sctable"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    # 归属场景。空串 = 存量孤儿表 / 尚未挂到任何场景（v3 清空重建后不会出现）
+    scene_id: str = Field(default="", index=True)
+    # 合并池内的表次序（多表时按它拼行，保证结果可复现）
+    order_index: int = 0
+    # 列结构指纹（列 key + type + unit 的有序哈希）。第二张表上传时秒判同构；
+    # 生成逻辑与同构校验必须共用 scene_modules.channels.columns_signature 一处
+    columns_signature: str = Field(default="")
+    name: str = ""
+    source_filename: str = ""
+    source_document_id: Optional[str] = Field(default=None, index=True)
+    # 列定义：[{key,label,type,unit,aliases,required,filterable,order}]
+    columns_json: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    # 导入时检出的质量问题：[{level,code,message,column,row_count}]
+    quality_json: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    row_count: int = Field(default=0)
+    status: str = Field(default="ready", index=True)  # ready | parsing | failed
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class SceneTableRow(SQLModel, table=True):
+    """数据表的一行。row_json 存原始值（字符串原样），norm_json 存归一化结果。
+
+    刻意存两份：原值用来展示「表里到底写了什么」（用户会来对账），
+    归一化值用来匹配。只存归一化值会导致排查时无法回答「为什么这行没命中」。
+    """
+
+    __tablename__ = "scene_table_rows"
+    __table_args__ = (Index("ix_scene_table_rows_table_order", "table_id", "row_index"),)
+
+    id: str = Field(default_factory=lambda: new_id("scrow"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    table_id: str = Field(index=True)
+    row_index: int = Field(default=0)
+    row_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # {列key: {num, unit, raw, ok}}；ok=False 表示该值无法归一化（TBD/面议等）
+    norm_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class Scene(SQLModel, table=True):
+    """场景实例（v3）：一个 ``module_key`` + 一份配置 + 0..N 张私有数据表。
+
+    定位变化（v2 → v3）：从「定义 + 表引用」降为「模块实例」。
+    处理逻辑由 ``scene_type`` 四选一（复用后端已有引擎），UI 由前端
+    ``scenes/modules/<module_key>/`` 的代码渲染，后端只产出纯数据块。
+
+    归属关系走 AgentResourceBinding(resource_type="scene")，而不是在
+    本表上加 agent_id 单列 —— 这样员工详情页的资源计数、删除员工时的级联清理、
+    「从其他员工复制资源」这些能力全部免费复用，不需要另写一套。
+    """
+
+    __tablename__ = "scenes"
+    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_scene_tenant_name"),)
+
+    id: str = Field(default_factory=lambda: new_id("scene"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    name: str
+    description: str = ""
+    icon: str = ""
+    status: str = Field(default="draft", index=True)  # draft | published | archived
+    # ---- v3 新增：模块实例身份 ----
+    # 四选一，决定走 channels 的哪个处理通道。事实来源就是这一列
+    # （不从 module_key 反推，否则「同一 module 换类型」会静默错）。
+    scene_type: str = Field(default="table_match", index=True)
+    # 前端渲染目录名，值必须 === 目录名（arch §2.5.1）。
+    # 空串 = 未装配 —— 新建时按 scene_type 预填，所以正常永远非空；
+    # 空串只出现在手工清空，发布校验会拦它。
+    module_key: str = Field(default="", index=True)
+    module_version: int = Field(default=1)
+    # {schema_version, params, fallback_text}。**不放 module_key 冗余**：
+    # Scene.module_key 是唯一事实来源（决策 2）。
+    # params 由 module 的 params_schema 定义，框架从不读取其内容，只透传。
+    ui_config_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # 模块私有参数（框架从不读内容，只透传给前端 module）。
+    # 与 ui_config_json.params 的分工：前者是「模块自己的状态」，
+    # 后者是「管理员在定义器里配的展示参数」。
+    module_config_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # ---- 既有配置列（各占独立列，语义各自明确，**不合并成万能 config_json**）----
+    # 意图：keywords / examples / entry chip 文案的实例覆盖值
+    trigger_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # 槽位实例配置（label / required / target / unit），table_match 主要消费方
+    slots_json: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    # table_match 专属匹配参数（权重 / 容差 / 闸门 / top_k）
+    match_action_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # 回答模板 / 语气（也被 script / sop_flow 通道当作兜底文案来源）
+    respond_action_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # 入口胶囊的实例覆盖（label / icon）。on_click 已移出——
+    # 入口行为由 module 的 meta.entry_behavior 声明（PRD §19 第 6 条）
+    shortcut_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # ---- 类型专属配置列（impl-map §4 第 7 条：字段设计现在就要对，不可砍）----
+    # sop_flow 的流程定义 / handoff 的转人工参数 / script 的话术表。
+    # 各占一列而不是塞进一个 config_json：类型切换时旧类型的配置必须保留，
+    # 切回来能恢复；合并容器会让它们互相覆盖。
+    flow_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    handoff_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    scripts_json: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class SceneRun(SQLModel, table=True):
+    """一次场景执行，用于排障与效果分析。
+
+    「为什么这次没推荐出东西」是这类功能最高频的运维问题，
+    不落 trace 就只能靠复现。
+    """
+
+    __tablename__ = "scene_runs"
+
+    id: str = Field(default_factory=lambda: new_id("scrun"), primary_key=True)
+    tenant_id: str = Field(index=True)
+    scene_id: str = Field(index=True)
+    # 冗余一份 module_key，便于按模块筛排障记录（scene 可能已被删/改名）
+    module_key: str = Field(default="", index=True)
+    session_id: str = Field(default="", index=True)
+    user_id: str = Field(default="", index=True)
+    input_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    result_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    trace_json: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    status: str = Field(default="ok", index=True)  # ok | no_match | error
+    feedback: str = Field(default="")
+    created_at: datetime = Field(default_factory=utc_now)

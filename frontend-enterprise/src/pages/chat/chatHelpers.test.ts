@@ -843,6 +843,28 @@ describe('a2uiFormForMessage', () => {
     const text = slotSubmissionText(form!, { employee_id: '3012', include_income: false });
     expect(text).toBe('员工工号：3012；是否含收入项：否');
   });
+
+  it('kind 不是 slot_form 时，即使 fields 合法也必须返回 null（legacy 收窄）', () => {
+    // 这一条是 `chatHelpers.tsx` 里 `form.kind !== 'slot_form'` 那行收窄的**唯一**
+    // 守护用例（PRD §16.1 第 17 条改判为「保留」）。
+    //
+    // 为什么必须单独一条：`A2UIForm.kind` 已从 `'slot_form'` 放宽成 `string`
+    // （为了容纳 v3 的多种块），于是那行比较看起来多余，很容易被下一个人顺手删掉。
+    // 删掉它 **所有现有用例仍然全绿** —— 因为上面那条 `kind: 'other'` 的用例
+    // `fields` 是空数组，`fields.length === 0` 这一行照样 return null。
+    //
+    // 只有「kind 非法 + fields 合法」这个组合能区分「有没有做 kind 收窄」：
+    // 不做收窄的话，一条脏 metadata 会被渲染成一张能填、能提交、后端认不出 kind
+    // 的表单 —— 用户填完提交，后端静默丢弃或 422，前端全程无异常。
+    expect(a2uiFormForMessage(message({
+      metadata: { a2ui: { kind: 'other', fields: [{ name: 'x', label: 'X', type: 'text' }] } },
+    }))).toBeNull();
+    // 对照：同样的 fields，kind 合法时必须能解析出来 —— 否则上一条断言可能
+    // 是因为「fields 校验把它挡了」而恰好通过，等于没测到 kind 收窄。
+    expect(a2uiFormForMessage(message({
+      metadata: { a2ui: { kind: 'slot_form', fields: [{ name: 'x', label: 'X', type: 'text' }] } },
+    }))).not.toBeNull();
+  });
 });
 
 describe('knowledgeCitationsHidden（「知识来源」展示口径）', () => {

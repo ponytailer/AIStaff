@@ -26,6 +26,7 @@ from app.db.models import (
     KnowledgeDocument,
     MCPServer,
     ModelConfig,
+    Scene,
     Skill,
     SkillVersion,
     Tool,
@@ -382,6 +383,9 @@ _RESOURCE_MODEL_BY_TYPE: dict[str, Any] = {
     "general_skill": GeneralSkill,
     "knowledge_base": KnowledgeBase,
     "tool": Tool,
+    # 场景与工具同构：无 branch 概念（每个员工不持有独立副本），
+    # 所以只需 binding 一行，不需要配套的 AgentSceneBranch 之类。
+    "scene": Scene,
 }
 
 # 只取可见性判定真正读到的列。general_skills.skill_files_json 单列就有 6.5MB（12 行），
@@ -391,6 +395,7 @@ _RESOURCE_LOAD_COLUMNS: dict[str, tuple[str, ...]] = {
     "general_skill": ("id", "tenant_id", "status", "metadata_json"),
     "knowledge_base": ("id", "tenant_id", "name", "status", "metadata_json"),
     "tool": ("id", "tenant_id", "enabled"),
+    "scene": ("id", "tenant_id", "name", "status"),
 }
 
 
