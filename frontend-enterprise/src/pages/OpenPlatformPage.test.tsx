@@ -99,6 +99,10 @@ function renderPlatform(
       <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
           <Route
+            path="/enterprise/platform"
+            element={<OpenPlatformPage currentUser={currentUser} isAdmin={isAdmin} />}
+          />
+          <Route
             path="/enterprise/platform/:kind"
             element={<OpenPlatformPage currentUser={currentUser} isAdmin={isAdmin} />}
           />
@@ -213,8 +217,18 @@ describe('OpenPlatformPage 懒加载', () => {
     expect(
       screen.getByRole('tab', { name: /技能广场/ }).textContent,
     ).toContain('5');
-    expect(screen.getByRole('tab', { name: /SOP 广场/ }).textContent).toContain('4');
     expect(requestedPaths(fetchMock).some((url) => url.includes('/api/enterprise/gallery/counts'))).toBe(true);
+  });
+
+  it('SOP 广场暂时下架：tab 不出现，深链回落到「全部」', async () => {
+    stubPlatformFetch();
+    renderPlatform('/enterprise/platform/skills');
+
+    // 旧地址（书签 / 历史链接）不该 404 或渲染空白 tab，直接回热门总览
+    await waitFor(() => {
+      expect(screen.queryByRole('tab', { name: /SOP 广场/ })).toBeNull();
+      expect(screen.getByRole('tab', { name: /技能广场/ })).toBeTruthy();
+    });
   });
 
   it('深链到某个模块时只拉它自己', async () => {

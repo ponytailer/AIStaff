@@ -6,6 +6,7 @@ import { reveal, settle, prefersReducedMotion } from '@/lib/motion';
 import { findAgentCatalogEntry } from '@/lib/agentCatalog';
 import { parseBackendDateTime } from '@/lib/timezone';
 import { emitAgentScopeChange, persistSharedAgentScope } from '@/lib/agent-scope-storage';
+import { isPlazaKindHidden } from '@/lib/plazaVisibility';
 import { NewsPanel, QuickAccessTiles } from '@/components/openPlatform/PlazaWidgets';
 
 /**
@@ -358,7 +359,14 @@ export default function PlazaAllTab({ toolbar }: { toolbar?: ReactNode }) {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '热门数据加载失败'));
   }, []);
 
-  const items = payload?.items || [];
+  /**
+   * 下架的广场模块不进榜。
+   *
+   * 后端热度是自己算的，不知道前端谁被隐藏了；这里按同一份隐藏清单剔除，
+   * 否则「SOP 广场」在 tab 栏已经消失、榜单里却还挂着 SOP 条目，点进去会落到
+   * 一个不存在的 tab。隐藏清单只有 lib/plazaVisibility 一处定义。
+   */
+  const items = (payload?.items || []).filter((item) => !isPlazaKindHidden(item.kind));
   const champion = items[0];
   const rest = items.slice(1, 10);
   const maxScore = useMemo(() => items.reduce((acc, item) => Math.max(acc, item.score), 0) || 1, [items]);

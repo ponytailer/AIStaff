@@ -60,6 +60,24 @@ const HOT_PAYLOAD = {
   ],
 };
 
+/** 与 HOT_PAYLOAD 同构，但把 №1 换成 SOP——用来验证下架模块不进榜。 */
+const HOT_PAYLOAD_WITH_SOP = {
+  generated_at: '2026-10-16T06:00:00Z',
+  items: [
+    {
+      kind: 'skills',
+      ref_id: 'skill_报销流程',
+      title: '差旅报销 SOP',
+      description: '三步走完报销',
+      metric_label: '被复制',
+      metric_value: 99,
+      score: 99,
+      updated_at: null,
+    },
+    ...HOT_PAYLOAD.items,
+  ],
+};
+
 function LocationProbe() {
   const location = useLocation();
   return <span data-testid="location">{location.pathname + location.search}</span>;
@@ -126,5 +144,16 @@ describe('PlazaAllTab 热门榜点击落点', () => {
       expect(screen.getByTestId('location').textContent).toBe('/enterprise/platform/knowledge'),
     );
     expect(window.localStorage.getItem('ultrarag_enterprise_agent_scope')).toBeNull();
+  });
+
+  it('下架模块（SOP）的条目不进榜，也不会顶替 №1 主推位', async () => {
+    apiGet.mockImplementation((url: unknown) =>
+      Promise.resolve(String(url).includes('/plaza-hot') ? HOT_PAYLOAD_WITH_SOP : NEWS_PAYLOAD),
+    );
+    renderTab();
+
+    // 高分 SOP 被剔除后，冠军仍是分数最高的那类可见资源
+    expect(await screen.findByText('AI G.O')).toBeTruthy();
+    expect(screen.queryByText('差旅报销 SOP')).toBeNull();
   });
 });

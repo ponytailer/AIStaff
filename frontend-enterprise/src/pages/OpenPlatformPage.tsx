@@ -71,6 +71,7 @@ import {
   readEmployeeScope,
 } from '@/lib/agent-scope-storage';
 import PlazaAllTab from '@/components/openPlatform/PlazaAllTab';
+import { isPlazaKindHidden } from '@/lib/plazaVisibility';
 import { listDispatchers, unpublishDispatcher, type DispatcherRead } from '@/lib/dispatcher';
 import {
   GENERAL_SKILL_CATEGORY_ALL,
@@ -128,7 +129,7 @@ type PlatformItem = {
   squad?: DispatcherRead;
 };
 
-const PLATFORM_CONFIGS: PlatformConfig[] = [
+const PLATFORM_CONFIGS_ALL: PlatformConfig[] = [
   {
     kind: 'agents',
     title: '数字员工广场',
@@ -201,6 +202,11 @@ const PLATFORM_CONFIGS: PlatformConfig[] = [
     icon: <ToolOutlined />,
   },
 ];
+
+/** 对外可见的广场模块配置（tab 栏与各类映射的唯一来源）。 */
+const PLATFORM_CONFIGS: PlatformConfig[] = PLATFORM_CONFIGS_ALL.filter(
+  (item) => !isPlazaKindHidden(item.kind),
+);
 
 const PLATFORM_BY_KIND = new Map(PLATFORM_CONFIGS.map((item) => [item.kind, item]));
 
@@ -479,8 +485,14 @@ export default function OpenPlatformPage({
   useEffect(() => {
     if (kind && (kind === 'all' || PLATFORM_BY_KIND.has(kind as PlatformKind))) {
       setActiveKind(kind as TabKind);
+      return;
     }
-  }, [kind]);
+    // 下架模块的旧地址（书签 / 历史链接）：页面已经落「全部」，URL 也一并归正，
+    // 否则地址栏留着 /platform/skills、内容却是热门总览，刷新后状态看着像坏了。
+    if (kind && isPlazaKindHidden(kind)) {
+      navigate('/enterprise/platform', { replace: true });
+    }
+  }, [kind, navigate]);
 
   // 切 tab 时清空上一 tab 的搜索词；首轮挂载跳过——q= 深链在 useState 初始化时
   // 预填了分享页带来的搜索词，这里立刻清空就退化了（点击去技能广场检索不生效的根因）。
