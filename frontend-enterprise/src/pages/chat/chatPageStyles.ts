@@ -407,27 +407,26 @@ export const CHAT_EMPTY_STAT_CELL_CLASS =
 
 // 快捷提问（员工配置里的 1-3 条 suggested_prompts）
 //
-// 位置：统计卡下方的空白带。形态参考 tuffui PromptSuggestions 的 `cards`
-// 变体（图标 + 文本的点选卡），但底色跟本页走：纸底 #f7f7f6 上放**白面卡**，
-// 与上方两张 #e5e4e0 的灰卡形成层级 —— 上方是「这是谁」的信息卡，这里是
-// 「你可以做什么」的可点动作，两者视觉语言必须能分开。描边用 ring 而不是
-// border，理由同 CHAT_SURFACE_CARD_CLASS（不占盒模型，避免 1px 抖动）。
-/*
- * 宽度随文字走，不做等分栅格。
- *
- * 早先用 `grid-cols-1 sm:grid-cols-2` + 卡片 `w-full`，卡片会被拉到整列宽：
- * 「电脑端如何设置 outlook」这种十几个字的句子后面拖出一大片空白，看着像输入框
- * 而不是一张「点一下就说这句」的卡片。改成 flex-wrap 后每张卡按内容收缩，
- * 短句就短、长句自然换行，只有整行放不下时才折行。
- */
-export const CHAT_EMPTY_PROMPT_GRID_CLASS =
-  'flex w-full flex-wrap items-start gap-[10px]';
-export const CHAT_EMPTY_PROMPT_CARD_CLASS =
-  'group inline-flex max-w-full items-start gap-[9px] rounded-[14px] bg-white px-[13px] py-[11px] text-left ring-[0.5px] ring-[rgba(24,24,26,0.12)] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-[background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:bg-[#f0efec] hover:ring-[rgba(24,24,26,0.28)] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-[#0f766e] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-white';
-export const CHAT_EMPTY_PROMPT_ICON_CLASS =
-  'mt-[1px] grid size-[20px] shrink-0 place-items-center rounded-[6px] bg-[rgba(15,118,110,0.10)] text-[#0f766e]';
-export const CHAT_EMPTY_PROMPT_TEXT_CLASS =
-  'line-clamp-2 min-w-0 text-[12.5px] leading-[1.5] text-[#3d3d3f] group-hover:text-[#18181a] [overflow-wrap:anywhere]';
+// 位置：**输入框正上方**（2026-11-25 从空态问候卡下方移来）。空态里那三颗
+// 卡片跟问候语抢焦点，还把整列撑得很高；挪到输入框上方之后，它们读起来是
+// 「输入框的附属提示」，和加号 / 互联网检索同属一行工具语言。
+//
+// 形态：扁胶囊，不是卡片。
+//   - 单行 + 省略号（`.truncate`）：高度锁死在 26px，一屏永远只占一行；
+//   - 文字 `max-w-[260px]`：长句不会把整行拉满 768，短句按内容收缩；
+//   - `rounded-full` + 左侧小圆角标：与输入卡里「互联网检索」胶囊同一套语言；
+//   - 居中排布：整行比输入框窄，视觉重心落在输入框上而不是左边缘。
+// 描边仍用 ring 而不是 border，理由同 CHAT_SURFACE_CARD_CLASS（不占盒模型）。
+export const CHAT_PROMPT_ROW_CLASS =
+  'mx-auto mb-[8px] flex w-full flex-wrap items-center justify-center gap-[6px]';
+export const CHAT_PROMPT_CHIP_CLASS =
+  'group inline-flex h-[26px] max-w-full items-center gap-[6px] rounded-full bg-white pl-[4px] pr-[10px] text-left ring-[0.5px] ring-[rgba(24,24,26,0.12)] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-colors duration-150 hover:bg-[#f0efec] hover:ring-[rgba(24,24,26,0.28)] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-[#0f766e] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white';
+export const CHAT_PROMPT_ICON_CLASS =
+  'grid size-[18px] shrink-0 place-items-center rounded-full bg-[rgba(15,118,110,0.10)] text-[#0f766e]';
+// 限长写在文字上而不是胶囊上：窄视口下胶囊永远不超出容器（max-w-full），
+// 超长句只在 260px 处收起省略号，短句仍按内容收缩。
+export const CHAT_PROMPT_TEXT_CLASS =
+  'max-w-[260px] min-w-0 truncate text-[12px] leading-[16px] text-[#3d3d3f] group-hover:text-[#18181a]';
 
 // 空态开场白（员工配了 greeting_message 时，新会话的第一句）
 //

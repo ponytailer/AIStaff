@@ -15,7 +15,6 @@ import {
   CHAT_EMPTY_TITLE_CLASS,
 } from '../chatPageStyles';
 import type { UseChatSession } from '../useChatSession';
-import ChatPromptSuggestions from './ChatPromptSuggestions';
 
 function greetingFontSize(displayName: string): number {
   const length = Array.from(displayName).length;
@@ -172,19 +171,12 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
     displayedAgent,
     displayedProfile,
     emptyRoleSummary,
-    currentSessionRunning,
-    shareMode,
-    sendQuickText,
     authUser,
   } = chat;
   const displayName = displayedAgent ? employeeDisplayName(displayedAgent) : '';
   // 岗位描述是员工在档案里自己写的，可能是空白（没填）。空白时整行不渲染，
   // 不要在问候语下面留一条空隙或一个占位符。
   const hasRoleSummary = Boolean(emptyRoleSummary && emptyRoleSummary.trim());
-  // 只从 profile 取：配置端的规整（去空/限长/最多 3 条）都在
-  // `employeeProfile()` 与 `normalizeSuggestedPrompts()` 里做过一次，
-  // 这里再过滤会让「配了 3 条只显示 2 条」这类问题无从排查。
-  const suggestedPrompts = displayedProfile?.suggestedPrompts || [];
   // 员工配了开场白就在空态里先显示出来。文案由 `greetingPreviewText` 拼，
   // 与后端落库的正文同格式；首轮发出去之后这条预览随空态一起消失，
   // 由消息列表里的真实消息接管（不会出现两条）。
@@ -255,17 +247,9 @@ function EmployeeEmptyCard({ chat }: { chat: UseChatSession }) {
       )}
 
       {/*
-        快捷提问：员工在「编辑数字员工档案 → 快捷提问」里配的 1-3 句话。
-        点在统计卡下方的空白带上——这是空态里唯一一块「提示用户能做什么」
-        的位置，上方两张灰卡讲的是「我是谁 / 我有什么」，这里紧接着给动作。
-        没配就整块不渲染（组件内部返回 null），不留空档。
+        快捷提问不在这里：它已经挪到输入框正上方（Composer 里渲染）。
+        空态只讲「我是谁」，可点的动作贴着输入框，视觉上归输入区管。
       */}
-      <ChatPromptSuggestions
-        prompts={suggestedPrompts}
-        // 正在跑的一轮里再发会被推进队列，点了没反馈等于失灵；分享页只读。
-        disabled={Boolean(shareMode) || Boolean(currentSessionRunning)}
-        onSelect={(prompt) => sendQuickText(prompt)}
-      />
     </div>
   );
 }

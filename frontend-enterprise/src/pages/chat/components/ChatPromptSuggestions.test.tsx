@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-// 空态快捷提问：只在员工配了 `suggested_prompts` 时出现，点了直接发出去，
-// 只读 / 执行中不可点。
+// 快捷提问：只在员工配了 `suggested_prompts` 时出现，点了直接发出去，
+// 只读 / 执行中不可点。位置在输入框正上方（Composer 渲染），不在空态里。
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +11,7 @@ import type { AgentProfileRead, ChatSession } from '@/types';
 
 import type { UseChatSession } from '../useChatSession';
 import ChatEmptyState from './ChatEmptyState';
+import ChatPromptSuggestions from './ChatPromptSuggestions';
 
 const baseAgent: AgentProfileRead = {
   id: 'agent-1',
@@ -65,9 +66,25 @@ function renderEmptyState(chat: UseChatSession) {
 // 卡片再查出来。本项目 vitest 未开 globals，cleanup 得逐个 describe 声明。
 afterEach(cleanup);
 
-describe('ChatEmptyState prompt suggestions', () => {
-  it('renders the configured prompts as clickable cards', () => {
-    renderEmptyState(buildChat(buildAgent(PROMPTS), { sendQuickText: vi.fn() }));
+function renderPrompts(props: {
+  prompts?: string[];
+  disabled?: boolean;
+  onSelect?: (prompt: string) => void;
+} = {}) {
+  return render(
+    <I18nProvider>
+      <ChatPromptSuggestions
+        prompts={props.prompts ?? PROMPTS}
+        disabled={props.disabled}
+        onSelect={props.onSelect ?? vi.fn()}
+      />
+    </I18nProvider>,
+  );
+}
+
+describe('ChatPromptSuggestions', () => {
+  it('renders the configured prompts as clickable chips', () => {
+    renderPrompts();
 
     expect(screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` })).toBeTruthy();
     expect(screen.getByRole('button', { name: `快捷提问 2：${PROMPTS[1]}` })).toBeTruthy();
@@ -75,45 +92,44 @@ describe('ChatEmptyState prompt suggestions', () => {
   });
 
   it('sends the prompt text straight to the bot on click', () => {
-    const sendQuickText = vi.fn();
-    renderEmptyState(buildChat(buildAgent(PROMPTS), { sendQuickText }));
+    const onSelect = vi.fn();
+    renderPrompts({ onSelect });
 
     fireEvent.click(screen.getByRole('button', { name: `快捷提问 2：${PROMPTS[1]}` }));
 
     // 直接把整句发给 bot，而不是先塞进输入框让用户再按一次回车。
-    expect(sendQuickText).toHaveBeenCalledTimes(1);
-    expect(sendQuickText).toHaveBeenCalledWith(PROMPTS[1]);
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(PROMPTS[1]);
   });
 
   it('renders nothing when the employee has no prompts configured', () => {
-    // 没配 = 不显示这一块，不能留一段空白把整列往下推。
-    renderEmptyState(buildChat(buildAgent([]), { sendQuickText: vi.fn() }));
+    // 没配 = 不显示这一块，不能留一段空白把输入框往下推。
+    const { container } = renderPrompts({ prompts: [] });
 
     expect(screen.queryByRole('button', { name: /快捷提问/ })).toBeNull();
-    expect(screen.queryByText(PROMPTS[0])).toBeNull();
+    expect(container.firstChild).toBeNull();
   });
 
-  it('disables the cards while a turn is running', () => {
-    const sendQuickText = vi.fn();
+  it('disables the chips while disabled', () => {
+    const onSelect = vi.fn();
+    renderPrompts({ onSelect, disabled: true });
+
+    const chip = screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` }) as HTMLButtonElement;
+    expect(chip.disabled).toBe(true);
+    fireEvent.click(chip);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+});
+
+describe('ChatEmptyState no longer hosts the prompts', () => {
+  it('keeps the prompts out of the empty state', () => {
+    // 位置契约：快捷提问归输入区管（Composer），空态只讲「我是谁」。
     renderEmptyState(buildChat(buildAgent(PROMPTS), {
-      sendQuickText,
-      currentSessionRunning: true,
+      sendQuickText: vi.fn(),
+      currentSessionRunning: false,
     }));
 
-    const card = screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` }) as HTMLButtonElement;
-    expect(card.disabled).toBe(true);
-    fireEvent.click(card);
-    expect(sendQuickText).not.toHaveBeenCalled();
-  });
-
-  it('disables the cards on a read-only share page', () => {
-    const sendQuickText = vi.fn();
-    renderEmptyState(buildChat(buildAgent(PROMPTS), { sendQuickText, shareMode: true }));
-
-    const card = screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` }) as HTMLButtonElement;
-    expect(card.disabled).toBe(true);
-    fireEvent.click(card);
-    expect(sendQuickText).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /快捷提问/ })).toBeNull();
   });
 });
 

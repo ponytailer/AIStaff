@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '@/i18n';
@@ -27,6 +27,9 @@ function buildChat(): UseChatSession {
     showComposerAvatar: false,
     displayedProfile: null,
     displayedAgent: null,
+    displayedMessages: [],
+    sendQuickText: vi.fn(),
+    shareMode: false,
     emptyRoleSummary: '',
     emptyStats: [],
     enabledModelConfigs: [],
@@ -64,6 +67,54 @@ function renderComposer(props: { hideModelSelector?: boolean; hideScheduledTask?
 
 afterEach(() => {
   cleanup();
+});
+
+describe('Composer prompt suggestions', () => {
+  const PROMPTS = ['电脑端如何设置 outlook', 'Outlook频繁弹M365验证框的处理办法'];
+
+  function renderWithPrompts(extra: Record<string, unknown> = {}) {
+    const chat = buildChat();
+    Object.assign(chat, {
+      // 加号菜单开着时 Radix 会给页面其它节点打 aria-hidden，role 查询全部失效。
+      composerPlusOpen: false,
+      displayedProfile: { suggestedPrompts: PROMPTS },
+      ...extra,
+    });
+    return render(
+      <I18nProvider>
+        <Composer chat={chat} />
+      </I18nProvider>,
+    );
+  }
+
+  it('把快捷提问挂在输入框上方的扁胶囊行里', () => {
+    const { container } = renderWithPrompts();
+
+    const chip = screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` });
+    const row = chip.parentElement as HTMLElement;
+    expect(row.className).toContain('justify-center');
+    expect(chip.className).toContain('h-[26px]');
+    expect(chip.className).toContain('rounded-full');
+
+    // 位置契约：胶囊行是 form 的前一个兄弟节点，即「输入框正上方」。
+    const form = container.querySelector('form') as HTMLElement;
+    expect(row.nextElementSibling).toBe(form);
+  });
+
+  it('会话里已经有消息时不再显示快捷提问', () => {
+    renderWithPrompts({ displayedMessages: [{ id: 'm-1' }] });
+
+    expect(screen.queryByRole('button', { name: /快捷提问/ })).toBeNull();
+  });
+
+  it('点击后把整句交给 sendQuickText', () => {
+    const sendQuickText = vi.fn();
+    renderWithPrompts({ sendQuickText });
+
+    fireEvent.click(screen.getByRole('button', { name: `快捷提问 2：${PROMPTS[1]}` }));
+
+    expect(sendQuickText).toHaveBeenCalledWith(PROMPTS[1]);
+  });
 });
 
 describe('Composer plus menu', () => {

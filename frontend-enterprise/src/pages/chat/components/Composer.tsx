@@ -61,6 +61,7 @@ import {
   slashMenuScrollTop,
 } from '../slashCommands';
 import type { UseChatSession } from '../useChatSession';
+import ChatPromptSuggestions from './ChatPromptSuggestions';
 import SlashCommandChip from './SlashCommandChip';
 
 /** 附件的第二行信息：上传中是进度，成功后是「PDF · 1.2 MB」，失败是错误原因。 */
@@ -123,6 +124,10 @@ export default function Composer({
     handleComposerDrop,
     removeComposerAttachment,
     handleComposerPlusAction,
+    displayedProfile,
+    displayedMessages,
+    sendQuickText,
+    shareMode,
   } = chat;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -212,6 +217,11 @@ export default function Composer({
   const hasSendContent = Boolean(input.trim() || readyComposerAttachments.length > 0);
   const sendDisabled = !hasSendContent || uploadingComposerAttachment;
 
+  // 快捷提问只属于「这句话还没说过」的场景：会话里已经有消息之后，输入框上方
+  // 再挂三颗建议只会挡住正文。空态里不再渲染它们，改由这里贴着输入框给入口。
+  const showPromptSuggestions = (displayedMessages?.length ?? 0) === 0;
+  const suggestedPrompts = displayedProfile?.suggestedPrompts || [];
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void send();
@@ -246,6 +256,19 @@ export default function Composer({
             </span>
             <span className="min-w-0 text-[12px] leading-[18px]">{freeModelNoticeText}</span>
           </div>
+        )}
+        {/*
+          快捷提问：贴着输入框上方的扁胶囊行（员工在「编辑数字员工档案 →
+          快捷提问」里配的 1-3 句话）。点一下直接把整句发出去。
+          有历史消息的会话不显示——那时用户已经知道怎么问了，多一排胶囊只是噪音。
+        */}
+        {showPromptSuggestions && (
+          <ChatPromptSuggestions
+            prompts={suggestedPrompts}
+            // 正在跑的一轮里再发会被推进队列，点了没反馈等于失灵；分享页只读。
+            disabled={Boolean(shareMode) || Boolean(currentSessionRunning)}
+            onSelect={(prompt) => sendQuickText(prompt)}
+          />
         )}
         <form
           className={cn(CHAT_COMPOSER_FORM_CLASS, composerDragActive && CHAT_COMPOSER_FORM_DRAG_CLASS)}
