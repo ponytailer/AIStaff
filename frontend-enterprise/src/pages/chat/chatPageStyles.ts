@@ -415,10 +415,15 @@ export const CHAT_EMPTY_STAT_CELL_CLASS =
 //   - 单行 + 省略号（`.truncate`）：高度锁死在 26px，一屏永远只占一行；
 //   - 文字 `max-w-[260px]`：长句不会把整行拉满 768，短句按内容收缩；
 //   - `rounded-full` + 左侧小圆角标：与输入卡里「互联网检索」胶囊同一套语言；
-//   - 居中排布：整行比输入框窄，视觉重心落在输入框上而不是左边缘。
+//   - **左对齐**到输入框文字左缘（见下行 pl-20 的推导）。
 // 描边仍用 ring 而不是 border，理由同 CHAT_SURFACE_CARD_CLASS（不占盒模型）。
+//
+// 为什么是 pl-[20px] 而不是 px 随便给：输入卡里 form p-10 + textarea px-10 =
+// 文字左缘距卡边 20px。胶囊行宽度与卡同宽，补上同样的 20px 才是真正的「与
+// 输入的文字同一起点」；居中对齐会让三颗胶囊随文案长度左右漂移，第一颗的
+// 起点每换一个员工就变一次，看着像漏了对齐。
 export const CHAT_PROMPT_ROW_CLASS =
-  'mx-auto mb-[8px] flex w-full flex-wrap items-center justify-center gap-[6px]';
+  'mx-auto mb-[8px] flex w-full flex-wrap items-center justify-start gap-[6px] pl-[20px]';
 export const CHAT_PROMPT_CHIP_CLASS =
   'group inline-flex h-[26px] max-w-full items-center gap-[6px] rounded-full bg-white pl-[4px] pr-[10px] text-left ring-[0.5px] ring-[rgba(24,24,26,0.12)] shadow-[0_1px_2px_rgba(24,24,26,0.04)] transition-colors duration-150 hover:bg-[#f0efec] hover:ring-[rgba(24,24,26,0.28)] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-[#0f766e] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white';
 export const CHAT_PROMPT_ICON_CLASS =

@@ -92,7 +92,9 @@ describe('Composer prompt suggestions', () => {
 
     const chip = screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` });
     const row = chip.parentElement as HTMLElement;
-    expect(row.className).toContain('justify-center');
+    // 左对齐 + 与输入框文字左缘同一 20px 起点（form p-10 + textarea px-10）
+    expect(row.className).toContain('justify-start');
+    expect(row.className).toContain('pl-[20px]');
     expect(chip.className).toContain('h-[26px]');
     expect(chip.className).toContain('rounded-full');
 
@@ -101,8 +103,15 @@ describe('Composer prompt suggestions', () => {
     expect(row.nextElementSibling).toBe(form);
   });
 
-  it('会话里已经有消息时不再显示快捷提问', () => {
-    renderWithPrompts({ displayedMessages: [{ id: 'm-1' }] });
+  it('常驻在输入框上方，有历史消息时也不消失', () => {
+    renderWithPrompts({ displayedMessages: [{ id: 'm-1' }, { id: 'm-2' }] });
+
+    expect(screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` })).toBeTruthy();
+    expect(screen.getByRole('button', { name: `快捷提问 2：${PROMPTS[1]}` })).toBeTruthy();
+  });
+
+  it('员工没配快捷提问时不占高度', () => {
+    renderWithPrompts({ displayedProfile: { suggestedPrompts: [] } });
 
     expect(screen.queryByRole('button', { name: /快捷提问/ })).toBeNull();
   });

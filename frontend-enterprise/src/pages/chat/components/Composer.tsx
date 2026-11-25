@@ -125,7 +125,6 @@ export default function Composer({
     removeComposerAttachment,
     handleComposerPlusAction,
     displayedProfile,
-    displayedMessages,
     sendQuickText,
     shareMode,
   } = chat;
@@ -217,9 +216,9 @@ export default function Composer({
   const hasSendContent = Boolean(input.trim() || readyComposerAttachments.length > 0);
   const sendDisabled = !hasSendContent || uploadingComposerAttachment;
 
-  // 快捷提问只属于「这句话还没说过」的场景：会话里已经有消息之后，输入框上方
-  // 再挂三颗建议只会挡住正文。空态里不再渲染它们，改由这里贴着输入框给入口。
-  const showPromptSuggestions = (displayedMessages?.length ?? 0) === 0;
+  // 快捷提问**常驻**在输入框上方（2026-11-25 用户确认）：不是空态专属，首轮问答
+  // 之后也不消失 —— 它跟着输入框走，用户在任意一轮都能一键追问。没配置时组件
+  // 自己返回 null，不占高度。
   const suggestedPrompts = displayedProfile?.suggestedPrompts || [];
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -258,18 +257,17 @@ export default function Composer({
           </div>
         )}
         {/*
-          快捷提问：贴着输入框上方的扁胶囊行（员工在「编辑数字员工档案 →
+          快捷提问：**常驻**在输入框上方的扁胶囊行（员工在「编辑数字员工档案 →
           快捷提问」里配的 1-3 句话）。点一下直接把整句发出去。
-          有历史消息的会话不显示——那时用户已经知道怎么问了，多一排胶囊只是噪音。
+          不随轮次消失：用户在任意一轮都能一键追问，位置永远贴着输入框。
+          员工没配时组件内部返回 null，不留空档。
         */}
-        {showPromptSuggestions && (
-          <ChatPromptSuggestions
-            prompts={suggestedPrompts}
-            // 正在跑的一轮里再发会被推进队列，点了没反馈等于失灵；分享页只读。
-            disabled={Boolean(shareMode) || Boolean(currentSessionRunning)}
-            onSelect={(prompt) => sendQuickText(prompt)}
-          />
-        )}
+        <ChatPromptSuggestions
+          prompts={suggestedPrompts}
+          // 正在跑的一轮里再发会被推进队列，点了没反馈等于失灵；分享页只读。
+          disabled={Boolean(shareMode) || Boolean(currentSessionRunning)}
+          onSelect={(prompt) => sendQuickText(prompt)}
+        />
         <form
           className={cn(CHAT_COMPOSER_FORM_CLASS, composerDragActive && CHAT_COMPOSER_FORM_DRAG_CLASS)}
           onDragEnter={handleComposerDragEnter}
