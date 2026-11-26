@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '@/i18n';
@@ -123,6 +123,135 @@ describe('Composer prompt suggestions', () => {
     fireEvent.click(screen.getByRole('button', { name: `快捷提问 2：${PROMPTS[1]}` }));
 
     expect(sendQuickText).toHaveBeenCalledWith(PROMPTS[1]);
+  });
+});
+
+/**
+ * 分享页的入口胶囊 / 快捷提问**必须可点**。
+ *
+ * ## 回归的场景
+ *
+ * `sceneChipDisabled` 原先是 `Boolean(shareMode) || Boolean(currentSessionRunning)`，
+ * 于是员工分享出去的链接里，场景胶囊渲染出来了、点下去毫无反应 ——
+ * 用户原话「虽然有场景快捷按钮，但是无法点击」。
+ *
+ * 关键在于**分享页不是只读的**：访客能打字、能发送，
+ * `ensureModelAvailable()` 在 shareMode 下直接放行，后端 `/api/chat/`
+ * 也在访客路径白名单里。前端这道 `disabled` 是整条链路上唯一的拦截点，
+ * 而且拦错了 —— 显示出来却点不动，比不显示更糟（看起来像坏了）。
+ *
+ * 所以这里锁两件事：
+ * 1. shareMode 下按钮 `disabled === false`，且真的能触发回调；
+ * 2. 分享模式不再从 `chat` 上解构（否则下一个人会以为它还在起作用）。
+ *
+ * 只锁「可点」不够 —— 必须同时断言 `currentSessionRunning` 仍然会置灰，
+ * 否则把 `sceneChipDisabled` 直接改成 `false` 也能让上面那条通过，
+ * 而那时「跑一轮时点胶囊被静默推进队列」的坑又回来了。
+ */
+describe('Composer · 分享页的场景入口不能被误禁', () => {
+  const PROMPTS = ['电脑端如何设置 outlook'];
+
+  function renderShare(extra: Record<string, unknown> = {}, props: Record<string, unknown> = {}) {
+    const chat = buildChat();
+    Object.assign(chat, {
+      composerPlusOpen: false,
+      displayedProfile: { suggestedPrompts: PROMPTS },
+      shareMode: true,
+      ...extra,
+    });
+    return render(
+      <I18nProvider>
+        <Composer chat={chat} {...props} />
+      </I18nProvider>,
+    );
+  }
+
+  it('分享访客点得动快捷提问（原来被 shareMode 置灰）', () => {
+    const sendQuickText = vi.fn();
+    renderShare({ sendQuickText }, { hideModelSelector: true, hideScheduledTask: true });
+
+    const chip = screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` });
+    expect(chip).toHaveProperty('disabled', false);
+    fireEvent.click(chip);
+    expect(sendQuickText).toHaveBeenCalledWith(PROMPTS[0]);
+  });
+
+  it('正在跑一轮时仍然置灰（这条不能被上面的修复顺手去掉）', () => {
+    const sendQuickText = vi.fn();
+    renderShare({ sendQuickText, currentSessionRunning: true });
+
+    const chip = screen.getByRole('button', { name: `快捷提问 1：${PROMPTS[0]}` });
+    expect(chip).toHaveProperty('disabled', true);
+    fireEvent.click(chip);
+    // 置灰时点下去不该有任何动作 —— 否则会被静默推进队列，用户看不到反应。
+    expect(sendQuickText).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 场景胶囊是用户**真正**报的那一处（「虽然有场景快捷按钮，但是无法点击」）。
+   * 上面两条只覆盖快捷提问 —— 两者共用 `sceneChipDisabled`，但共用一个变量的
+   * 事实不该成为「测一条就够」的理由：将来若有人给胶囊单独传 `disabled`
+   * （比如加个 `disabled={shareMode}`），只有直接断言胶囊才能发现。
+   *
+   * 胶囊要发请求才渲染，所以这里 stub 掉 `fetch`，走真实的取数链路
+   * （而不是给组件塞注入口 —— 注入口绕过了请求，测不到「分享页真的能拉到胶囊」）。
+   */
+  it('分享访客点得动场景胶囊，且点下去发出场景那句话', async () => {
+    const sceneChips = [
+      {
+        scene_id: 'scene_ski',
+        module_key: 'travel.itinerary',
+        module_version: 1,
+        label: '滑雪行程推荐',
+        icon: '🎿',
+        send_text: '滑雪行程推荐',
+        scene_name: '滑雪行程推荐',
+        scene_type: 'table_match',
+      },
+      {
+        scene_id: 'scene_room',
+        module_key: 'generic.tool_submit',
+        module_version: 1,
+        label: '客房送物',
+        icon: '🛎️',
+        send_text: '客房送物',
+        scene_name: '客房送物',
+        scene_type: 'tool_submit',
+      },
+    ];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/chat/scenes')) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          text: async () => JSON.stringify(sceneChips),
+        } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: async () => JSON.stringify([]),
+      } as Response;
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const sendQuickText = vi.fn();
+    renderShare({ sendQuickText, effectiveAgentId: 'agent-share-1' });
+
+    // 胶囊是异步取数后渲染的，同步查询必然查不到。
+    const chip = await screen.findByRole('button', { name: /客房送物/ });
+    expect(chip).toHaveProperty('disabled', false);
+
+    fireEvent.click(chip);
+
+    // `handleSceneChipSelect` 会先 await module meta（懒加载 chunk），
+    // 所以断言要等。
+    await waitFor(() => expect(sendQuickText).toHaveBeenCalled());
+    expect(sendQuickText.mock.calls[0][0]).toBeTruthy();
+    vi.unstubAllGlobals();
   });
 });
 

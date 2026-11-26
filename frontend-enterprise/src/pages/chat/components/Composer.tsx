@@ -182,7 +182,9 @@ export default function Composer({
     handleChatMessagesScroll,
     sendQuickText,
     effectiveAgentId,
-    shareMode,
+    // `shareMode` 曾经在这里，用来禁掉场景胶囊 / 快捷提问。现已不用：
+    // 分享访客能正常对话，那两处不该被禁（详见 `sceneChipDisabled` 的注释）。
+    // 保留一个「解构了但没人用」的变量，会让下一个人以为它还在起作用。
   } = chat;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -291,7 +293,33 @@ export default function Composer({
    * 删文案后它彻底没有消费者了，所以连 state 一起删掉，
    * 不要留一个「看着像有用」的死变量。
    */
-  const sceneChipDisabled = Boolean(shareMode) || Boolean(currentSessionRunning);
+
+  /**
+   * 胶囊 / 快捷提问什么时候置灰 —— **只有「正在跑一轮」这一条**。
+   *
+   * ## 为什么不能把 `shareMode` 也算进来（曾经算过，是 bug）
+   *
+   * 原先写的是 `Boolean(shareMode) || Boolean(currentSessionRunning)`，理由是
+   * 「分享页只读」。但分享页**不是只读的**：访客能打字、能发送，链路每一层都
+   * 为此开好了口子 ——
+   *
+   * | 环节 | 分享访客的待遇 |
+   * |---|---|
+   * | `send()` | 正常放行（`ensureModelAvailable()` 在 shareMode 下直接 return true） |
+   * | `api/chat/scenes` | 正常返回（`chips.py` 注释明写「这个接口会被分享页调用」） |
+   * | 后端路径白名单 | `/api/chat/` 前缀放行（`main.py::_SHARE_SCOPE_ALLOWED_PREFIXES`） |
+   *
+   * 所以前端这一道 `disabled` 是**整条链路上唯一的拦截点**，而且拦错了：胶囊
+   * 显示出来、点下去毫无反应，也没有 tooltip 说明为什么。用户看到的就是
+   * 「有按钮但点不动」—— 比不显示更糟，因为它看起来像坏了。
+   *
+   * 真正的只读意图（分享链接不允许创建定时任务、不显示知识来源、不弹模型
+   * 配置框）各有各自的落点，不该顺手套在场景入口上。
+   *
+   * 置灰的唯一正当理由仍然是「这一轮还没跑完」：此时点下去会被推进队列，
+   * 点了没反馈等于失灵。
+   */
+  const sceneChipDisabled = Boolean(currentSessionRunning);
 
   /**
    * 点胶囊：**一律落一条用户消息**，让表单进消息流（对齐
