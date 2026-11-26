@@ -100,10 +100,15 @@ DEFAULT_MATCH_ACTION: dict[str, Any] = {
     "days_weight": 1.5,
     "budget_weight": 1.0,
     "days_tolerance": 1,
+    # 人数容差。0 = 严格相等（默认，4 人团不给 6 人方案）；
+    # >0 时放宽，且命中的行会在正文里声明「人数是按容差放宽的」。
+    "people_tolerance": 0,
     "max_score": 2.0,
     "top_k": 3,
     "rule_weight": 0.5,
     "use_decision_model": False,
+    # 空结果策略：nearest = 给最接近的一批参考（标注为「不是符合的」）；
+    # none = 只报空。这个字段以前是死配置，现在 channels 真的读了。
     "on_empty": "nearest",
 }
 

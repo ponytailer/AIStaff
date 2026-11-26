@@ -1,6 +1,7 @@
 import { defineSceneModule } from '../../define';
 import { travelItineraryParams } from './params';
 import { ItineraryEmptyState, ItineraryResultCard } from './ItineraryCard';
+import { TravelItinerarySlotForm } from './ItinerarySlotForm';
 
 /**
  * `travel.itinerary` —— 定制 module，用来证明「代码驱动比配置驱动多做了什么」。
@@ -31,4 +32,16 @@ export default defineSceneModule({
   },
   ResultCard: ItineraryResultCard,
   EmptyState: ItineraryEmptyState,
+  /**
+   * 条件表单。
+   *
+   * **必须显式导出**：`SceneModuleSurface` 按 `kind` 找组件，`form` 块没有
+   * `SlotForm` 时直接退化成 `fallback_text`（`form` 块通常没有可用兜底文本，
+   * 结果是**整块不渲染** —— 用户点完胶囊看到一条只有一句话的回复，表单消失）。
+   * 这个坑在接表单之前一直藏着，因为没有任何场景走过「缺槽位 → 出 form 块」这条路。
+   *
+   * 自己画而不是 `renderForm(block.data)` 的理由见 `ItinerarySlotForm` 头注释：
+   * demo 的分段按钮 / 金额快选，通用 `SlotFormCard` 表达不了。
+   */
+  SlotForm: TravelItinerarySlotForm,
 });

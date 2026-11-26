@@ -149,10 +149,22 @@ export function publishBlockers(
   if (issues.some((issue) => issue.level === 'error')) {
     blockers.push('有槽位指向了表里不存在的列');
   }
-  const respond = scene.respond_action ?? {};
-  if (respond.mode === 'template' && !(respond.template || '').trim()) {
-    blockers.push('回答模板是空的');
-  }
+  // const respond = scene.respond_action ?? {};
+  //
+  // 回答模板不再要求用户填（v3 起回答由 module 的 UI 代码画，模板只是
+  // 非 UI 渠道的兜底正文，由预设提供）。
+  //
+  // ## 为什么这条校验被删除（不是注释掉后再加回来）
+  //
+  // 改造前模板是用户在定义器里填的，空模板意味着「发布出去用户什么也看不到」，
+  // 所以阻断是对的。改造后模板的输入框已经移除（用户改不了），预设里留空是
+  // **合法配置**——那时后端会按命中行拼一句话（见 `channels.py` 的
+  // `_run_table_match` 里 `text_out` 的兜底分支）。继续阻断的后果是
+  // 「用户什么都填对了，点发布却永远提示回答模板是空的」，且界面上找不到
+  // 那个输入框 —— 一个不可能通过的校验。
+  //
+  // 若将来放开「高级模式让用户编辑模板」，请在这一处恢复判断：
+  //   if (respond.mode === 'template' && !(respond.template || '').trim()) { ... }
   return blockers;
 }
 

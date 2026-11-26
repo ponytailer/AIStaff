@@ -61,18 +61,6 @@ export const travelItineraryParams: SceneParamField[] = [
     placeholder: '留空用标题列的值',
   },
   {
-    key: 'primary_action_label',
-    label: '主按钮文案',
-    type: 'text',
-    placeholder: '选这个',
-  },
-  {
-    key: 'secondary_action_label',
-    label: '次按钮文案',
-    type: 'text',
-    placeholder: '看详情',
-  },
-  {
     key: 'price_note',
     label: '价格说明',
     type: 'text',
@@ -91,10 +79,12 @@ export const travelItineraryParams: SceneParamField[] = [
  *
  * **module 内部统一从这里取**，不要在组件里散落字面量 —— 否则「默认值」会变成
  * 三处不同的字符串，改一次要全文搜索。
+ *
+ * 没有 `primary_action_label` / `secondary_action_label`：这张卡上已经不放按钮了
+ * （理由见 `ItineraryCard` 价格条注释）。留两个改不动的文案字段在预设页，
+ * 比没有更糟 —— 超管会改完保存，然后在卡片上找不到任何变化。
  */
 export const TRAVEL_ITINERARY_PARAM_DEFAULTS = {
-  primary_action_label: '选这个',
-  secondary_action_label: '看详情',
   price_note: '/人 · 含住宿、雪票、教练、接送',
   show_source_table: true,
 } as const;

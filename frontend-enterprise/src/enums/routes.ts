@@ -13,6 +13,7 @@ export enum EnterpriseRoute {
   Feedback = '/enterprise/feedback',
   Knowledge = '/enterprise/knowledge',
   Scenes = '/enterprise/scenes',
+  ScenePresets = '/enterprise/scene-presets',
   GeneralSkills = '/enterprise/general-skills',
   Skills = '/enterprise/skills',
   Tools = '/enterprise/tools',

@@ -160,22 +160,46 @@ describe('ScenesPage 列表', () => {
     mockFetch({ scenes: [scene()] });
     renderPage({ currentUser: admin });
 
-    expect(await screen.findByText('滑雪行程推荐')).toBeTruthy();
+    // 左列表项与右检查器都会写场景名 —— 这正是双栏的意义（选中项在两边同时在场），
+    // 所以用 findAllByText 而不是 findByText。
+    expect((await screen.findAllByText('滑雪行程推荐')).length).toBeGreaterThan(0);
+    // 检查器「查表」行显示表名
     expect(screen.getByText('滑雪价目')).toBeTruthy();
-    expect(screen.getByText('人数 / 天数 / 预算')).toBeTruthy();
-    expect(screen.getByText('已发布')).toBeTruthy();
+    // 槽位不再拼成「人数 / 天数 / 预算」这一行顿号串：
+    // 顺序有意义（用户就是这么一个个被问的），所以列表里只给数量，
+    // 明细在检查器的「会问哪些条件」里逐条展开。
+    expect(screen.getByText('3 个条件')).toBeTruthy();
+    expect(screen.getAllByText('人数').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('已发布').length).toBeGreaterThan(0);
   });
 
-  it('绑定 0 个员工时显示「未绑定员工」而不是空白', async () => {
+  it('绑定 0 个员工时说明「用户看不到」而不是只报一个空状态', async () => {
     mockFetch({ scenes: [scene({ agent_ids: [] })] });
     renderPage({ currentUser: admin });
-    expect(await screen.findByText('未绑定员工')).toBeTruthy();
+
+    // 列表项：短标签（空间只够两个字）
+    expect(await screen.findByText('未绑定')).toBeTruthy();
+    // 检查器：解释**后果** —— 只说「未绑定」会被当成「资料字段没填满」
+    expect(screen.getByText('还没绑员工，用户看不到')).toBeTruthy();
+    // 检查器头部有「待绑员工」提示 pill
+    expect(screen.getByText('待绑员工')).toBeTruthy();
   });
 
-  it('绑定 3 个员工时折叠成「第一个等 N 个」', async () => {
-    mockFetch({ scenes: [scene({ agent_ids: ['a1', 'a2', 'a3'] })] });
+  it('绑定多个员工时列表给数量、检查器给头像栈 + 名字', async () => {
+    mockFetch({
+      scenes: [scene({ agent_ids: ['a1', 'a2', 'a3'] })],
+      agents: [
+        { ...employee, id: 'a1', name: '行程管家' },
+        { ...employee, id: 'a2', name: '客服小美' },
+        { ...employee, id: 'a3', name: '售后阿强' },
+      ],
+    });
     renderPage({ currentUser: admin });
-    expect(await screen.findByText(/等 3 个员工/)).toBeTruthy();
+
+    // 列表：只给数量（「3 员工」），名字放不下
+    expect(await screen.findByText('3 员工')).toBeTruthy();
+    // 检查器：头像栈最多 3 个，名字用顿号连起来
+    expect(screen.getByText('行程管家、客服小美、售后阿强')).toBeTruthy();
   });
 
   it('绑定员工列显示员工名字，而不是 agent_xxx 原始 id', async () => {
@@ -187,8 +211,8 @@ describe('ScenesPage 列表', () => {
     });
     renderPage({ currentUser: admin });
 
-    expect(await screen.findByText('已绑定 行程管家')).toBeTruthy();
-    expect(screen.queryByText(/已绑定 agent-1/)).toBeNull();
+    expect(await screen.findByText('行程管家')).toBeTruthy();
+    expect(screen.queryByText('agent-1')).toBeNull();
   });
 
   it('拿不到员工名单时退化成显示 id，不影响整页', async () => {
@@ -196,7 +220,7 @@ describe('ScenesPage 列表', () => {
     mockFetch({ scenes: [scene({ agent_ids: ['agent-1'] })], agents: [] });
     renderPage({ currentUser: admin });
 
-    expect(await screen.findByText('已绑定 agent-1')).toBeTruthy();
+    expect(await screen.findByText('agent-1')).toBeTruthy();
   });
 
   it('数据表被删掉后不显示成正常状态', async () => {
@@ -216,7 +240,8 @@ describe('ScenesPage 列表', () => {
   it('有 module 时显示 module_key，并带版本号在 title 里', async () => {
     mockFetch({ scenes: [scene()] });
     renderPage({ currentUser: admin });
-    const cell = await screen.findByText('generic.table_match');
+    // 检查器「技术信息」里是「module_key · vN」这一整串，所以用正则匹配前缀。
+    const cell = await screen.findByText(/^generic\.table_match/);
     expect(cell.getAttribute('title')).toContain('v1');
   });
 
@@ -255,7 +280,7 @@ describe('ScenesPage 权限', () => {
   it('普通成员在全局列表页没有写入口（不是点了才 403）', async () => {
     mockFetch({ scenes: [scene()] });
     renderPage({ currentUser: member });
-    await screen.findByText('滑雪行程推荐');
+    await screen.findAllByText('滑雪行程推荐');
     expect(screen.queryByText('＋ 新建场景')).toBeNull();
     expect(screen.queryByLabelText('场景操作')).toBeNull();
   });
@@ -269,7 +294,7 @@ describe('ScenesPage 权限', () => {
   it('带 agentId 时按 agent_id 过滤查询', async () => {
     const calls = mockFetch({ scenes: [scene()] });
     renderPage({ currentUser: member, agentId: 'agent-1', embedded: true });
-    await screen.findByText('滑雪行程推荐');
+    await screen.findAllByText('滑雪行程推荐');
     expect(calls.some((url) => url.includes('agent_id=agent-1'))).toBe(true);
   });
 });

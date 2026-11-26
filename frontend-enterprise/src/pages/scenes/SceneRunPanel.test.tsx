@@ -48,6 +48,11 @@ const SCENE = {
   icon: '🎿',
   status: 'published',
   scene_type: 'table_match',
+  // v3：场景必带 module_key（空串 = 未装配，预览区会提示「先选场景类型」）。
+  // 用 `travel.itinerary` 是因为「命中后回答」的预览要真加载它的 chunk 才画得出来。
+  module_key: 'travel.itinerary',
+  module_version: 1,
+  ui_config: { schema_version: 1, params: {}, fallback_text: '找到了合适的行程' },
   table_ids: ['sctable_1'],
   trigger: { shortcut: true, keywords: [], shortcut_label: '', examples: [], require_slots: true, bypass_llm_router: true },
   slots: [
@@ -113,6 +118,35 @@ function mockFetch(runBody: unknown) {
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
+      // 预设相关接口必须排在 `/scenes` 系列之前：它们的路径里不含 `/scenes`，
+      // 但 `/scene-preset-options/defaults/...` 含 `scene-preset`，
+      // 与下面几条毫无交集，所以顺序在这里不敏感；写清楚只为可读。
+      if (url.includes('/scene-preset-options/defaults/')) {
+        return jsonResponse({
+          module_key: 'travel.itinerary',
+          display_name: '行程规划',
+          scene_type: 'table_match',
+          icon: '🎿',
+          description: '按人数天数预算推荐行程',
+          icons: ['🎿', '🏔️'],
+          ui_config: { fallback_text: '找到了合适的行程' },
+          trigger: { shortcut: true, bypass_llm_router: true, require_slots: true },
+          slots: [],
+          match_action: {},
+        });
+      }
+      if (url.includes('/scene-preset-options')) {
+        return jsonResponse([
+          {
+            module_key: 'travel.itinerary',
+            display_name: '行程规划',
+            scene_type: 'table_match',
+            icon: '🎿',
+            icons: ['🎿', '🏔️'],
+            description: '按人数天数预算推荐行程',
+          },
+        ]);
+      }
       // 顺序敏感：/scenes/scene_1 也以 /scenes 开头，详情必须排在列表之前
       if (url.includes('/api/enterprise/scenes/scene_1/run')) return jsonResponse(runBody);
       if (url.includes('/api/enterprise/scenes/scene_1')) return jsonResponse(SCENE);
@@ -137,9 +171,18 @@ async function openEditor(user: ReturnType<typeof userEvent.setup>) {
       </TooltipProvider>
     </I18nProvider>,
   );
-  await screen.findByText('滑雪行程推荐');
-  await user.click(screen.getByLabelText('场景操作'));
-  await user.click(await screen.findByText('编辑'));
+  // 双栏改版后，场景名在左列表项和右检查器里各出现一次，
+  // 用 findAllByText 等到列表加载完即可（不是断言数量）。
+  await screen.findAllByText('滑雪行程推荐');
+
+  /*
+    入口从列表的「⋯ 场景操作」菜单挪到了检查器底部的「编辑」按钮 ——
+    这是 demo 版式的直接结果：head 只留编辑，foot 放删除 / 试跑。
+    操作按钮挂在**选中项**的检查器上，所以先点列表项再找按钮，顺序不能反。
+  */
+  await user.click(screen.getAllByTitle('滑雪行程推荐')[0]);
+  // 「编辑」在检查器头部，「删除 / 试跑」在底部 foot（aria-label=场景操作）。
+  await user.click(await screen.findByRole('button', { name: '编辑' }));
   return screen.findByLabelText('编辑场景');
 }
 
@@ -219,14 +262,18 @@ describe('试跑：有命中', () => {
     expect(within(dialog).getAllByText('经典雪山五日').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('模板预览用第一条命中真的渲染出来', async () => {
+  it('命中后回答是只读卡片预览，没有模板输入框', async () => {
     mockFetch(HIT_RUN);
     const user = userEvent.setup();
     const dialog = await openEditor(user);
-    await fillAndRun(user, dialog, '4');
 
-    // 模板是「为你找到 {{计划内容}}，共 {{预算}} 元」—— 这一行只可能来自渲染结果
-    expect(await within(dialog).findByText('为你找到 经典雪山五日，共 3000 元')).toBeTruthy();
+    // v3 起「命中后回答」区块只剩一张只读预览卡（用真 module 渲染样例数据），
+    // 模板输入框已移除 —— 回答长什么样由 module 的 UI 代码决定。
+    // 这条断言锁住「不给用户配回答」这个产品决策，防止模板输入框被悄悄加回来。
+    expect(within(dialog).queryByPlaceholderText(/为你找到/)).toBeNull();
+    expect(within(dialog).queryByText('回答方式')).toBeNull();
+    // 预览区标注了「样例数据」，用户不会把它误认成真结果
+    expect(await within(dialog).findByText(/样例数据预览/)).toBeTruthy();
   });
 
   it('有命中时不显示空结果解释（两件事不能同时出现）', async () => {
@@ -242,26 +289,19 @@ describe('试跑：有命中', () => {
   });
 });
 
-describe('模板占位符校验', () => {
-  it('模板引用了表里没有的列时给出警告', async () => {
-    // 把模板改成引用一个不存在的列
+describe('被移除的用户可配项', () => {
+  it('场景界面 / 触发条件 / 绑定员工 三个区块不再出现', async () => {
+    // 这三个区块整体搬到了「场景预设」页（超管）或员工档案页（绑定），
+    // 用户定义器里不该再有它们。断言「不渲染」而不是「置灰」——
+    // 置灰会让人以为以后能开，而它们对用户永远不可改。
     mockFetch(HIT_RUN);
     const user = userEvent.setup();
     const dialog = await openEditor(user);
 
-    const textarea = within(dialog).getByDisplayValue(/为你找到/) as HTMLTextAreaElement;
-    // 用 fireEvent 直接改值：user.type 会把 `{{` 当键盘语法解析，最终输入成 `{单价}}`
-    fireEvent.change(textarea, { target: { value: '价格 {{单价}} 元' } });
-    expect(textarea.value).toBe('价格 {{单价}} 元');
-
-    // 提示文案被「键名」打断成多段；函数 matcher 会同时命中祖先节点，
-    // 所以用 getAllByText 判断「至少出现一次」，再单独断言键名
-    await waitFor(() => {
-      const matches = within(dialog).getAllByText((_, node) =>
-        Boolean(node?.textContent?.includes('表里没有对应列')),
-      );
-      expect(matches.length).toBeGreaterThan(0);
-    });
-    expect(within(dialog).getAllByText(/单价/).length).toBeGreaterThan(0);
+    expect(within(dialog).queryByText('场景界面')).toBeNull();
+    expect(within(dialog).queryByText('触发条件')).toBeNull();
+    expect(within(dialog).queryByText('绑定员工')).toBeNull();
+    // 也不该再有「选 module」的单选卡（那是场景界面的核心控件）
+    expect(within(dialog).queryByText('显示快捷按钮')).toBeNull();
   });
 });

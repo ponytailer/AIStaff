@@ -32,6 +32,7 @@ from app.api import (
     persona,
     plaza_hot,
     plaza_news,
+    scene_presets,
     scheduled_task_monitor,
     scheduled_tasks,
     scenes,
@@ -228,6 +229,10 @@ app.include_router(scenes.router)
 # 该前缀与 /api/public/agent-shares/（见本文件 _SHARE_SCOPE_ALLOWED_PREFIXES）。
 # 挂在 /api/enterprise/ 下会让分享页 403，且失败信息看不出根因。
 app.include_router(scene_chips.chat_router)
+# 场景预设（L2 层）：超管配置页读写 + 定义器只读选项。
+# 两个 router 分开注册的理由见 app/api/scene_presets.py 的模块文档。
+app.include_router(scene_presets.enterprise_router)
+app.include_router(scene_presets.app_router)
 app.include_router(ui_config.enterprise_router)
 app.include_router(tools.router)
 app.include_router(tools.mcp_router)

@@ -84,11 +84,30 @@ export type SceneMatchAction = {
   days_weight: number;
   budget_weight: number;
   days_tolerance: number;
+  /**
+   * 人数容差。`0` = 严格相等（默认，4 人团不给 6 人方案）。
+   *
+   * 配成 `>0` 才放宽，且放宽后命中的方案会在回答正文里被明确点名
+   * （「其中 N 个方案的人数和你要的不完全一致」）—— 不做静默放宽。
+   * 后端 `matcher.MatchAction.people_tolerance` 同名同义。
+   */
+  people_tolerance: number;
   max_score: number;
   top_k: number;
   rule_weight: number;
   use_decision_model: boolean;
-  on_empty: 'nearest' | 'clarify' | 'nothing';
+  /**
+   * 完全没命中时怎么办。**取值必须与后端 `matcher._ON_EMPTY_ALIASES` 对齐**：
+   *
+   * - `nearest`：给差距最小的一批（标注「不是完全符合条件」）+ 放宽建议
+   * - `clarify`：不给近似项，反问用户能否放宽 + 放宽建议
+   * - `none`：只说明没有结果，不给近似项、不给建议按钮
+   *
+   * 历史坑：这里曾写 `'nothing'`，后端白名单里是 `'none'`，于是选「只说明
+   * 没有结果」会被静默回落成 `nearest` —— 界面回显正常、行为没变。
+   * 后端现已把 `nothing` 收作别名，但前端仍然只发 `none`，不再新增方言。
+   */
+  on_empty: 'nearest' | 'clarify' | 'none';
 };
 
 /**
@@ -100,6 +119,17 @@ export type SceneRespondAction = {
   mode?: 'template' | 'llm';
   template?: string;
   intro?: string;
+  /**
+   * 缺必填条件时，**表单上方**的那句引导语。
+   *
+   * 由员工在定义器里配（`SceneEditor` 的「表单引导语」），存 `respond_action`
+   * 而不是 `ui_config`：`effective_ui_config()` 会让预设覆盖本地的非空值，
+   * 员工写的文案会被超管的预设抹掉。`respond_action` 不经过预设合并。
+   *
+   * 空串 = 后端按场景类型给默认句（`channels.py::_run_table_match`），
+   * **不是**「不显示」—— 一上来一张光秃秃的表格是这次要修的问题。
+   */
+  ask_prompt?: string;
   /** 命中多行时最多展示几条 */
   max_items?: number;
 };
@@ -152,6 +182,15 @@ export type SceneRead = {
     params?: Record<string, unknown>;
     /** 渲染不出来时的纯文本兜底（非 UI 渠道只吃文本） */
     fallback_text?: string;
+    /** 表单卡头标题（「行程规划 · 请补充条件」）。空 = 后端按场景名拼。 */
+    form_title?: string;
+    /**
+     * 表单卡头副标题（「填好这几项，我按方案表逐条比对」）。空 = 后端按类型兜底。
+     *
+     * 与 `respond_action.ask_prompt`（卡**上方**那句）分工不同，别合并：
+     * 副标题在卡内、短、说「填完会发生什么」；引导语在卡外、长、说「为什么问你」。
+     */
+    form_subtitle?: string;
   };
   /** 模块私有参数，框架只透传不解释。 */
   module_config: Record<string, unknown>;
@@ -374,6 +413,7 @@ export const DEFAULT_MATCH_ACTION: SceneMatchAction = {
   days_weight: 1.5,
   budget_weight: 1.0,
   days_tolerance: 1,
+  people_tolerance: 0,
   max_score: 2.0,
   top_k: 3,
   rule_weight: 0.5,
@@ -393,3 +433,133 @@ export const SEMANTIC_SLOTS: { key: string; label: string; unit: string; hint: s
   { key: 'days', label: '天数', unit: '天', hint: '上下浮动 1 天仍算命中' },
   { key: 'budget', label: '预算', unit: '元', hint: '按相对偏差排序，越接近越靠前' },
 ];
+// ============================================================
+// 场景预设（L2 层：超管定，普通用户只读）
+// ============================================================
+
+/**
+ * 一份场景预设。对应后端 `app/api/scene_presets.py::ScenePresetRead`。
+ *
+ * ## 三层分层里它是哪一层
+ *
+ * | 层 | 谁定 | 存在哪 |
+ * |---|---|---|
+ * | L1 module 实现 | 开发者写代码 | `src/scenes/modules/<module_key>/` |
+ * | **L2 预设（本类型）** | 超管在 `/enterprise/scene-presets` 改 | 后端 `scene_presets` 表 |
+ * | L3 场景实例 | 用户建场景时填 | `scenes` 表 |
+ *
+ * `preset_json` 里的字段按「用户能不能改」分两类，生效方式不同：
+ * - `ui_config` / `trigger`：用户不能改，**渲染时实时回读**（超管改完全局立即生效）
+ * - `slots` / `match_action`：用户能改，**只在建场景时抄一份**，之后归用户
+ */
+export type ScenePresetRead = {
+  module_key: string;
+  /** 类型下拉里显示的名字（「行程规划」）。 */
+  display_name: string;
+  scene_type: SceneType;
+  icon: string;
+  enabled: boolean;
+  order_index: number;
+  preset_json: ScenePresetPayload;
+  updated_at: string;
+  updated_by: string;
+};
+
+/** `preset_json` 的结构。字段名与 `SceneCreateRequest` 同名字段**逐字一致**。 */
+export type ScenePresetPayload = {
+  schema_version?: number;
+  /** 新建场景时预填的描述（用户可改）。 */
+  description?: string;
+  /** 图标下拉可选项，第一个是默认值。 */
+  icons?: string[];
+  ui_config?: {
+    fallback_text?: string;
+    form_title?: string;
+    /** 表单卡头副标题。与场景实例上的同名键互通，渲染时场景值优先。 */
+    form_subtitle?: string;
+    params?: Record<string, unknown>;
+  };
+  trigger?: Partial<SceneTrigger>;
+  slots?: SceneSlot[];
+  match_action?: Partial<SceneMatchAction>;
+};
+
+/** 定义器「场景类型」下拉的一项。**不含完整 preset_json**。 */
+export type ScenePresetOption = {
+  module_key: string;
+  display_name: string;
+  scene_type: string;
+  icon: string;
+  icons: string[];
+  description: string;
+};
+
+/** 新建场景时预填的默认值（选了某一项之后填什么）。 */
+export type ScenePresetDefaults = {
+  module_key: string;
+  display_name: string;
+  scene_type: string;
+  icon: string;
+  description: string;
+  icons: string[];
+  ui_config: Record<string, unknown>;
+  trigger: Record<string, unknown>;
+  slots: SceneSlot[];
+  match_action: Record<string, unknown>;
+  /**
+   * 预设里的 `respond_action`（含建议的 `ask_prompt` 表单引导语）。
+   *
+   * 可选：老后端 / 手工构造的夹具可能不带这个键。读的时候必须 `?? {}`，
+   * 否则「取个默认值」这条路径会因为 undefined 直接抛，把整个定义器打挂。
+   */
+  respond_action?: Record<string, unknown>;
+};
+
+/** 下拉选项。登录即可（不要求管理员）—— 普通用户建场景时要用。 */
+export async function listScenePresetOptions(): Promise<ScenePresetOption[]> {
+  return api.get<ScenePresetOption[]>(
+    `/api/enterprise/scene-preset-options?tenant_id=${encodeURIComponent(TENANT_ID)}`,
+  );
+}
+
+/** 某个预设的默认值（打开编辑器时拉一次）。 */
+export async function getScenePresetDefaults(moduleKey: string): Promise<ScenePresetDefaults> {
+  return api.get<ScenePresetDefaults>(
+    `/api/enterprise/scene-preset-options/defaults/${encodeURIComponent(moduleKey)}`
+    + `?tenant_id=${encodeURIComponent(TENANT_ID)}`,
+  );
+}
+
+/** 超管：全部预设（含已停用）。 */
+export async function listScenePresets(): Promise<ScenePresetRead[]> {
+  return api.get<ScenePresetRead[]>(
+    `/api/enterprise/scene-presets?tenant_id=${encodeURIComponent(TENANT_ID)}`,
+  );
+}
+
+/** 超管：整份保存一份预设（`preset_json` 是覆盖语义，不是字段合并）。 */
+export async function saveScenePreset(
+  moduleKey: string,
+  payload: {
+    display_name: string;
+    scene_type: string;
+    icon: string;
+    enabled: boolean;
+    order_index: number;
+    preset_json: ScenePresetPayload;
+  },
+): Promise<ScenePresetRead> {
+  return api.put<ScenePresetRead>(
+    `/api/enterprise/scene-presets/${encodeURIComponent(moduleKey)}`,
+    { tenant_id: TENANT_ID, ...payload },
+  );
+}
+
+/** 超管：丢弃覆盖，回到代码里的出厂值（改坏了的唯一回滚出口）。 */
+export async function resetScenePreset(moduleKey: string): Promise<ScenePresetRead> {
+  return api.post<ScenePresetRead>(
+    `/api/enterprise/scene-presets/${encodeURIComponent(moduleKey)}/reset`
+    + `?tenant_id=${encodeURIComponent(TENANT_ID)}`,
+    {},
+  );
+}

@@ -161,6 +161,9 @@ const DISPATCHER_STRUCTURE_NAV: NavItem[] = [
 const SYSTEM_NAV: NavItem[] = [
   // 账号管理已并入「API Key 审批」页的用户管理 tab，侧边栏不再单列
   { route: EnterpriseRoute.ApiKeyApprovals, label: 'API Key 审批', Icon: IconApiKey },
+  // 场景预设紧挨「超级管理员」：两者都是「改一次、全局生效」的配置面，
+  // 与左侧业务菜单（建场景/建员工）不是一类东西
+  { route: EnterpriseRoute.ScenePresets, label: '场景预设', Icon: IconScenePreset },
   { route: EnterpriseRoute.RuntimeSettings, label: '超级管理员', Icon: IconSettings },
 ];
 
@@ -203,6 +206,26 @@ function IconApiKey({ className, ...props }: { className?: string } & SVGProps<S
       <path d="M10.7 12.3 21 2" />
       <path d="M15.5 6.5 18.5 9.5" />
       <path d="M18 4 20.5 6.5" />
+    </svg>
+  );
+}
+
+/** 「场景预设」——叠层方块，暗示「预设是场景下面那层」。 */
+function IconScenePreset({ className, ...props }: { className?: string } & SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M12 2.8 21 7.4l-9 4.6L3 7.4l9-4.6Z" />
+      <path d="M3 12.2 12 16.8l9-4.6" />
+      <path d="M3 16.6 12 21.2l9-4.6" />
     </svg>
   );
 }

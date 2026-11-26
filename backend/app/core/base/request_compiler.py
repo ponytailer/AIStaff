@@ -107,6 +107,27 @@ class TaskExecutionResult(BaseModel):
     # 且既有 ``a2ui`` metadata 键被多处读取。新块走 ``ui_blocks`` 这条**新通道**，
     # 前端按 `chunk.module_key` 选择注册表渲染器（无 module_key 走内置渲染器）。
     ui_blocks: list[dict[str, Any]] = Field(default_factory=list)
+    #: 场景渲染参数（按钮文案 / 列映射 / 价格说明），最终写进消息 metadata 的
+    #: 顶层 `scene_params` 键。
+    #:
+    #: 为什么不塞进每个 block：`SceneUiBlock.to_dict()` 契约只透 5 个字段
+    #: （见 `app/scene_modules/types.py`），而一条消息的多个块本来就同属一个
+    #: 场景、共用同一份参数。放顶层还能让「非场景块」自然没有这个键。
+    #:
+    #: 消费方：`src/pages/chat/messageBlockSlots.ts::sceneParamsOf()`。
+    #: 缺它时的表现是「后端配了参数、聊天里永远用代码默认值」，不报错不打日志。
+    scene_params: dict[str, Any] = Field(default_factory=dict)
+    #: 本轮实际执行的场景实例 id（非场景帧为空串），最终写进消息 metadata 的
+    #: 顶层 `scene_id` 键。
+    #:
+    #: 为什么必须透出：场景表单（`form` 块）提交时发的是「人数：4；天数：5；
+    #: 预算：3000」，一个触发关键词都没有。前端**只能**靠这条消息上的 scene_id
+    #: 把它作为 `forced_scene_id` 带回去，否则后端的 `resolve_scene_hit()` 命中
+    #: 不到任何场景，整轮落回普通对话 → 用户填完表去查了一遍知识库。
+    #:
+    #: 消费方：`src/pages/chat/messageBlockSlots.ts::sceneIdOf()` →
+    #: `MessageBubble` 的 `onSubmitSlots` → `submitSlotForm(..., forcedSceneId)`。
+    scene_id: str = ""
     #: 场景帧的执行结果语义（ok / no_match / error）。聊天层用它决定
     #: 「要不要把这轮当成失败来回退」，空串表示不是场景帧。
     scene_status: str = ""

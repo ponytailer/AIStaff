@@ -19,6 +19,18 @@ export type PreparedChatTurn = {
   createdAt: string;
   /** A2UI 表单提交的结构化取值（普通输入消息不带）。 */
   slotSubmission?: Record<string, unknown>;
+  /**
+   * 指定的场景实例 id（胶囊点开表单提交轮必带）。
+   *
+   * 表单提交的文本是「人数：4；天数：5；预算：3000」，**一个关键词都没有**，
+   * 后端靠 `trigger_json.keywords` 匹配必然落空。所以这一轮必须由前端显式
+   * 指定场景，后端才会跳过意图识别直接进该场景（见
+   * `backend/app/session/session_schema.py` 的 `forced_scene_id` 注释）。
+   *
+   * 后端仍会校验它在该员工当前生效的绑定集内：解绑后的旧请求、伪造的
+   * scene_id 都会被静默回落成普通对话，不会越权。
+   */
+  forcedSceneId?: string;
   /** 本轮「互联网检索」开关（默认 false：只在用户打开时随请求携带 true）。 */
   webSearch?: boolean;
 };
@@ -52,6 +64,7 @@ function isPreparedChatTurn(value: unknown): value is PreparedChatTurn {
     && INTERACTION_MODES.has(value.interactionMode as ComposerInteractionMode)
     && (value.modelConfigId === undefined || typeof value.modelConfigId === 'string')
     && (value.slotSubmission === undefined || isRecord(value.slotSubmission))
+    && (value.forcedSceneId === undefined || typeof value.forcedSceneId === 'string')
     && (value.webSearch === undefined || typeof value.webSearch === 'boolean')
     && typeof value.createdAt === 'string'
     && Number.isFinite(Date.parse(value.createdAt))

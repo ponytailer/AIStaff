@@ -37,6 +37,17 @@ type SlotFormCardProps = {
   form: A2UIForm;
   onSubmit: (values: Record<string, unknown>) => void;
   disabled?: boolean;
+  /**
+   * 隐藏卡片自带卡头（图标 + 标题 + 步骤名）。
+   *
+   * 只有一个调用点会传 `true`：胶囊点开的输入区面板
+   * （`SceneChipFormPanel`）自己已有标题行，这两层卡头叠在一起会同时出现
+   * 「滑雪行程推荐」和「滑雪行程推荐 · 请补充以下信息」两个标题。
+   *
+   * 默认 `false` 是刻意的：消息流里的表单**必须**带卡头 —— 它是那一条消息
+   * 的身份标识，去掉之后用户分不清这张表是模型问的还是自己点开的。
+   */
+  hideHeader?: boolean;
 };
 
 function isEmptyValue(value: unknown): boolean {
@@ -45,7 +56,12 @@ function isEmptyValue(value: unknown): boolean {
 }
 
 /** A2UI 表单卡片：后端下发字段描述，这里渲染成原生控件并回传结构化取值。 */
-export default function SlotFormCard({ form, onSubmit, disabled = false }: SlotFormCardProps) {
+export default function SlotFormCard({
+  form,
+  onSubmit,
+  disabled = false,
+  hideHeader = false,
+}: SlotFormCardProps) {
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -216,19 +232,28 @@ export default function SlotFormCard({ form, onSubmit, disabled = false }: SlotF
 
   return (
     <div className={CHAT_SLOT_FORM_CARD_CLASS}>
-      <div className={CHAT_SLOT_FORM_HEADER_CLASS}>
-        <span className={CHAT_SLOT_FORM_ICON_CLASS}>
-          <StaffdeckIcon name="edit" size={16} />
-        </span>
-        <span className={CHAT_SLOT_FORM_HEADING_CLASS}>
-          <span className={CHAT_SLOT_FORM_TITLE_CLASS}>{title}</span>
-          {form.step_name && (
-            <span className={CHAT_SLOT_FORM_KICKER_CLASS} data-i18n-ignore>
-              {form.step_name}
-            </span>
-          )}
-        </span>
-      </div>
+      {!hideHeader && (
+        <div className={CHAT_SLOT_FORM_HEADER_CLASS}>
+          <span className={CHAT_SLOT_FORM_ICON_CLASS}>
+            <StaffdeckIcon name="edit" size={16} />
+          </span>
+          <span className={CHAT_SLOT_FORM_HEADING_CLASS}>
+            <span className={CHAT_SLOT_FORM_TITLE_CLASS}>{title}</span>
+            {/*
+              副标题优先于 `step_name`：场景消息卡给的是 `subtitle`
+              （「填好这几项，我按方案表逐条比对」），SOP 表单给的是 `step_name`。
+              两者合并成一行是因为它们在卡头里占的是同一个位置 —— 叠两行会把
+              卡头撑高，而同屏的 `ItinerarySlotForm` 只有一行。两张表单长得不一样
+              正是用户反复提的问题。
+            */}
+            {(form.subtitle || form.step_name) && (
+              <span className={CHAT_SLOT_FORM_KICKER_CLASS} data-i18n-ignore>
+                {form.subtitle || form.step_name}
+              </span>
+            )}
+          </span>
+        </div>
+      )}
 
       <div className={CHAT_SLOT_FORM_GRID_CLASS}>
         {form.fields.map((field) => (

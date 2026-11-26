@@ -29,12 +29,28 @@ class MatchAction:
     days_weight: float = 1.5
     budget_weight: float = 1.0
     days_tolerance: int = 1
+    # 人数容差。**默认 0 = 严格相等**，这是业务上的常规预期
+    # （4 人团不能给 6 人方案）。配成 >0 才放宽，且放宽后命中的行会在
+    # 步骤漏斗里被单独计数（`people_widened`），不做静默放宽。
+    people_tolerance: int = 0
     # 超过这个分数视为完全不相关，直接淘汰（而不是排在最后）
     max_score: float = 2.0
     top_k: int = 3
     # 决策模型融合分里规则分的权重
     rule_weight: float = 0.5
     use_decision_model: bool = False
+    # 空结果策略。**三态，与前端的下拉一一对应**（`SceneEditor` 的
+    # 「完全没有命中时」）：
+    #
+    #   nearest → 给差距最小的一批参考（标注为「不是符合的」）+ 放宽建议
+    #   clarify → 不给近似项，反过来问用户能不能放宽，并给出放宽建议
+    #   none    → 只说明没有结果，不给近似项、不给建议按钮
+    #
+    # 历史坑：前端下拉的第三个值写的是 `nothing`，而后端只认 `none`，
+    # 用户选了「只说明没有结果」会被 `_as_choice` 静默回落成 `nearest` ——
+    # 界面上选项变了、库里也存了，运行行为却一模一样。现在两边都收
+    # `none`（`nothing` 作为旧值别名兜着），并在 `_ON_EMPTY_ALIASES` 里说明。
+    on_empty: str = "nearest"
 
     @classmethod
     def from_json(cls, data: dict[str, Any] | None) -> MatchAction:
@@ -44,11 +60,32 @@ class MatchAction:
             days_weight=_as_float(data.get("days_weight"), defaults.days_weight),
             budget_weight=_as_float(data.get("budget_weight"), defaults.budget_weight),
             days_tolerance=_as_int(data.get("days_tolerance"), defaults.days_tolerance),
+            # 负容差没有意义，钳到 0，否则 abs(diff) <= -1 恒 False → 全灭且无解释
+            people_tolerance=max(0, _as_int(data.get("people_tolerance"), defaults.people_tolerance)),
             max_score=_as_float(data.get("max_score"), defaults.max_score),
             top_k=max(1, _as_int(data.get("top_k"), defaults.top_k)),
             rule_weight=_as_float(data.get("rule_weight"), defaults.rule_weight),
             use_decision_model=bool(data.get("use_decision_model", False)),
+            on_empty=_as_choice(
+                _normalise_on_empty(data.get("on_empty")),
+                defaults.on_empty,
+                ("nearest", "clarify", "none"),
+            ),
         )
+
+
+#: `on_empty` 的历史别名 → 现取值。
+#:
+#: 前端下拉曾经写的是 `nothing`（`SceneEditor.tsx` 的 `<option value="nothing">`），
+#: 而后端 `_as_choice` 的白名单里是 `none`。于是「只说明没有结果」这一档
+#: 在运行时被静默回落成 `nearest` —— 配置存进去了、界面也回显正常，就是
+#: 行为不变。别名表让**已经存进库的老配置**也能正确生效，不用写迁移脚本。
+_ON_EMPTY_ALIASES: dict[str, str] = {"nothing": "none", "": ""}
+
+
+def _normalise_on_empty(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    return _ON_EMPTY_ALIASES.get(text, text)
 
 
 # 每个槽位在表里「应该有」的单位。用于挡住「4天 冒充 4人」这类错列数据。
@@ -119,6 +156,11 @@ class MatchResult:
     reranked: bool = False
     model_used: bool = False
     invalid_budget: bool = False
+    # 被人数容差（people_tolerance>0）放宽才进来的行数。默认 0 = 严格模式，
+    # 与历史行为一致。>0 时上层必须在文案/卡片里告诉用户「放宽了人数」。
+    people_widened: int = 0
+    # 空结果时若 on_empty="nearest"，这里给差距最小的一批（不当作命中）。
+    nearest: list[MatchRow] = field(default_factory=list)
 
     def steps_json(self) -> list[dict[str, Any]]:
         return [s.to_dict() for s in self.steps]
@@ -137,6 +179,12 @@ def _as_int(value: Any, default: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _as_choice(value: Any, default: str, allowed: tuple[str, ...]) -> str:
+    """枚举字段：不认识的取值一律回落默认，不让脏配置漏到运行期。"""
+    text = str(value or "").strip().lower()
+    return text if text in allowed else default
 
 
 def _row_id(row: dict[str, Any], fallback: int) -> str:
@@ -273,10 +321,16 @@ def run_match(
         )
     )
 
-    # ② 人数硬约束
+    # ② 人数约束（默认严格相等；配了 people_tolerance 才放宽）
     slot_people = normalize(slots.get("people"))
     if slot_people is not None and not slot_people.ok:
         slot_people = None
+
+    people_tol = max(0, int(action.people_tolerance))
+    # 被容差放进来、但人数并不相等的行。必须单独计数上报，
+    # 不能混进「精确命中」里 —— 用户填 4 人拿到 6 人方案，
+    # 如果界面不说是放宽来的，他会以为系统算错了。
+    people_widened_ids: list[str] = []
 
     def _pass_people(r: MatchRow) -> bool:
         if slot_people is None:
@@ -285,20 +339,38 @@ def run_match(
             return False  # 行值坏 → 淘汰（不能当成匹配）
         if unit_conflict(slot_people, r.np):
             return False
-        return abs(slot_people.num - r.np.num) < 1e-9
+        diff = abs(slot_people.num - r.np.num)
+        if diff < 1e-9:
+            return True
+        if people_tol and diff <= people_tol + 1e-9:
+            people_widened_ids.append(r.id)
+            return True
+        return False
 
     after_people = [r for r in normalized if _pass_people(r)]
     dropped = len(normalized) - len(after_people)
+    if slot_people is None:
+        people_detail = "未填人数，跳过该层"
+        people_label = "人数约束"
+    elif people_tol:
+        people_detail = (
+            f"{format_number(slot_people.num)} 人可接受 "
+            f"{format_number(slot_people.num - people_tol)}~"
+            f"{format_number(slot_people.num + people_tol)} 人"
+            f"（已配置容差 ±{people_tol}）"
+        )
+        people_label = f"人数 ±{people_tol}"
+    else:
+        people_detail = (
+            f"必须等于 {format_number(slot_people.num)} 人，"
+            f"4 人团不能给 6 人方案"
+        )
+        people_label = "人数硬约束"
     steps.append(
         MatchStep(
             key="people",
-            label="人数硬约束",
-            detail=(
-                f"必须等于 {format_number(slot_people.num)} 人，"
-                f"4 人团不能给 6 人方案"
-                if slot_people
-                else "未填人数，跳过该层"
-            ),
+            label=people_label,
+            detail=people_detail,
             from_=len(normalized),
             to=len(after_people),
             drop_text=f"淘汰 {dropped} 行" if dropped else "",
@@ -432,11 +504,30 @@ def run_match(
         )
     )
 
+    hits = ranked[: action.top_k]
+
+    # ⑥ 空结果策略：`on_empty` 决定给不给近似项。
+    #
+    # 注意这里的 `nearest` **不是命中**：它不进 `hits`、`status` 仍是 no_match、
+    # 文案也必须说清「这些不是符合的，是最接近的」。把它当命中返回会让
+    # 用户拿到一个根本不满足条件的推荐，比没有推荐更糟。
+    #
+    # 只有 `nearest` 才产出近似项；`clarify` / `none` 一律为空 —— 它们的
+    # 区别不在 matcher，而在 `channels.py` 怎么组织正文（反问 / 只报空）。
+    # 这样 matcher 里只有一个 if，语义边界清楚。
+    #
+    # 排序依据是 score（已算好的相对偏差），淘汰在各层之前就发生的行
+    # （比如人数被硬约束筛掉的）**不在 nearest 里** —— 它们连打分都没进过，
+    # 硬凑进来反而误导。
+    nearest: list[MatchRow] = []
+    if not hits and str(action.on_empty) == "nearest":
+        nearest = sorted(scored, key=lambda r: r.score)[: action.top_k]
+
     return MatchResult(
         steps=steps,
         ranked=ranked,
         all_scored=sorted(scored, key=lambda r: r.score),
-        hits=ranked[: action.top_k],
+        hits=hits,
         total=total,
         normalized_count=len(normalized),
         unconvertible=unconvertible,
@@ -445,4 +536,6 @@ def run_match(
         reranked=reranked,
         model_used=model_used,
         invalid_budget=invalid_budget,
+        people_widened=len(people_widened_ids),
+        nearest=nearest,
     )

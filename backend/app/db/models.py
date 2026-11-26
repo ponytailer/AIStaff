@@ -974,6 +974,61 @@ class UIConfig(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now)
 
 
+class ScenePreset(SQLModel, table=True):
+    """场景预设（**开发者 / 超管层**，不是用户层的场景实例）。
+
+    ## 为什么要有这张表
+
+    场景能力分三层，职责严格分开：
+
+    | 层 | 谁定 | 存在哪 |
+    |---|---|---|
+    | L1 module 实现 | 开发者写代码 | ``frontend-enterprise/src/scenes/modules/<module_key>/`` |
+    | L2 预设（本表） | 超管在页面上改 | ``scene_presets`` |
+    | L3 场景实例 | 用户建场景时填 | ``scenes`` |
+
+    没有 L2 时，「把按钮文案从『选这个』改成『立即预订』」只能改前端代码再发版；
+    有了 L2，改一行 JSON 就全租户生效。这就是「配置驱动只保留一个好处——改文案
+    不用发版」落到实处的地方。
+
+    ## 主键是 ``module_key``，不是 id
+
+    一个 module 在全局只能有一份预设（``travel.itinerary`` 对整个租户只有一套
+    按钮文案）。用自增 id 会让「同一 module 存了两份预设」变成可表达的状态，
+    而那时读哪一份都没有正确答案。主键压住它，比写约束更直接。
+
+    ## ``preset_json`` 里放什么
+
+    ``ui_config`` / ``trigger`` / ``icons`` / ``slots`` / ``match_action`` 五块，
+    形状与 ``SceneCreateRequest`` 的同名字段**逐字一致**（不是自创 schema）——
+    这样「用预设初始化一个场景」就是把 JSON 原样塞进 scenes 行，不需要写转换层。
+
+    ``slots`` / ``match_action`` 是**初始值**：用户建场景后自己改，之后不再回读预设。
+    ``ui_config`` / ``trigger`` 是**实时值**：用户不能改，渲染时每次回读预设，
+    所以超管改完全局立即生效（见 ``app/scenes/presets.py::effective_ui_config``）。
+    """
+
+    __tablename__ = "scene_presets"
+
+    #: ``<域>.<场景>``，与前端目录名、``Scene.module_key`` 三处一致
+    module_key: str = Field(primary_key=True)
+    #: 类型下拉里显示的名字（「行程规划」）。空则回落 module 目录名。
+    display_name: str = "行程规划"
+    #: 决定走 channels 的哪个处理通道；也决定定义器收放哪些区块
+    scene_type: str = "table_match"
+    #: 新建场景时的默认图标
+    icon: str = "🎿"
+    #: 关掉后该预设不出现在用户的「场景类型」下拉里（存量场景不受影响）
+    enabled: bool = True
+    #: 全部参数，见类文档
+    preset_json: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    #: 排序权重，小的在前（下拉顺序稳定，不随 id 变）
+    order_index: int = 0
+    updated_by: str = ""
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
 class AgentProfile(SQLModel, table=True):
     __tablename__ = "agent_profiles"
     __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_agent_profile_tenant_name"),)

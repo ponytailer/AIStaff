@@ -123,19 +123,21 @@ describe('publishBlockers', () => {
     expect(blockers).toEqual([]);
   });
 
-  it('没配槽位 / 模板空 都要拦住', () => {
+  it('没配槽位要拦住，但空回答模板不再拦（v3 起用户不填模板）', () => {
     const blockers = publishBlockers(
       {
         table_ids: [],
         scene_type: 'table_match',
         slots: [],
+        // 空模板：v3 起用户看不到模板输入框（回答由 module 的 UI 代码画，
+        // 模板只是非 UI 渠道的兜底正文，由预设提供）。继续当阻断项会变成
+        // 「用户什么都填对了却永远发不出去，且界面上找不到那个输入框」。
         respond_action: { mode: 'template', template: '  ' },
       },
       [],
     );
     expect(blockers.some((item) => item.includes('槽位'))).toBe(true);
-    // 模板空且 mode=template 才算问题；mode=llm 不需要模板
-    expect(blockers.some((item) => item.includes('模版') || item.includes('模板'))).toBe(true);
+    expect(blockers.some((item) => item.includes('模版') || item.includes('模板'))).toBe(false);
   });
 
   /**

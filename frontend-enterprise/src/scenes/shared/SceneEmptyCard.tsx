@@ -102,25 +102,36 @@ export function SceneEmptyCard({
         </div>
       )}
 
-      <div className="mt-[9px] flex flex-wrap gap-[7px]">
-        {(suggestions.length > 0
-          ? suggestions
-          : [
-            { label: '放宽条件再找一次', sendText: '放宽条件再找一次' },
-            { label: '看看最接近的几条', sendText: '看看最接近的几条' },
-          ]
-        ).map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            disabled={disabled}
-            className={EMPTY_CARD_BUTTON_CLASS}
-            onClick={() => sendText(item.sendText || item.label)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      {/*
+        建议按钮区在 `on_empty="none"` 时必须整块消失。
+
+        为什么不能只靠「后端不给 suggestions」：这里有一条 `suggestions.length > 0
+        ? ... : [两颗兜底]` 的降级 —— 后端刻意不发建议时，前端会补上两颗
+        「放宽条件再找一次 / 看看最接近的几条」，于是「只说明没有结果」
+        这个配置在界面上完全看不出来（反而多出两个鼓励用户放宽的按钮）。
+        配置项与渲染效果必须一一对应，所以这里显式判 `on_empty`。
+      */}
+      {block.data?.on_empty === 'none' ? null : (
+        <div className="mt-[9px] flex flex-wrap gap-[7px]">
+          {(suggestions.length > 0
+            ? suggestions
+            : [
+              { label: '放宽条件再找一次', sendText: '放宽条件再找一次' },
+              { label: '看看最接近的几条', sendText: '看看最接近的几条' },
+            ]
+          ).map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              disabled={disabled}
+              className={EMPTY_CARD_BUTTON_CLASS}
+              onClick={() => sendText(item.sendText || item.label)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -110,6 +110,20 @@ class SceneRunResult:
     #: 「这次到底落库了没有」的地方（空 ``module_key`` 时会跳过落库），
     #: 调用方再去猜就会猜错。
     run_id: str = ""
+    #: 渲染参数（`scene.ui_config_json.params` 与预设合并后的最终值）。
+    #:
+    #: ## 为什么它不在 block 上
+    #:
+    #: block 契约（arch §2.2）明令不许带 UI 描述字段，`SceneUiBlock.to_dict()`
+    #: 只透 5 个字段。但 params 是 module 的**入参**（按钮文案、列映射、价格说明），
+    #: 不是 UI 结构描述 —— 它必须被送到前端，否则「改文案不用发版」是空话。
+    #:
+    #: 放在 result 上、由 `turn_run` 写进消息 metadata 的**顶层** `scene_params`
+    #: 键：既不破坏 block 契约，又让一条消息的多个块共用同一份参数
+    #: （它们本来就同属一个场景）。
+    #:
+    #: 消费方：`src/pages/chat/messageBlockSlots.ts::sceneParamsOf()`。
+    render_params: dict[str, Any] = field(default_factory=dict)
 
     def to_blocks_dicts(self) -> list[dict[str, Any]]:
         """产出可直接写进消息 metadata 的 ``ui_blocks``。"""

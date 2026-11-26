@@ -681,6 +681,24 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   // 只有 /api/enterprise/dispatchers/{id} 才回，所以这里单独补一次详情。
   const displayedAgentIsDispatcher = (displayedAgent?.kind || 'standard') === 'dispatcher';
   const displayedAgentId = displayedAgent?.id || '';
+
+  /**
+   * 这一轮消息实际归属的员工 id（入口胶囊取数、发送、表单提交共用同一个口径）。
+   *
+   * **不要在调用点再各写一遍 `a || b || c || d`**：胶囊按它取数、提交按它发
+   * 消息，两处只要算得不一样，就会出现「胶囊露出来了、点了却发不出去」，
+   * 或者「能发出去、胶囊却还是上一个员工的」。
+   *
+   * 注意取 `currentSession.agent_id` 而不是 `sessionAgent.id`：`sessionAgent`
+   * 是「在花名册里查到的那个对象」，员工被移出花名册后它为 `null`，但会话
+   * 上的 `agent_id` 依然有效 —— 用 `sessionAgent` 会让这类历史会话的胶囊
+   * 整片消失。
+   */
+  const effectiveAgentId = currentSession?.agent_id
+    || activeDraftAgentId
+    || selectedAgentId
+    || displayedAgent?.id
+    || '';
   useEffect(() => {
     if (!displayedAgentIsDispatcher || !displayedAgentId) {
       setDisplayedDispatcher(null);
@@ -3534,6 +3552,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
         ...(outgoingAttachments.length ? { attachments: outgoingAttachments } : {}),
         ...(resolvedInteractionMode === 'scheduled_task' ? { interaction_mode: 'scheduled_task' } : {}),
         ...(prepared.slotSubmission ? { slot_submission: prepared.slotSubmission } : {}),
+        ...(prepared.forcedSceneId ? { forced_scene_id: prepared.forcedSceneId } : {}),
         ...(prepared.webSearch ? { web_search: true } : {}),
       },
       created_at: options.queued ? new Date().toISOString() : prepared.createdAt,
@@ -3738,6 +3757,12 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       if (prepared.slotSubmission) {
         requestBody.slot_submission = prepared.slotSubmission;
       }
+      // 表单提交轮必带：文本「人数：4；天数：5；预算：3000」没有关键词，
+      // 后端不靠它就无法把这轮归到场景上（会落回普通对话）。
+      // 只在「表单提交」这一路生效，普通输入不带，避免误把一句话塞进场景。
+      if (prepared.slotSubmission && prepared.forcedSceneId) {
+        requestBody.forced_scene_id = prepared.forcedSceneId;
+      }
       if (!startedAsDraftConversation) {
         requestBody.session_id = currentConversationId;
       }
@@ -3911,7 +3936,7 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       }
       return;
     }
-    const sessionAgentId = activeSession?.agent_id || activeDraftAgentId || selectedAgentId || displayedAgent?.id || '';
+    const sessionAgentId = effectiveAgentId;
     if (!sessionAgentId) {
       notify.warning('该任务没有绑定数字员工，请新建任务后再发送');
       return;
@@ -3982,22 +4007,28 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   // A2UI：表单提交复用同一条聊天链路——往会话里落一条**用户消息**，附带
   // ``slot_submission``（结构化取值）。后端拿到它直接写槽、跳过槽位抽取
   // LLM；历史回放、企微/微信等渠道的兼容性都不用另做一套。
+  //
+  // ## 为什么允许草稿态提交
+  //
+  // 早期这里有 `if (isDraftConversationKey(...)) return` —— 那时表单只可能
+  // 出现在**消息里**，而消息必须先有会话，草稿态自然没有表单。但现在胶囊
+  // 点开的表单画在输入区（会话还没建时就要能填），照旧挡掉会让「新开对话
+  // → 点胶囊 → 填完点提交 → 毫无反应」。`executePreparedTurn` 本来就支持
+  // 从草稿态起第一轮（`startedAsDraftConversation` 分支），直接放行即可。
+  //
+  // ## 为什么要 `forcedSceneId`
+  //
+  // 提交文本是「人数：4；天数：5；预算：3000」，没有一个触发关键词。不指定
+  // 场景后端必然落回普通对话 —— 用户填的表白填了。
   const submitSlotForm = useCallback(async (
     form: A2UIForm,
     values: Record<string, unknown>,
+    forcedSceneId?: string,
   ) => {
     const currentConversationId = activeConversationId;
-    if (isDraftConversationKey(currentConversationId)) return;
     if (Object.keys(values).length === 0) return;
     if (!ensureModelAvailable()) return;
-    const activeSession = sessionId
-      ? sessions.find((item) => item.id === sessionId) || null
-      : null;
-    const sessionAgentId = activeSession?.agent_id
-      || activeDraftAgentId
-      || selectedAgentId
-      || displayedAgent?.id
-      || '';
+    const sessionAgentId = effectiveAgentId;
     if (!sessionAgentId) {
       notify.warning('该任务没有绑定数字员工，请新建任务后再发送');
       return;
@@ -4018,21 +4049,17 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       modelConfigId: selectedModelConfig?.id,
       createdAt: new Date().toISOString(),
       slotSubmission: values,
+      forcedSceneId: forcedSceneId || undefined,
     };
     await executePreparedTurn(prepared);
   }, [
     activeConversationId,
-    activeDraftAgentId,
     currentSessionRunning,
-    displayedAgent?.id,
+    effectiveAgentId,
     ensureModelAvailable,
     executePreparedTurn,
     getStreamSlot,
-    isDraftConversationKey,
-    selectedAgentId,
     selectedModelConfig?.id,
-    sessionId,
-    sessions,
   ]);
 
   const drainQueuedTurns = useCallback(() => {
@@ -4166,6 +4193,12 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     sessionFilterOptions,
     // active state
     activeConversationId,
+    /**
+     * 这一轮实际归属的员工 id（口径见定义处）。入口胶囊按它取数：
+     * 与 `submitSlotForm` / `send` 共用一个值，避免「胶囊是 A 的员工、
+     * 消息发给了 B」。
+     */
+    effectiveAgentId,
     displayedAgent,
     displayedProfile,
     /** 当前登录用户（消息列给用户发言署名用；分享访客为 null）。 */

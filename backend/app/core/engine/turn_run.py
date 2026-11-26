@@ -814,10 +814,26 @@ class _TurnRunMixin:
         # 逐帧累加而不是取最后一个：多帧同轮时「取最后」会丢掉前面帧的块，
         # 用户看到「刚才那个结果卡不见了」且没有任何报错。
         ui_blocks: list[dict[str, Any]] = []
+        scene_params: dict[str, Any] = {}
+        scene_id = ""
         for item in execution_results:
             ui_blocks.extend(list(getattr(item, "ui_blocks", None) or []))
+            # 参数同属一个场景时取第一个非空的即可；多场景同轮（极少）时
+            # 以最后一个为准 —— 用 `or` 而不是覆盖，避免空 dict 把前面那份冲掉。
+            candidate = getattr(item, "scene_params", None)
+            if isinstance(candidate, dict) and candidate:
+                scene_params = candidate
+            # 场景 id 同理：取最后一个非空的。前端靠它给表单提交带
+            # `forced_scene_id`（提交文本无关键词，不带就必然落回普通对话）。
+            candidate_scene = str(getattr(item, "scene_id", "") or "").strip()
+            if candidate_scene:
+                scene_id = candidate_scene
         if ui_blocks:
             assistant_metadata["ui_blocks"] = ui_blocks
+        if scene_params:
+            assistant_metadata["scene_params"] = scene_params
+        if scene_id:
+            assistant_metadata["scene_id"] = scene_id
         if self.slash_command:
             assistant_metadata["slash_command"] = self.slash_command.model_dump(
                 mode="json"

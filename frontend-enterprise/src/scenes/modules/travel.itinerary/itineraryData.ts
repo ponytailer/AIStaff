@@ -317,30 +317,17 @@ export function priceNote(params: Record<string, unknown>): string {
   return paramString(params, 'price_note', TRAVEL_ITINERARY_PARAM_DEFAULTS.price_note);
 }
 
-export function actionLabels(params: Record<string, unknown>): { primary: string; secondary: string } {
-  return {
-    primary: paramString(params, 'primary_action_label', TRAVEL_ITINERARY_PARAM_DEFAULTS.primary_action_label),
-    secondary: paramString(
-      params,
-      'secondary_action_label',
-      TRAVEL_ITINERARY_PARAM_DEFAULTS.secondary_action_label,
-    ),
-  };
-}
-
-/**
- * 「选这个」发出去的那句话。
+/*
+ * 原 `actionLabels` / `selectText` / `detailText` 已随卡上的两颗按钮一起删除。
  *
- * 铁律（PRD §5.3）：**调 `sendText('就选经典雪山五日')` 走新一轮，不许直接改状态**。
- * 只有这样才能保证所有交互在会话日志里可回放、可审计。
+ * 删掉的理由（不是「顺手清理」）：
+ * - 「选这个」→ `就选经典雪山五日` 这句话，对**行程推荐**这个场景没有下游语义。
+ *   卡片本身就是终态建议，用户真正想要的是「订这个」，而那件事需要锁单链路，
+ *   P0 没有；复述一句「就选…」只会再触发一轮几乎一样的回答。
+ * - 「看详情」在 P0 只是再发一句 `看看…的详情`（注释自己写着「不发请求做弹窗」），
+ *   点下去转一圈回到一张相同的卡。
+ *
+ * 留着的代价比删掉大：两颗按钮都是「点了没反应」的行为，用户会以为坏了。
+ * `generic.table_match` 的同名函数（`shared/rowData.ts`）**不受影响** ——
+ * 那个 module 是列表形态，多条结果里「选这个」确实是在做筛选，语义成立。
  */
-export function selectText(title: string): string {
-  const name = title.trim();
-  return name ? `就选${name}` : '就选这个';
-}
-
-/** 「看详情」发出去的那句话（P0 不发请求做弹窗，同样走一轮对话）。 */
-export function detailText(title: string): string {
-  const name = title.trim();
-  return name ? `看看${name}的详情` : '看看这个的详情';
-}

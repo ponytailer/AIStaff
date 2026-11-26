@@ -9,30 +9,37 @@ import {
   SEMANTIC_SLOTS,
   createScene,
   getScene,
+  getScenePresetDefaults,
   getSceneTable,
   importSceneTable,
-  listScenesForAgent,
+  listScenePresetOptions,
   runScene,
-  setSceneAgents,
   updateScene,
   type SceneMatchAction,
-  type SceneRead,
   type SceneRunResult,
   type SceneSlot,
   type SceneStatus,
   type SceneTablePreview,
   type SceneTableRead,
   type SceneTrigger,
+  type ScenePresetOption,
 } from '../../api/scenes';
 import type { SceneType } from '@/scenes/types';
-import { SCENE_TYPES, sceneTypeMeta, tableCountWarnings } from '@/scenes/types';
+import { sceneTypeMeta, tableCountWarnings } from '@/scenes/types';
+import ScenePreviewCard from './ScenePreviewCard';
 import {
-  metaForModule,
-  modulesForSceneType,
-  useSceneModuleCatalog,
-} from '@/scenes/registry';
-import { api, TENANT_ID } from '../../api/client';
-import type { AgentProfileRead } from '../../types';
+  SCENE_BTN_PRIMARY,
+  SCENE_BTN_PRIMARY_SM,
+  SCENE_BTN_SECONDARY,
+  SCENE_BTN_SM,
+  SCENE_FORM_SECTION,
+  SCENE_FORM_SECTION_HEAD,
+  SCENE_FORM_SECTION_N,
+  SCENE_FORM_SECTION_NOTE,
+  SCENE_INPUT,
+  SCENE_TEXTAREA,
+} from './sceneUi';
+import { metaForModule, useSceneModuleCatalog } from '@/scenes/registry';
 import {
   checkSlotMappings,
   explainRunResult,
@@ -40,39 +47,44 @@ import {
   parseSlotInput,
   publishBlockers,
   qualityLevelText,
-  renderTemplate,
   splitQuality,
   statusMeta,
-  unknownTemplateKeys,
   visibleSteps,
 } from './sceneUtils';
 
 /**
- * 场景定义器。
+ * 场景定义器（**用户视角**，不是开发者视角）。
  *
- * 区块按「配一个场景时人类真实的思考顺序」排。v3 目标是八个（契约 §4.2 的
- * 区块显隐表）：
- * 1. 基础信息（叫什么、干什么）
- * 2. 场景界面（用哪个 module + 它的参数 + 兜底文本）  ← 待补
- * 3. 触发条件（什么时候轮到它）
- * 4. 槽位（问用户什么）
- * 5. 数据表（查哪张表）        ← 仅 needs_table !== 'none' 时渲染
- * 6. 匹配策略（怎么算命中）    ← 同上
- * 7. 兜底文本                  ← 待补
- * 8. 绑定员工                  ← 待补
+ * ## 三层分层：这里只让用户填「他自己的东西」
  *
- * **当前实现覆盖 1-8 全部区块**（v3 形状）：基础信息含类型选择器、
- * 场景界面含 module 单选卡 + params_schema 驱动的参数 + 兜底文本、
- * 数据表支持 0..N 张且可排序、按类型显隐。
+ * | 层 | 谁定 | 在这页里 |
+ * |---|---|---|
+ * | L1 module 实现 | 开发者写代码 | 看不见 |
+ * | L2 预设 | 超管在 `/enterprise/scene-presets` 改 | **看不见**，但决定默认值 |
+ * | L3 场景实例 | 用户 | 名称 / 图标 / 描述 / 槽位 / 匹配策略 |
  *
- * 顺序不能按后端字段顺序排（trigger 在 slots 前、match_action 在 respond 前），
- * 那样管理员要来回跳：「想改回答方式」得先滑过三个不相干的区块。
+ * 所以这页只有五个区块：
  *
- * **区块显隐必须是「不渲染」而不是置灰**（契约 §4.2 + §7.3）：类型创建后基本
- * 不变，置灰会让管理员以为「以后能开」，而实际上永远开不了。这是 demo 与实现
- * 唯一刻意不同处，不要按 demo 的置灰去「对齐」。
+ * 1. 基础信息 —— 场景名称、类型下拉（数据来自预设，目前只有「行程规划」）、
+ *    图标下拉（选项来自预设）、描述
+ * 2. 数据表 —— 按类型的 `needs_table` 显隐（`travel.itinerary` 是 required）
+ * 3. 槽位 —— 保留可改（换表后列名不同必须能重新映射）
+ * 4. 匹配策略 —— 保留可改（初始值来自预设）
+ * 5. 命中后回答 —— **只读预览**，用真实的 module 卡片渲染，不可配
  *
- * 试跑面板固定在右侧，改任何一项都能立刻验证 —— 没有试跑，调策略就是盲调。
+ * ## 被刻意拿掉的四个区块
+ *
+ * | 原区块 | 去哪了 | 为什么 |
+ * |---|---|---|
+ * | 2 场景界面（选 module + 参数） | 预设页 | 用户不该选 module —— 类型下拉已经定了它 |
+ * | 触发条件 | 预设页 | 固定「按钮触发 + 跳过意图路由」，配错只会让场景不响应 |
+ * | 7 命中后回答（回答方式/模板/按钮动作） | 预设页 | 回答长什么样由 module 的代码决定 |
+ * | 8 绑定员工 | 员工档案页 | 建场景的地方不是挂场景的地方，双入口会让人以为要建两次 |
+ *
+ * 「不渲染」而不是「置灰」：这些项用户永远改不了（改在预设页），
+ * 置灰会让他以为以后能开。这是契约 §4.2 的硬要求。
+ *
+ * 试跑面板固定在右侧 —— 没有试跑，调匹配策略就是盲调。
  */
 export default function SceneEditor({
   sceneId,
@@ -137,14 +149,60 @@ export default function SceneEditor({
     setTablesDirty(true);
     setTableIdsState(updater);
   }, []);
+  /**
+   * 触发条件：**用户不能改**（固定按钮触发 + 跳过意图路由）。
+   *
+   * 保留这个 state 只为两件事：把预设里的值原样回写给后端（存量场景可能存过
+   * 关键词，不能因为「这页不展示」就把它抹掉），以及新建时用预设的默认值。
+   * 页面上没有任何输入控件绑它。
+   */
   const [trigger, setTrigger] = useState<SceneTrigger>({ ...DEFAULT_TRIGGER });
   const [slots, setSlots] = useState<SceneSlot[]>([]);
   const [matchAction, setMatchAction] = useState<SceneMatchAction>({ ...DEFAULT_MATCH_ACTION });
-  const [respondMode, setRespondMode] = useState<'template' | 'llm'>('template');
+  /**
+   * 回答方式：**用户不能改**，恒为 `template`，且模板由预设/module 决定。
+   *
+   * 为什么不再让用户选：回答长什么样由 module 的 UI 代码画（`travel.itinerary`
+   * 是逐日时间轴卡），「回答方式」这个开关在 v3 里已被 module 取代。
+   * 留 `template` 是为了兼容后端 `publishBlockers` 的「模板不能为空」校验
+   * —— 但这里的 template 不再由用户填，见 `respondTemplate` 的赋值处。
+   */
+  const respondMode = 'template' as const;
+  /** 预设里的回答模板（用户不可见、不可改）。空 = 后端按命中行拼一句话。 */
   const [respondTemplate, setRespondTemplate] = useState('');
-  const [shortcutAction, setShortcutAction] = useState<'form' | 'message' | 'url'>('form');
-  const [shortcutUrl, setShortcutUrl] = useState('');
-  const [agentIds, setAgentIds] = useState<string[]>(defaultAgentId ? [defaultAgentId] : []);
+
+  /**
+   * 「表单引导语」—— 点开胶囊后，**表格上方**那句话（用户可改）。
+   *
+   * 为什么把它留给员工而不是超管的预设：这句话说的是「为什么现在要问你」，
+   * 内容取决于这个场景要解决的事（「先确认三个条件，我按方案表逐层筛」）。
+   * 超管不知道员工给场景起了什么名字、面向谁；同一套预设下的两个场景，
+   * 这句引导语本来就该不一样。
+   *
+   * 存 `respond_action.ask_prompt`（不是 `ui_config`）：
+   * - `ui_config` 里放的是「渲染成什么样」（标题、副标题、module 参数），
+   *   `effective_ui_config()` 会让预设覆盖本地的非空值 —— 员工改的被抹掉；
+   * - `respond_action` 是场景实例自己的回答策略（`intro` / `max_items` 也在这），
+   *   后端 `_run_table_match` 直接读 `scene.respond_action_json`，不经过预设合并。
+   *
+   * 空串 = 用后端的类型默认句，不是「不显示引导语」。后端在 `ask_prompt` 为空时
+   * 会补默认句（`channels.py::_run_table_match`），这样老场景也不会退化成一上来
+   * 就一张光秃秃的表格。
+   */
+  const [askPrompt, setAskPrompt] = useState('');
+  /**
+   * 「表单副标题」—— 卡头标题下面那句短说明（用户可改）。
+   *
+   * 存 `ui_config.form_subtitle`（不是 `respond_action`）：它是**卡片自己的一部分**，
+   * 跟着 `form` 块的 `data` 下发，和 `form_title` 是一对。放一起才对得上
+   * 「卡头 = 图标 + 标题 + 副标题」这个结构。
+   *
+   * ⚠️ 它走 `effective_ui_config()` 的按键合并，**清空不等于没有**：该函数
+   * 只让非空值覆盖，所以这里填空串时会回落到管理员预设的预填值（再退到默认句）。
+   * 想彻底去掉这句话只能让超管把预设里的这句也清掉。输入框的 hint 已按这个
+   * 语义写，不要改成「留空用默认句」——那会让员工以为能自己抹掉它。
+   */
+  const [formSubtitle, setFormSubtitle] = useState('');
 
   /**
    * 场景类型。决定「数据表 / 匹配策略 / 槽位」三个区块显不显（契约 §4.2）。
@@ -154,33 +212,42 @@ export default function SceneEditor({
    */
   const [sceneType, setSceneType] = useState<SceneType>('table_match');
   /**
-   * 用哪个前端 module 来画这块 UI。`''` = 没选（后端会用 `generic.*` 预填）。
+   * 用哪个前端 module 来画这块 UI。
    *
-   * 它必须能改：module 决定「消息里那块 UI 长什么样」，是场景最核心的
-   * 可视能力；只读回填等于管理员永远用默认 module。
+   * **用户不选它**：选了「行程规划」这个类型，就等于选了 `travel.itinerary`
+   * 这个 module（映射来自预设的 `scene_type` + 预设的 `module_key`）。
+   * 保留 state 是因为保存时要把它发给后端，且编辑存量场景时要回填。
    */
   const [moduleKey, setModuleKey] = useState('');
-  /** module 私有参数，键由 module 的 `params_schema` 定，框架只透传不解释。 */
+  /**
+   * module 私有参数：**用户不能改**，只在保存时原样回写（避免把超管配的值抹掉）。
+   *
+   * 真正的参数在预设表里，渲染时实时继承（见 `app/scenes/presets.py`）。
+   * 这页不再渲染任何参数输入框 —— 这是本次改造最核心的一条。
+   */
   const [moduleParams, setModuleParams] = useState<Record<string, unknown>>({});
-  /** UI 渲染不出来时的纯文本兜底。**必填**（契约 §4.2）。 */
+  /** UI 渲染不出来时的纯文本兜底。**必填**，但用户不填（来自预设）。 */
   const [fallbackText, setFallbackText] = useState('');
+
+  /**
+   * 预设下拉选项（「场景类型」那一栏的数据源）。
+   *
+   * 只列 `enabled=true` 的预设 —— 停用的预设不该出现在新建入口。
+   * 拉不到时退化成空数组，页面会提示「还没有可用的场景类型」而不是白屏。
+   */
+  const [presetOptions, setPresetOptions] = useState<ScenePresetOption[]>([]);
+  const [presetLoading, setPresetLoading] = useState(true);
 
   /**
    * 定义器里的 module 目录。会拉下每个 module 的 chunk —— 只在管理页面发生，
    * 聊天端不走这条路径（见 `registry.ts` 的 `loadSceneModuleCatalog` 注释）。
    */
-  const { metas: moduleMetas, loading: moduleMetasLoading } = useSceneModuleCatalog();
-  /** 只列支持当前类型的 module（PRD §6.1：事前不可选，不是选了报错）。 */
-  const candidateModules = useMemo(
-    () => modulesForSceneType(moduleMetas, sceneType),
-    [moduleMetas, sceneType],
-  );
+  const { metas: moduleMetas } = useSceneModuleCatalog();
   const selectedModuleMeta = useMemo(
     () => metaForModule(moduleMetas, moduleKey),
     [moduleMetas, moduleKey],
   );
 
-  const [agents, setAgents] = useState<AgentProfileRead[]>([]);
   const [tablePreview, setTablePreview] = useState<SceneTablePreview | null>(null);
   const [uploading, setUploading] = useState(false);
   const [localTables, setLocalTables] = useState<SceneTableRead[]>(tables);
@@ -205,6 +272,35 @@ export default function SceneEditor({
     () => (currentTable?.columns ?? []).map((column) => column.key),
     [currentTable],
   );
+
+  /**
+   * 当前选中预设的展示名（「行程规划」）。空则回落到类型标签。
+   *
+   * 用它而不是 `sceneTypeMeta(sceneType).label`（「查表推荐」）：用户看到的是
+   * 「行程规划」，你给他显示「查表推荐」他会以为选错了。
+   */
+  const currentPresetName = useMemo(() => {
+    const hit = presetOptions.find((item) => item.module_key === moduleKey);
+    return hit?.display_name ?? '';
+  }, [moduleKey, presetOptions]);
+
+  /**
+   * 图标下拉的选项。
+   *
+   * 三级合并：当前预设的 `icons` → 全部预设的图标并集 → 一个写死的兜底集。
+   * 为什么要并集：用户在两个预设之间切换过、或换过场景类型时，旧的 icon
+   * 可能不在新预设的清单里。只列新预设的图标会让 `<select>` 显示成第一项，
+   * 而 state 还是旧值 —— 看起来改了、保存却没改。
+   */
+  const activeIcons = useMemo(() => {
+    const own = presetOptions.find((item) => item.module_key === moduleKey)?.icons ?? [];
+    const all = presetOptions.flatMap((item) => item.icons);
+    const merged = [...own, ...all, ...FALLBACK_ICONS];
+    const unique = Array.from(new Set(merged.filter(Boolean)));
+    // 当前值必须能选中，否则 select 会「显示第一项但实际不是它」
+    if (icon && !unique.includes(icon)) unique.unshift(icon);
+    return unique;
+  }, [icon, moduleKey, presetOptions]);
 
   // 载入已有的场景
   useEffect(() => {
@@ -240,14 +336,23 @@ export default function SceneEditor({
             : {},
         );
         setFallbackText(row.ui_config?.fallback_text ?? '');
+        // 卡头副标题也要回填，理由同上一行：漏了就「打开已有场景 → 副标题变空
+        // → 一保存就把它清掉」。它和 `fallback_text` / `form_title` 同级。
+        setFormSubtitle(String(row.ui_config?.form_subtitle ?? ''));
         setTrigger({ ...DEFAULT_TRIGGER, ...row.trigger });
         setSlots(row.slots ?? []);
         setMatchAction({ ...DEFAULT_MATCH_ACTION, ...row.match_action });
-        setRespondMode(row.respond_action?.mode === 'llm' ? 'llm' : 'template');
+        // 回答模板原样回填：用户看不到它，但保存时必须带回去，
+        // 否则「打开老场景 → 只改个名字 → 保存」会把预设/历史的模板清空。
+        // `respondMode` 恒为 template（常量），不需要 setter。
         setRespondTemplate(row.respond_action?.template ?? '');
-        setShortcutAction(row.shortcut?.action ?? 'form');
-        setShortcutUrl(row.shortcut?.url ?? '');
-        setAgentIds(row.agent_ids ?? []);
+        // 引导语同理：`respond_action` 在保存时是**整份覆盖**写回的
+        // （后端 `if payload.respond_action is not None: row.respond_action_json = payload.respond_action`），
+        // 不回填 + 不带回去 = 每次保存都清空员工配的引导语。
+        setAskPrompt(row.respond_action?.ask_prompt ?? '');
+        // `shortcut` / `agent_ids` 仍由后端持有，但这页不再展示：
+        // - `shortcut`（按钮动作）由预设决定，保存时不回写（见 toPayload）
+        // - 绑定员工在员工档案页管，这页不回写 `agent_ids`
       } catch (error) {
         notify.error(error instanceof Error ? error.message : '加载场景失败');
       } finally {
@@ -259,18 +364,22 @@ export default function SceneEditor({
     };
   }, [sceneId]);
 
-  // 员工列表（用于绑定）。overall 是广场宿主行、dispatcher 不能挂私有场景，两者都排除。
+  // 预设下拉选项（这一页唯一的「场景类型」来源）。
+  //
+  // 不需要管理员权限：普通用户在员工档案里建场景时也要能选类型。
+  // 拉不到时只提示、不抛错 —— 类型下拉变空，页面照常可用（只是没法新建）。
   useEffect(() => {
     let alive = true;
+    setPresetLoading(true);
     void (async () => {
       try {
-        const rows = await api.get<AgentProfileRead[]>(
-          `/api/enterprise/agents?tenant_id=${encodeURIComponent(TENANT_ID)}`,
-        );
+        const rows = await listScenePresetOptions();
         if (!alive) return;
-        setAgents(rows.filter((row) => !row.is_overall && row.kind !== 'dispatcher'));
+        setPresetOptions(Array.isArray(rows) ? rows : []);
       } catch {
-        // 拉不到员工列表不阻塞定义器：绑定是可选项，之后在档案页也能挂
+        if (alive) setPresetOptions([]);
+      } finally {
+        if (alive) setPresetLoading(false);
       }
     })();
     return () => {
@@ -332,6 +441,84 @@ export default function SceneEditor({
       adoptSemanticSlots(columnKeys);
     }
   }, [adoptSemanticSlots, columnKeys, isNew, slots.length]);
+
+  /**
+   * 选中某个预设类型：把它的默认值铺到表单上。
+   *
+   * ## 为什么必须是一次「整份套用」而不是逐个字段 if
+   *
+   * 切类型意味着换了一个完全不同的处理通道（`travel.itinerary` 要表、
+   * `generic.script` 不要表），逐字段判断会留下「上一个类型的槽位」「上一个
+   * 类型的匹配策略」这种杂交状态，而它们在新类型下可能完全不成立。
+   *
+   * ## 哪些字段会覆盖用户已经填的
+   *
+   * - `module_key` / `scene_type` / `ui_config` / `fallbackText` / `trigger`：
+   *   **一定覆盖**（这些用户本来就改不了，是预设说了算的）
+   * - `icon` / `description` / `slots` / `matchAction`：**只在还没填过时填**
+   *   （空串 / 空数组才用默认值），避免用户填一半切类型就被清空
+   * - 名称 `name`：**从不覆盖** —— 用户可能已经想好了名字
+   */
+  const applyPreset = useCallback(async (option: ScenePresetOption) => {
+    setModuleKey(option.module_key);
+    setSceneType((option.scene_type as SceneType) || 'table_match');
+    // 切类型后旧的试跑结果不再有意义（换了处理通道）
+    setRunResult(null);
+
+    // 先落已知的轻量值，让界面立刻有反馈（默认值请求可能慢一秒）
+    setIcon((current) => current || option.icon || '');
+    setDescription((current) => current || option.description || '');
+
+    try {
+      const defaults = await getScenePresetDefaults(option.module_key);
+      const uiConfig = (defaults.ui_config ?? {}) as Record<string, unknown>;
+      const params = (uiConfig.params ?? {}) as Record<string, unknown>;
+      setModuleParams({ ...params });
+      setFallbackText(String(uiConfig.fallback_text ?? ''));
+      // 卡头副标题来自预设（员工改过就不覆盖 —— 切类型是「换玩法」，
+      // 但文案是员工自己斟酌过的，清掉比留着更烦）。
+      setFormSubtitle((current) => current || String(uiConfig.form_subtitle ?? ''));
+      setTrigger({ ...DEFAULT_TRIGGER, ...(defaults.trigger as Partial<SceneTrigger>) });
+      // 回答模板来自预设（用户不可见）。`intro` 之类后端会自己兜。
+      setRespondTemplate(String((defaults as Record<string, unknown>).respond_template ?? ''));
+      // 引导语：预设给建议值，员工手写的不覆盖（同上一条的理由）。
+      //
+      // 读 `defaults.respond_action.ask_prompt`（后端 `initial_scene_fields()`
+      // 原样透传预设的 `respond_action`）—— 不读顶层键，因为**保存时也写在这里**，
+      // 路径不一致就会出现「预填读得到、保存写丢了」。
+      const presetRespond = (defaults.respond_action ?? {}) as Record<string, unknown>;
+      setAskPrompt((current) => current || String(presetRespond.ask_prompt ?? ''));
+
+      // 槽位：只在空的时候用预设的（用户可能已经按自己的表头映射过）
+      setSlots((current) => (current.length > 0 ? current : (defaults.slots ?? [])));
+      // 匹配策略：整份套用预设值。
+      //
+      // 为什么不做「保留用户改过的键」：`current` 初值就是 DEFAULT_MATCH_ACTION，
+      // 与「用户手动改过」在类型上无法区分 —— 想做保留就必须额外存一份
+      // 「哪些键被动过」的脏标记，而切类型后旧标记又没有意义。
+      // 切类型本来就是「换一套玩法」，整份重置比杂交状态更可预期。
+      setMatchAction({
+        ...DEFAULT_MATCH_ACTION,
+        ...(defaults.match_action as Partial<SceneMatchAction>),
+      });
+      // 图标：如果之前是空的，用预设默认
+      setIcon((current) => current || String(defaults.icon ?? ''));
+      setDescription((current) => current || String(defaults.description ?? ''));
+    } catch (error) {
+      // 默认值拉不到不阻塞：类型/名称已经落下了，用户可以手工补
+      notify.error(error instanceof Error ? error.message : '读取场景默认值失败');
+    }
+  }, []);
+
+  // 新建场景：预设选项到达后自动选中第一个 —— 让用户一打开就看到一张填好的表单
+  useEffect(() => {
+    if (!isNew) return;
+    if (presetLoading) return;
+    if (moduleKey) return;
+    const first = presetOptions[0];
+    if (!first) return;
+    void applyPreset(first);
+  }, [applyPreset, isNew, moduleKey, presetLoading, presetOptions]);
 
   const slotIssues = useMemo(
     () => checkSlotMappings(slots, columnKeys, SEMANTIC_SLOTS.map((item) => item.key)),
@@ -401,14 +588,21 @@ export default function SceneEditor({
       // 新建时必须带（`isNew` 为真），否则后端拿不到首张表。
       ...(isNew || tablesDirty ? { tables: tableIds } : {}),
       // module 身份必须发：不发等于「保存成功但消息 UI 一直是默认 module」。
-      // `fallback_text` 进 ui_config，不进 module_config —— 前者是「渲染不出来给谁看」，
-      // 后者是「module 自己的业务参数」，两者生命周期不同。
+      //
+      // ⚠️ `module_key` / `ui_config` / `trigger` 这三项**用户改不了**（页面上
+      // 没有对应控件），它们在这里原样回写只为一件事：**不覆盖超管在预设页
+      // 配的值**。真正生效的值在渲染时由 `app/scenes/presets.py` 实时合并，
+      // 这里写什么都会被预设覆盖掉「没显式配的键」。
       module_key: moduleKey,
       module_config: moduleParams,
       ui_config: {
         schema_version: 1,
         params: moduleParams,
         fallback_text: fallbackText.trim(),
+        // 卡头副标题：空串也发。后端 `_slot_form_block` 对空值走默认句兜底，
+        // 所以「清空」是有意义的状态（= 用默认句），不能靠「不传」表达 ——
+        // 不传等于保留上一次的值，员工就清不掉了。
+        form_subtitle: formSubtitle.trim(),
       },
       status,
       trigger,
@@ -418,8 +612,9 @@ export default function SceneEditor({
         mode: respondMode,
         template: respondTemplate,
         max_items: matchAction.top_k,
+        // 引导语：同上，空串 = 用后端默认句。
+        ask_prompt: askPrompt.trim(),
       },
-      shortcut: { action: shortcutAction, url: shortcutUrl.trim() },
     };
   }
 
@@ -453,13 +648,14 @@ export default function SceneEditor({
     setSaving(true);
     try {
       const payload = { ...toPayload(), status: targetStatus };
-      const saved: SceneRead = isNew
-        ? await createScene({ ...payload, agent_id: agentIds[0] ?? null })
-        : await updateScene(sceneId, payload);
-      // 绑定是独立接口（整体覆盖语义）。新建时已经带了第一个员工，
-      // 但若用户在弹窗里勾了多个，仍需再同步一次。
-      if (!isNew) {
-        await setSceneAgents(saved.id, agentIds);
+      // 绑定走 `agent_id`（新建时带上传入的那个员工）。这页**不再有绑定区块**：
+      // 场景挂在哪个员工上由员工档案页管，建场景的地方不是挂场景的地方。
+      // `defaultAgentId` 是宿主页（员工档案）传进来的「在谁名下新建」，不是用户选的。
+      // 返回值不用：保存成功后由 `onSaved()` 让宿主页重拉列表。
+      if (isNew) {
+        await createScene({ ...payload, agent_id: defaultAgentId ?? null });
+      } else {
+        await updateScene(sceneId, payload);
       }
       setStatus(targetStatus);
       notify.success(isNew ? '场景已创建' : '已保存');
@@ -534,7 +730,7 @@ export default function SceneEditor({
             <button
               disabled={saving}
               onClick={() => void save()}
-              className="rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[12px] py-[6px] text-[12.5px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)] disabled:opacity-50"
+              className={SCENE_BTN_SECONDARY}
             >
               {saving ? '保存中…' : '保存草稿'}
             </button>
@@ -542,7 +738,7 @@ export default function SceneEditor({
               disabled={saving}
               onClick={() => void save('published')}
               title={blockers.length > 0 ? blockers.join('；') : undefined}
-              className="rounded-[8px] bg-[#0f766e] px-[14px] py-[6px] text-[12.5px] font-semibold text-white transition-colors hover:bg-[#0c6158] disabled:opacity-50"
+              className={SCENE_BTN_PRIMARY}
             >
               发布
             </button>
@@ -556,8 +752,8 @@ export default function SceneEditor({
             {/* 左：六个区块 */}
             <div className="min-w-0 flex-1 overflow-y-auto px-[28px] py-[22px]">
               {/* 1 基础信息 */}
-              <Section index={1} title="基础信息" active={activeSection} onEnter={setActiveSection}>
-                <Field label="场景名称" required>
+              <Section index={1} title="基础信息" note="这些都能改" active={activeSection} onEnter={setActiveSection}>
+                <Field label="场景名称" required hint="在员工档案和聊天按钮上显示">
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
@@ -566,30 +762,48 @@ export default function SceneEditor({
                   />
                 </Field>
                 {/*
-                  场景类型：与名称同排（契约 §4 基础信息区块的 `row2`）。
-                  选项文案 `中文 · type` 照抄 demo —— 只写中文会让人对不上
-                  后端字段，只写英文则管理员看不懂。
-                  切换它会收放「数据表 / 匹配策略 / 槽位」三个区块。
+                  场景类型：**下拉，选项来自预设**（不是写死的 SCENE_TYPES）。
+
+                  这是本次简化的核心：用户不需要知道「table_match / sop_flow」
+                  这些后端枚举，他只看到「行程规划」这种人话。选了它就等于
+                  选定了 module（映射关系在预设里，见 scene_presets 表）。
+
+                  切换会整份套用该预设的默认值（`applyPreset`）——
+                  用户只需在此基础上改名称/图标/描述。
                 */}
-                <Field label="场景类型" required hint="决定这个场景怎么处理，建好后基本不改">
-                  <select
-                    value={sceneType}
-                    onChange={(event) => {
-                      setSceneType(event.target.value as SceneType);
-                      // 切类型后旧的试跑结果不再有意义（换了处理通道）
-                      setRunResult(null);
-                    }}
-                    className={`${INPUT_CLASS} w-[280px]`}
-                  >
-                    {SCENE_TYPES.map((type) => {
-                      const meta = sceneTypeMeta(type);
-                      return (
-                        <option key={type} value={type}>
-                          {`${meta.label} · ${type}`}
+                <Field label="场景类型" required hint="决定这个场景能做什么，由管理员预设">
+                  {presetLoading ? (
+                    <span className="text-[12px] text-[#9a9b95]">加载场景类型…</span>
+                  ) : presetOptions.length === 0 ? (
+                    // 空态要说清是「管理员还没配类型」而不是「加载失败」——
+                    // 两者处置完全不同（前者找管理员，后者刷新即可）。
+                    <span className="rounded-[8px] bg-[#fff2e5] px-[10px] py-[6px] text-[12px] leading-[18px] text-[#b45309]">
+                      还没有可用的场景类型，请联系管理员在「场景预设」里配置。
+                    </span>
+                  ) : (
+                    <select
+                      value={moduleKey}
+                      onChange={(event) => {
+                        const option = presetOptions.find(
+                          (item) => item.module_key === event.target.value,
+                        );
+                        if (option) void applyPreset(option);
+                      }}
+                      className={`${INPUT_CLASS} w-[320px]`}
+                    >
+                      {/* 存量场景的 module 可能已从预设里停用/删除。此时不能
+                          悄悄回落到第一项 —— 一保存就把场景换了个 module，
+                          用户看到的界面会莫名其妙全变。所以补一个只读占位项。 */}
+                      {moduleKey && !presetOptions.some((item) => item.module_key === moduleKey) && (
+                        <option value={moduleKey}>{`${moduleKey}（已停用）`}</option>
+                      )}
+                      {presetOptions.map((option) => (
+                        <option key={option.module_key} value={option.module_key}>
+                          {`${option.icon ? `${option.icon} ` : ''}${option.display_name}`}
                         </option>
-                      );
-                    })}
-                  </select>
+                      ))}
+                    </select>
+                  )}
                 </Field>
                 <Field label="场景描述" hint="告诉员工什么时候该用它，会进模型的系统提示">
                   <textarea
@@ -600,139 +814,60 @@ export default function SceneEditor({
                     className={cnTextarea}
                   />
                 </Field>
-                <Field label="图标" hint="一个 emoji，显示在快捷按钮上">
-                  <input
-                    value={icon}
-                    onChange={(event) => setIcon(event.target.value)}
-                    placeholder="🎿"
-                    className={`${INPUT_CLASS} w-[100px]`}
-                  />
-                </Field>
-              </Section>
-
-              {/* 2 场景界面（选 module）—— 契约 §4.1 */}
-              <Section index={2} title="场景界面" active={activeSection} onEnter={setActiveSection}>
-                <p className="m-0 mb-[8px] text-[12px] leading-[18px] text-[#9a9b95]">
-                  下面只列出<b>支持当前类型</b>的 module。选中后，消息里那块 UI 由它的代码决定。
-                </p>
-                {moduleMetasLoading ? (
-                  <p className="m-0 text-[12px] text-[#9a9b95]">加载 module 目录…</p>
-                ) : candidateModules.length === 0 ? (
-                  // 空态要说清是「这个类型还没有 module」而不是「加载失败」——
-                  // 两者的处置完全不同（前者去找开发加 module，后者刷新即可）。
-                  <p className="m-0 rounded-[8px] bg-[#fff2e5] px-[10px] py-[8px] text-[12px] leading-[18px] text-[#b45309]">
-                    还没有支持「{sceneTypeMeta(sceneType).label}」的 module。保存后消息里只会显示兜底文本。
-                  </p>
-                ) : (
-                  candidateModules.map((meta) => {
-                    const picked = meta.module_key === moduleKey;
-                    return (
-                      <button
-                        key={meta.module_key}
-                        type="button"
-                        onClick={() => {
-                          setModuleKey(meta.module_key);
-                          // 换 module 后旧的参数不再对得上新的 params_schema，
-                          // 保留会让「改文案不用发版」变成「改出一堆无效键」。
-                          setModuleParams({});
-                        }}
-                        className={`mb-[7px] flex w-full gap-[10px] rounded-[10px] border px-[11px] py-[9px] text-left transition-colors ${
-                          picked
-                            ? 'border-[#0f766e] bg-[#e1f1ed]'
-                            : 'border-[#ded7cc] bg-white hover:border-[#0f766e]'
-                        }`}
-                      >
-                        <span
-                          className={`mt-[2px] grid size-[13px] shrink-0 place-items-center rounded-full border-[1.5px] ${
-                            picked ? 'border-[#0f766e]' : 'border-[#cfc5b7]'
-                          }`}
-                        >
-                          {picked ? <span className="size-[6px] rounded-full bg-[#0f766e]" /> : null}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="flex items-baseline gap-[6px]">
-                            <span className="text-[12px] font-semibold text-[#18181a]">
-                              {meta.display_name || meta.module_key}
-                            </span>
-                            <span className="font-mono text-[11px] text-[#9a9b95]">
-                              {meta.module_key}
-                            </span>
-                          </span>
-                          <span className="mt-[2px] block text-[11px] leading-[1.5] text-[#9a9b95]">
-                            {meta.summary}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-
-                {/* module 参数：由 params_schema 驱动，加新 module 时这里零改动 */}
-                {selectedModuleMeta && selectedModuleMeta.params_schema.length > 0 && (
-                  <div className="mt-[11px] border-t border-[#e7dfd3] pt-[11px]">
-                    <p className="m-0 mb-[7px] text-[12px] font-semibold text-[#343633]">
-                      这个 module 的参数
-                      <span className="ml-[6px] font-normal text-[11px] text-[#9a9b95]">
-                        改文案不用发版
-                      </span>
-                    </p>
-                    {selectedModuleMeta.params_schema.map((field) => (
-                      field.type === 'boolean' ? (
-                        // 布尔项直接渲染成一行开关，不再套 Field —— 套了会出现
-                        // 「label 一行、空 label 的开关又一行」，同一个参数两个标题。
-                        <ToggleRow
-                          key={field.key}
-                          label={field.label}
-                          hint=""
-                          checked={Boolean(moduleParams[field.key] ?? field.default ?? false)}
-                          onChange={(next) =>
-                            setModuleParams((current) => ({ ...current, [field.key]: next }))
-                          }
-                        />
-                      ) : (
-                        <Field key={field.key} label={field.label}>
-                          <input
-                            value={String(moduleParams[field.key] ?? '')}
-                            onChange={(event) =>
-                              setModuleParams((current) => ({
-                                ...current,
-                                [field.key]: event.target.value,
-                              }))
-                            }
-                            placeholder={
-                              field.type === 'column' ? field.help ?? '填写表列 key' : field.placeholder
-                            }
-                            className={INPUT_CLASS}
-                          />
-                        </Field>
-                      )
-                    ))}
-                  </div>
-                )}
-
                 {/*
-                  兜底文本：必填（契约 §4.2「兜底文本 显示（必填）」）。
-                  这是 module chunk 加载失败 / 后端上了新 kind / 非 UI 渠道
-                  三种情况下**唯一**还能给用户看的东西。不是可选项。
+                  图标：**下拉**（选项来自预设的 `icons`）。
+
+                  原先是自由输入框，用户能填任何东西（包括三个 emoji、一段文字、
+                  或者空）。下拉把「能填什么」限死，视觉一致性由预设保证。
+                  当前值不在选项里时补一个占位项，否则 select 会显示成第一项而
+                  实际 state 还是旧值 —— 看起来改了、保存却没改。
+                */}
+                <Field label="图标" hint="显示在聊天按钮和员工档案上">
+                  <IconPicker value={icon} options={activeIcons} onChange={setIcon} />
+                </Field>
+                {/*
+                  两句文案：**引导语**（表格上方）与**副标题**（卡片头里）。
+
+                  为什么不放进「命中后回答」区块：那一块是**只读预览**（卡长什么样
+                  由 module 代码决定）。这两句不是「命中后」的文案 —— 它们在用户
+                  **还没填**的时候出现，属于「问问题的方式」，是员工能自己斟酌的
+                  唯一一段话（超管不知道这个场景面向谁）。
+
+                  两个输入框排在一起是有意的：它们同屏出现、前后脚被读到，
+                  分开放会让人只改其中一个，然后奇怪「为什么卡片没变」。
                 */}
                 <Field
-                  label="兜底文本"
-                  required
-                  hint="UI 渲染不出来时用户看到的纯文本，别写「暂无数据」"
+                  label="表单引导语"
+                  hint="用户点进来后、表格上方那句话；留空用默认句"
                 >
                   <textarea
-                    value={fallbackText}
-                    onChange={(event) => setFallbackText(event.target.value)}
+                    value={askPrompt}
+                    onChange={(event) => setAskPrompt(event.target.value)}
                     rows={2}
-                    placeholder="例如：找到了合适的套餐，详情看上面的卡片"
+                    maxLength={200}
+                    placeholder="例如：先确认三个条件，我按人数 → 天数 → 预算逐层筛方案表。"
                     className={cnTextarea}
                   />
                 </Field>
+                <Field
+                  label="表单副标题"
+                  hint="卡片标题下那句短说明；留空则跟随管理员预设（再退到默认句）"
+                >
+                  <input
+                    value={formSubtitle}
+                    onChange={(event) => setFormSubtitle(event.target.value)}
+                    maxLength={60}
+                    placeholder="例如：填好这三项，我按方案表逐条比对"
+                    className={INPUT_CLASS}
+                  />
+                </Field>
               </Section>
 
-              {/* 3 数据表 —— 按 scene_type 显隐（契约 §4.2：不渲染，不置灰） */}
+              {/* 2 数据表 —— 按 scene_type 显隐（契约 §4.2：不渲染，不置灰）。
+                  原「场景界面」区块已并入「场景类型」下拉：module 由预设决定，
+                  参数在超管预设页配，用户不选也不填。 */}
               {sceneTypeMeta(sceneType).blocks.tables && (
-                <Section index={3} title="数据表" active={activeSection} onEnter={setActiveSection}>
+                <Section index={2} title="数据表" active={activeSection} onEnter={setActiveSection}>
                   {/* 已选表按顺序列出：顺序即合并池的 order_index，
                       调整顺序会改变命中优先级，所以要让人看见并挪得动。 */}
                   {tableIds.length > 0 ? (
@@ -827,7 +962,11 @@ export default function SceneEditor({
                           </option>
                         ))}
                     </select>
-                    <label className="cursor-pointer rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[6px] text-[12.5px] transition-colors hover:border-[rgba(24,24,26,0.3)]">
+                    {/* 用 `<label>` 包 `<input type="file">`：原生文件框没法改样式，
+                        隐藏它、把 label 画成按钮是唯一干净的做法。
+                        视觉必须与 `SCENE_BTN_SM` 一致 —— 它下面就是「按表头自动映射」
+                        这类同级别按钮，差 1px 内边距就看得出来。 */}
+                    <label className={`${SCENE_BTN_SM} cursor-pointer`}>
                       {uploading ? '导入中…' : '＋ 导入 xlsx / csv'}
                       <input
                         type="file"
@@ -917,49 +1056,7 @@ export default function SceneEditor({
                 </Section>
               )}
 
-              {/* 3 触发条件 */}
-              <Section index={4} title="触发条件" active={activeSection} onEnter={setActiveSection}>
-                <ToggleRow
-                  label="显示快捷按钮"
-                  hint="聊天输入框上方显示一颗按钮，点开直接填表"
-                  checked={trigger.shortcut}
-                  onChange={(next) => setTrigger({ ...trigger, shortcut: next })}
-                />
-                {trigger.shortcut && (
-                  <Field label="按钮文案" hint="留空则用场景名">
-                    <input
-                      value={trigger.shortcut_label}
-                      onChange={(event) =>
-                        setTrigger({ ...trigger, shortcut_label: event.target.value })
-                      }
-                      placeholder={name || '滑雪行程推荐'}
-                      className={`${INPUT_CLASS} w-[260px]`}
-                    />
-                  </Field>
-                )}
-                <Field label="意图关键词" hint="用户说到这些词时路由到这个场景，回车添加">
-                  <TagInput
-                    values={trigger.keywords}
-                    onChange={(next) => setTrigger({ ...trigger, keywords: next })}
-                    placeholder="例如：推荐行程 / 滑雪 / 报价"
-                  />
-                </Field>
-                <ToggleRow
-                  label="跳过意图路由"
-                  hint="开启后点按钮直接进入，不让模型再判一次（更稳，但只能靠按钮触发）"
-                  checked={trigger.bypass_llm_router}
-                  onChange={(next) => setTrigger({ ...trigger, bypass_llm_router: next })}
-                />
-                <ToggleRow
-                  label="必须收齐槽位才执行"
-                  hint="关闭后条件不全也直接查表（缺维度就跳过该层筛选）"
-                  checked={trigger.require_slots}
-                  onChange={(next) => setTrigger({ ...trigger, require_slots: next })}
-                />
-              </Section>
-
-              {/* 4 槽位 */}
-              <Section index={5} title="槽位（要问用户什么）" active={activeSection} onEnter={setActiveSection}>
+              <Section index={3} title="槽位（要问用户什么）" active={activeSection} onEnter={setActiveSection}>
                 <p className="m-0 mb-[10px] text-[12px] leading-[18px] text-[#9a9a9f]">
                   三个语义槽位对应匹配的三层：人数是硬约束、天数允许 ±1、预算按相对偏差排序。
                   key 不能改（匹配层按它取值），只需要把「对应列」指对。
@@ -1043,7 +1140,7 @@ export default function SceneEditor({
                 <div className="mt-[10px] flex gap-[8px]">
                   <button
                     onClick={() => adoptSemanticSlots(columnKeys)}
-                    className="rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
+                    className={SCENE_BTN_SM}
                   >
                     按表头自动映射
                   </button>
@@ -1054,7 +1151,7 @@ export default function SceneEditor({
                         { key: `extra_${slots.length + 1}`, label: '新槽位', target: '', type: 'number' },
                       ])
                     }
-                    className="rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
+                    className={SCENE_BTN_SM}
                   >
                     ＋ 添加槽位
                   </button>
@@ -1062,13 +1159,19 @@ export default function SceneEditor({
               </Section>
 
               {/* 5 匹配策略 */}
-              <Section index={6} title="匹配策略" active={activeSection} onEnter={setActiveSection}>
+              <Section index={4} title="匹配策略" active={activeSection} onEnter={setActiveSection}>
                 <div className="grid grid-cols-2 gap-[12px]">
                   <NumberField
                     label="天数容差（天）"
                     hint="用户说 5 天，4 天和 6 天的行也算命中"
                     value={matchAction.days_tolerance}
                     onChange={(v) => setMatchAction({ ...matchAction, days_tolerance: v })}
+                  />
+                  <NumberField
+                    label="人数容差（人）"
+                    hint="0 = 必须人数完全一致；填 1 则 3 人需求会带出 4 人方案（会在回答里注明）"
+                    value={matchAction.people_tolerance}
+                    onChange={(v) => setMatchAction({ ...matchAction, people_tolerance: v })}
                   />
                   <NumberField
                     label="最多返回几条"
@@ -1102,7 +1205,7 @@ export default function SceneEditor({
                   >
                     <option value="nearest">给出差距最小的一批（推荐）</option>
                     <option value="clarify">反问用户能否放宽条件</option>
-                    <option value="nothing">只说明没有结果</option>
+                    <option value="none">只说明没有结果</option>
                   </select>
                 </Field>
                 <ToggleRow
@@ -1113,114 +1216,15 @@ export default function SceneEditor({
                 />
               </Section>
 
-              {/* 6 命中后回答 */}
-              <Section index={7} title="命中后回答" active={activeSection} onEnter={setActiveSection}>
-                <Field label="回答方式">
-                  <select
-                    value={respondMode}
-                    onChange={(event) => setRespondMode(event.target.value as 'template' | 'llm')}
-                    className={`${INPUT_CLASS} w-[280px]`}
-                  >
-                    <option value="template">套模板（内容可控，推荐）</option>
-                    <option value="llm">交给模型组织语言（更自然，可能发挥）</option>
-                  </select>
-                </Field>
-                {respondMode === 'template' && (
-                  <>
-                    <Field
-                      label="回答模板"
-                      hint="用 {{列名}} 引用命中行的字段，例如 {{计划内容}}"
-                    >
-                      <textarea
-                        value={respondTemplate}
-                        onChange={(event) => setRespondTemplate(event.target.value)}
-                        rows={5}
-                        placeholder={'为你找到 {{计划内容}}\n价格：{{预算}} 元\n行程天数：{{天数}} 天'}
-                        className={cnTextarea}
-                      />
-                    </Field>
-                    {unknownTemplateKeys(respondTemplate, columnKeys).length > 0 && (
-                      <p className="m-0 text-[11.5px] leading-[16px] text-[#b45309]">
-                        模板里这些占位符表里没有对应列：
-                        {unknownTemplateKeys(respondTemplate, columnKeys).join('、')} —— 会原样显示出来
-                      </p>
-                    )}
-                    {runResult && runResult.hits.length > 0 && (
-                      <Field label="预览（用第一条命中渲染）">
-                        <pre className="m-0 max-h-[160px] overflow-auto rounded-[10px] bg-[#f2f1ee] p-[12px] text-[12px] leading-[19px] whitespace-pre-wrap text-[#18181a]">
-                          {renderTemplate(respondTemplate, runResult.hits[0].values)}
-                        </pre>
-                      </Field>
-                    )}
-                  </>
-                )}
-                <Field label="快捷按钮点击后">
-                  <select
-                    value={shortcutAction}
-                    onChange={(event) =>
-                      setShortcutAction(event.target.value as 'form' | 'message' | 'url')
-                    }
-                    className={`${INPUT_CLASS} w-[280px]`}
-                  >
-                    <option value="form">弹表单收槽位</option>
-                    <option value="message">直接发一句话</option>
-                    <option value="url">打开链接</option>
-                  </select>
-                </Field>
-                {shortcutAction === 'url' && (
-                  <Field label="跳转链接" hint="必须以 http/https 开头">
-                    <input
-                      value={shortcutUrl}
-                      onChange={(event) => setShortcutUrl(event.target.value)}
-                      placeholder="https://…"
-                      className={INPUT_CLASS}
-                    />
-                  </Field>
-                )}
+              {/* 4 命中后回答（只读预览）—— 用户不可配，样式由 module 代码决定 */}
+              <Section index={5} title="命中后回答" active={activeSection} onEnter={setActiveSection}>
+                <p className="m-0 text-[12px] leading-[18px] text-[#9a9b95]">
+                  用户命中后会看到这样一张卡。样式由「{currentPresetName || sceneTypeMeta(sceneType).label}」这个场景
+                  类型的代码决定，不需要配置；想改文案或按钮，请管理员在「场景预设」里调。
+                </p>
+                <ScenePreviewCard moduleKey={moduleKey} />
               </Section>
 
-              {/* 绑定员工 */}
-              <Section index={8} title="绑定员工" active={activeSection} onEnter={setActiveSection}>
-                {agents.length === 0 ? (
-                  <p className="m-0 text-[12px] text-[#9a9a9f]">还没有可绑定的员工。</p>
-                ) : (
-                  <div className="flex flex-wrap gap-[8px]">
-                    {agents.map((agent) => {
-                      const checked = agentIds.includes(agent.id);
-                      return (
-                        <label
-                          key={agent.id}
-                          className={`flex cursor-pointer items-center gap-[6px] rounded-[999px] border px-[11px] py-[5px] text-[12px] transition-colors ${
-                            checked
-                              ? 'border-[#0f766e] bg-[#e6f2f0] text-[#0f766e]'
-                              : 'border-[rgba(24,24,26,0.14)] bg-white text-[#6d6d72]'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="hidden"
-                            checked={checked}
-                            onChange={() =>
-                              setAgentIds(
-                                checked
-                                  ? agentIds.filter((id) => id !== agent.id)
-                                  : [...agentIds, agent.id],
-                              )
-                            }
-                          />
-                          {checked ? '✓ ' : ''}
-                          {agent.name}
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-                {isNew && agentIds.length > 1 && (
-                  <p className="m-0 mt-[8px] text-[11.5px] leading-[16px] text-[#b45309]">
-                    新建时只会绑定第一个员工；其余的在保存后到员工档案页补挂。
-                  </p>
-                )}
-              </Section>
 
               <div className="h-[40px]" />
             </div>
@@ -1234,7 +1238,7 @@ export default function SceneEditor({
                   onClick={() => void handleRun()}
                   disabled={running || isNew}
                   title={isNew ? '先保存再试跑' : undefined}
-                  className="ml-auto flex items-center gap-[5px] rounded-[8px] bg-[#0f766e] px-[10px] py-[5px] text-[12px] font-medium text-white transition-colors hover:bg-[#0c6158] disabled:opacity-50"
+                  className={`ml-auto ${SCENE_BTN_PRIMARY_SM}`}
                 >
                   <IconRefresh className="size-3" />
                   {running ? '查表中…' : '试跑'}
@@ -1274,35 +1278,88 @@ export default function SceneEditor({
   );
 }
 
-const INPUT_CLASS =
-  'h-[32px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[9px] text-[12.5px] text-[#18181a] outline-none transition-colors focus:border-[#0f766e]';
-const cnTextarea =
-  'w-full resize-y rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[9px] py-[7px] text-[12.5px] leading-[19px] text-[#18181a] outline-none transition-colors focus:border-[#0f766e]';
+/** 图标兜底集：预设没配 `icons` 时也要能选，不能给用户一个空下拉。 */
+const FALLBACK_ICONS = ['🎿', '🏔️', '🗺️', '✈️', '🧳', '📊', '🧭', '💬'];
+
+/**
+ * 图标下拉。
+ *
+ * 不用自由输入框（改造前的做法）：用户能填「🎿🏔️」三个 emoji、或一段文字、
+ * 或留空，视觉上完全失控。下拉把可选集限死，一致性由预设保证。
+ *
+ * 用原生 `<select>` 而不是自绘：emoji 在原生下拉里能正常渲染，自绘要处理
+ * 定位/键盘/无障碍三件事，收益只有「好看一点」——这里不值得。
+ */
+function IconPicker({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (next: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-[8px]">
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label="场景图标"
+        className={`${INPUT_CLASS} w-[120px]`}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      {/* 大号预览：下拉里 emoji 很小，选完不确认一下很容易挑错 */}
+      <span
+        className="grid size-[32px] shrink-0 place-items-center rounded-[8px] border border-[rgba(24,24,26,0.10)] bg-[#fbfaf6] text-[18px]"
+        aria-hidden
+      >
+        {value || '—'}
+      </span>
+    </div>
+  );
+}
+
+/*
+ * `INPUT_CLASS` / `cnTextarea` 曾在这里各写一份（圆角 8、边框 rgba(24,24,26,0.14)），
+ * 与 `sceneUi.SCENE_INPUT` / `SCENE_TEXTAREA`（边框 #cfc5b7）是同一类控件的两份实现。
+ * 两者**肉眼几乎看不出差别**，所以长期没人发现 —— 但它们在颜色上是分开维护的：
+ * 改一处、另一处不动，就成了「同一个输入框在两个页面里颜色不一样」。
+ * 现在统一走 `sceneUi`，这里只保留别名指向，避免调用点全改一遍。
+ */
+const INPUT_CLASS = SCENE_INPUT;
+const cnTextarea = SCENE_TEXTAREA;
 
 function Section({
   index,
   title,
+  note,
   active,
   onEnter,
   children,
 }: {
   index: number;
   title: string;
+  /** 标题右侧的旁注（demo `.section-note`，如「这些都能改」）。 */
+  note?: string;
   active: number;
   onEnter: (index: number) => void;
   children: React.ReactNode;
 }) {
   return (
     <section
-      className="mb-[14px] rounded-[14px] border border-[rgba(24,24,26,0.10)] bg-white px-[18px] py-[16px]"
+      className={SCENE_FORM_SECTION}
       onFocusCapture={() => onEnter(index)}
       data-active={active === index || undefined}
     >
-      <h3 className="m-0 mb-[12px] flex items-center gap-[8px] text-[13.5px] font-semibold text-[#18181a]">
-        <span className="grid size-[18px] place-items-center rounded-full bg-[#f2f1ee] text-[10px] text-[#6d6d72]">
-          {index}
-        </span>
+      <h3 className={SCENE_FORM_SECTION_HEAD}>
+        <span className={SCENE_FORM_SECTION_N}>{index}</span>
         {title}
+        {note ? <span className={SCENE_FORM_SECTION_NOTE}>{note}</span> : null}
       </h3>
       <div className="flex flex-col gap-[12px]">{children}</div>
     </section>
@@ -1395,57 +1452,6 @@ function ToggleRow({
         />
       </button>
     </label>
-  );
-}
-
-function TagInput({
-  values,
-  onChange,
-  placeholder,
-}: {
-  values: string[];
-  onChange: (next: string[]) => void;
-  placeholder: string;
-}) {
-  const [draft, setDraft] = useState('');
-  const commit = () => {
-    const text = draft.trim();
-    if (!text) return;
-    if (!values.includes(text)) onChange([...values, text]);
-    setDraft('');
-  };
-  return (
-    <div className="flex flex-wrap items-center gap-[6px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[8px] py-[6px]">
-      {values.map((value) => (
-        <span
-          key={value}
-          className="flex items-center gap-[4px] rounded-full bg-[#f2f1ee] px-[8px] py-[2px] text-[11.5px] text-[#6d6d72]"
-        >
-          {value}
-          <button
-            type="button"
-            aria-label={`移除 ${value}`}
-            onClick={() => onChange(values.filter((item) => item !== value))}
-            className="text-[#9a9a9f] hover:text-[#d20b0b]"
-          >
-            ×
-          </button>
-        </span>
-      ))}
-      <input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            commit();
-          }
-        }}
-        onBlur={commit}
-        placeholder={values.length === 0 ? placeholder : ''}
-        className="min-w-[120px] flex-1 border-0 bg-transparent text-[12.5px] text-[#18181a] outline-none"
-      />
-    </div>
   );
 }
 

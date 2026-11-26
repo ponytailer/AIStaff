@@ -88,6 +88,7 @@ import type { A2UIForm } from '../chatTypes';
 import {
   formPayloadOf,
   sceneParamsOf,
+  sceneIdOf,
   splitBlocksByMountSlot,
   tailSegments,
 } from '../messageBlockSlots';
@@ -913,7 +914,9 @@ export default function MessageBubble({
                       .map((payload) => (payload ? parseA2UIForm(payload) : null))
                       .find((candidate) => candidate !== null);
                     if (!form) return;
-                    void chat.submitSlotForm(form, values);
+                    // scene id 必须一路带下去：提交文本无关键词，不带
+                    // `forced_scene_id` 后端必然落回普通对话（用户填的表白填）。
+                    void chat.submitSlotForm(form, values, sceneIdOf(item));
                   }}
                   onOpenExternal={(url) => {
                     if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
@@ -935,7 +938,7 @@ export default function MessageBubble({
                   key={`tail:form:${groupIndex}`}
                   form={form}
                   disabled={Boolean(teamProgress)}
-                  onSubmit={(values) => chat.submitSlotForm(form, values)}
+                  onSubmit={(values) => chat.submitSlotForm(form, values, sceneIdOf(item))}
                 />
               );
             }

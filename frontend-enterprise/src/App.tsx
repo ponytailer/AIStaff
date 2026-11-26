@@ -53,6 +53,7 @@ import ShareChatPage from "./pages/ShareChatPage";
 import ShareSkillPage from "./pages/ShareSkillPage";
 import ModelsPage from "./pages/ModelsPage";
 import RuntimeSettingsPage from "./pages/RuntimeSettingsPage";
+import ScenePresetsPage from "./pages/ScenePresetsPage";
 import BrowserExtensionPage from "./pages/BrowserExtensionPage";
 import WechatPage from "./pages/WechatPage";
 import ApiKeyApprovalsPage from "./pages/ApiKeyApprovalsPage";
@@ -841,6 +842,18 @@ function Shell({
                 element={
                   isAdmin ? (
                     <RuntimeSettingsPage currentUser={auth.user} />
+                  ) : (
+                    <Navigate to={EnterpriseRoute.Platform} replace />
+                  )
+                }
+              />
+              <Route
+                path="/enterprise/scene-presets"
+                // 超管专属：这页改的是全局参数（按钮文案/兜底文案/匹配默认值），
+                // 一改影响全租户所有场景，普通用户不该进来
+                element={
+                  isAdmin ? (
+                    <ScenePresetsPage currentUser={auth.user} />
                   ) : (
                     <Navigate to={EnterpriseRoute.Platform} replace />
                   )

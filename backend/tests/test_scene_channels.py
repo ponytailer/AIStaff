@@ -162,6 +162,134 @@ def test_table_match_channel_produces_result_and_detail(db) -> None:
     assert result.detail["hits"][0]["values"]["计划内容"] == "经典雪山五日"
 
 
+def test_missing_required_slots_only_asks_and_never_returns_results(db) -> None:
+    """缺必填槽位时**只问不查**（对齐 `docs/scenes/scene-demo.html`）。
+
+    这条契约不是「体验偏好」，是正确性问题：空槽位下 matcher 每一层都放行
+    （`slot_people is None → return True`），于是会拿「恰好前 3 行」当命中结果，
+    前端再按 `score <= 0 → 完全吻合` 标成绿色徽标。用户刚点开、什么都没填，
+    却被告知「这三个完全符合你的要求」——这比什么都不给更坏。
+
+    所以断言两件事：
+    1. 有 `form` 块（要让用户能填）；
+    2. **没有** `result` / `empty` 块（不能拿空槽位的结果当答案）。
+    """
+    scene = _make_scene(db)
+    _attach_table(db, scene)
+
+    result = dispatch_scene(db, scene=scene, slots={}, message="滑雪", persist=False)
+
+    kinds = [b.kind for b in result.blocks]
+    assert "form" in kinds
+    assert "result" not in kinds, "空槽位不应产出结果卡"
+    assert "empty" not in kinds, "空槽位不是「没找到」，不该出空态"
+    assert result.status == "no_match"
+    assert result.detail["awaiting_input"] is True
+
+
+def test_slots_present_returns_results_without_form(db) -> None:
+    """槽位齐了就**不许**再出表单：那是「你已经填了还让你再填一遍」。"""
+    scene = _make_scene(db)
+    _attach_table(db, scene)
+
+    result = dispatch_scene(
+        db, scene=scene, slots={"people": 4, "days": 5, "budget": 3000}, message="4人5天3000",
+        persist=False,
+    )
+
+    kinds = [b.kind for b in result.blocks]
+    assert "result" in kinds
+    assert "form" not in kinds
+
+
+def test_ask_prompt_is_reply_text_not_a_block(db) -> None:
+    """引导语是**消息正文**（`result.text`），blocks 里只有一个 form。
+
+    这条守的是用户第二次报的同一个毛病：「我写了引导语，反而在最下边，
+    然后上边出现了一句不知道从哪配置的话」。
+
+    根因是一句话被拆成两份发：
+
+    ```
+    请先补充条件。          ← text_out（硬编码，谁也没配过）
+    ┌──────────────┐
+    │ 表单卡        │       ← form 块
+    └──────────────┘
+    好的，我来帮你安排…      ← ask_prompt 被当成 text 块，排在最后
+    ```
+
+    前端渲染顺序是「正文 → blocks」，所以硬编码那句抢占了正文位，
+    用户配的那句被挤到最后。两处都发 = 同一句话说两遍，还都不在正确位置。
+
+    现在合成一处：`text` 就是 ask_prompt，blocks 里不再放 text 块。
+    这也正是 demo 的结构（`<p>` 是气泡正文，`<div class="card">` 才是块）。
+    """
+    scene = _make_scene(db)
+    _attach_table(db, scene)
+
+    result = dispatch_scene(db, scene=scene, slots={}, message="滑雪", persist=False)
+
+    kinds = [b.kind for b in result.blocks]
+    assert kinds == ["form"], f"blocks 里不该再有 text 块，实际 {kinds}"
+    assert result.text.strip(), "正文不能为空（非 UI 渠道只吃 text）"
+
+
+def test_ask_prompt_and_text_out_are_the_same_string(db) -> None:
+    """`result.text` 必须**逐字等于**配的引导语，不能再是另一句硬编码。
+
+    这条防的是「改回两处发」：只要有人把 `text_out` 又写成常量，
+    用户就会再次看到「上面一句没配过的话 + 下面配的那句」。
+    """
+    scene = _make_scene(db)
+    _attach_table(db, scene)
+    scene.respond_action_json = {"ask_prompt": "好的，我来帮你安排，请先补充以下信息"}
+    db.add(scene)
+    db.flush()
+
+    result = dispatch_scene(db, scene=scene, slots={}, message="滑雪", persist=False)
+
+    assert result.text == "好的，我来帮你安排，请先补充以下信息"
+    assert "请先补充条件" not in result.text, "硬编码的旧文案不许回来"
+
+
+def test_scene_ask_prompt_and_form_subtitle_override_defaults(db) -> None:
+    """员工配的两句文案要真的生效，且分别落在对应位置。
+
+    两句的分工（别合并）：
+    - `ask_prompt` → 消息**正文** `result.text`（气泡里、卡片上方，「为什么现在要问你」）；
+    - `form_subtitle` → form 块 `data.subtitle`（卡头里「填完会发生什么」）。
+    """
+    scene = _make_scene(db)
+    _attach_table(db, scene)
+    scene.respond_action_json = {"ask_prompt": "先说下你们几个人去。"}
+    scene.ui_config_json = {"form_subtitle": "填完就给你排。"}
+    db.add(scene)
+    db.flush()
+
+    result = dispatch_scene(db, scene=scene, slots={}, message="滑雪", persist=False)
+
+    assert result.text == "先说下你们几个人去。"
+    form = next(b for b in result.blocks if b.kind == "form")
+    assert form.data.get("subtitle") == "填完就给你排。"
+
+
+def test_form_subtitle_defaults_by_scene_type(db) -> None:
+    """没配副标题时给默认句，且默认句**不带数量词**。
+
+    数量词（「这三项」）会随已填内容变化，写死数字在第二次追问时必然对不上：
+    用户填了人数，下一轮只缺两项，卡头还写着「填好这三项」。
+    """
+    scene = _make_scene(db)
+    _attach_table(db, scene)
+
+    result = dispatch_scene(db, scene=scene, slots={}, message="滑雪", persist=False)
+
+    form = next(b for b in result.blocks if b.kind == "form")
+    subtitle = str(form.data.get("subtitle") or "")
+    assert subtitle, "空槽位下副标题不能为空（否则卡头只剩标题，就是「单调」）"
+    assert "三" not in subtitle, f"默认副标题不该带数字数量词：{subtitle}"
+
+
 def test_table_match_channel_with_zero_tables_degrades(db) -> None:
     """0 张表是**合法状态**，不是错误：产 text + empty，不抛异常。"""
     scene = _make_scene(db, name="还没配表")

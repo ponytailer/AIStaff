@@ -384,13 +384,34 @@ class _FrameExecutionMixin:
             },
         )
         try:
+            # 槽位来源有两个，必须合并（顺序：帧上已有的 → 本轮表单提交的覆盖）。
+            #
+            # ## 为什么必须读 `slot_submission`
+            #
+            # 表单提交轮发的文本是「人数：4；天数：5；预算：3000」，`slot_submission`
+            # 里才是结构化取值。早期这里只读 `row.slots_json`，于是每一轮表单提交
+            # 都在重放「空槽位 → 你还没填」——用户填完表，界面又弹回同一张空表，
+            # 永远走不到结果卡。
+            #
+            # ## 为什么要写回帧
+            #
+            # 场景是**多轮**的：这一轮补了人数和天数，下一轮只补预算时，前两个值
+            # 必须还在。不写回就是「每轮都从零开始」，用户永远凑不齐三个条件。
+            frame_slots = dict(row.slots_json or {})
+            submission = getattr(request, "slot_submission", None)
+            if isinstance(submission, dict) and submission:
+                frame_slots.update(submission)
+                row.slots_json = dict(frame_slots)
+                row.updated_at = utc_now()
+                self.db.add(row)
+                self.db.commit()
             # persist=True：聊天执行要落 SceneRun（命中率与排障靠它）。
             # session_id 传进去是因为 handoff 通道要在会话上下文里建真实工单。
             result = run_scene_instance(
                 self.db,
                 tenant_id=request.tenant_id,
                 scene_id=scene_id,
-                slots=dict(row.slots_json or {}),
+                slots=frame_slots,
                 message=str(request.message or ""),
                 persist=True,
                 session_id=session.id,
@@ -456,6 +477,8 @@ class _FrameExecutionMixin:
             task_summary=frame.user_intent or "场景实例执行。",
             action_count=1,
             ui_blocks=result.to_blocks_dicts(),
+            scene_params=dict(result.render_params or {}),
+            scene_id=scene_id,
             scene_status=result.status,
         )
         self.store.finish_frame(

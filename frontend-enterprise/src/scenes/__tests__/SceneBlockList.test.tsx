@@ -231,6 +231,19 @@ describe('generic.table_match', () => {
     expect(screen.getByRole('button', { name: '看看最接近的几条' })).toBeTruthy();
   });
 
+  it('on_empty=none 时建议区整块消失（配置必须等于实际效果）', async () => {
+    // 后端在 `on_empty="none"` 下刻意不发 `suggestions`，而前端有一条
+    // 「没有 suggestions 就给两颗兜底」的降级。两者相撞的结果是：
+    // 用户配了「只说明没有结果」，界面上却多出两颗鼓励放宽的按钮。
+    // 这条测试锁住「配置项 → 渲染效果」的一一对应。
+    const block = emptyBlock();
+    block.data = { ...block.data, on_empty: 'none', suggestions: [] };
+    render(<SceneBlockList blocks={[block]} />);
+    expect(await screen.findByText(/没有找到符合条件的结果/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '放宽条件再找一次' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '看看最接近的几条' })).toBeNull();
+  });
+
   it('form 块复用平台槽位表单（renderForm），不自己画一套', async () => {
     const onForm = vi.fn();
     render(
@@ -308,21 +321,28 @@ describe('travel.itinerary', () => {
     expect(screen.getByText('初级')).toBeTruthy();
   });
 
-  it('「选这个」/「看详情」走 sendText', async () => {
-    const onSend = vi.fn();
-    render(<SceneBlockList blocks={[itineraryBlock()]} onSendText={onSend} />);
-    await userEvent.click(await screen.findByRole('button', { name: '选这个' }));
-    expect(onSend).toHaveBeenCalledWith('就选经典雪山五日');
-    await userEvent.click(screen.getByRole('button', { name: '看详情' }));
-    expect(onSend).toHaveBeenCalledWith('看看经典雪山五日的详情');
+  it('卡片上**没有**「选这个 / 看详情」两颗按钮', async () => {
+    /*
+      这两颗按钮是刻意去掉的，不是漏做：
+      - 「选这个」→ `就选经典雪山五日`，对行程推荐没有下游语义（那是「订这个」，
+        需要锁单链路，P0 没有），点了只是复述一句话再触发一轮几乎一样的回答；
+      - 「看详情」→ `看看…的详情`，P0 不发请求也不开弹窗，点下去转一圈回到同一张卡。
+
+      挂两颗「点了没反应」的按钮，用户会以为坏了 —— 比没有更糟。
+      这条断言锁住「别顺手加回来」：真要恢复，请先做出点选后的真实效果。
+    */
+    render(<SceneBlockList blocks={[itineraryBlock()]} />);
+    await screen.findByText('经典雪山五日');
+    expect(screen.queryByRole('button', { name: '选这个' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '看详情' })).toBeNull();
   });
 
-  it('disabled 时两颗按钮都不可点（分享页 / 历史回看）', async () => {
+  it('disabled 给整卡传递时也不报错（分享页 / 历史回看仍走这条路径）', async () => {
+    // 卡上没有按钮了，但 `disabled` 仍在契约里：保留这条只验证「传了不会崩」，
+    // 免得将来加回任何可点元素时忘了处理这个开关。
     const onSend = vi.fn();
     render(<SceneBlockList blocks={[itineraryBlock()]} onSendText={onSend} disabled />);
-    const primary = await screen.findByRole('button', { name: '选这个' });
-    expect((primary as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.click(primary);
+    expect(await screen.findByText('经典雪山五日')).toBeTruthy();
     expect(onSend).not.toHaveBeenCalled();
   });
 

@@ -176,3 +176,20 @@ export function sceneParamsOf(item: { metadata?: Record<string, unknown> }): Rec
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   return raw as Record<string, unknown>;
 }
+
+/**
+ * 这条消息属于哪个场景实例（`metadata.scene_id`）。
+ *
+ * 为什么表单提交非要它不可：场景表单提交的文本是「人数：4；天数：5；预算：3000」，
+ * 一个触发关键词都没有。后端 `resolve_scene_hit()` 靠关键词匹配，必然命中不到；
+ * 只有前端把它作为 `forced_scene_id` 带回去，这一轮才会进入 `scene_module`
+ * 而不是落回普通对话。不带的表现是「填完表 → 去查了一遍知识库」，
+ * 而且**不报错**——用户只会觉得这张表白填了。
+ *
+ * 信息源是消息 metadata 的顶层键（后端 `turn_run` 写），不是 block 上的
+ * `scene_id` 字段：`SceneUiBlock.to_dict()` 只透 5 个字段，没有这个键。
+ */
+export function sceneIdOf(item: { metadata?: Record<string, unknown> }): string {
+  const raw = item.metadata?.scene_id;
+  return typeof raw === 'string' ? raw.trim() : '';
+}

@@ -135,6 +135,17 @@ export type A2UIForm = {
   step_id?: string;
   step_name?: string;
   title?: string;
+  /**
+   * 卡头副标题：标题下面那句短说明（「填好这几项，我按方案表逐条比对」）。
+   *
+   * 与 `step_name` **不是**同一个东西，不要合并：
+   * - `step_name` 是 SOP 语义（「确认开具信息」），由步骤执行器给；
+   * - `subtitle` 是场景语义（「填完会发生什么」），由场景配置给。
+   *
+   * 两者同时在的场景没有（SOP 步骤不走场景表单），所以渲染优先级不影响行为，
+   * 但类型上必须分开 —— 合并会让「SOP 步骤名」有机会被当成场景文案展示出来。
+   */
+  subtitle?: string;
   submit_label?: string;
   fields: A2UIField[];
 };

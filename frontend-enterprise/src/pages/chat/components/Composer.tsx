@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Gift, Globe } from 'lucide-react';
 
 import StaffdeckIcon from '@/components/StaffdeckIcon';
@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
+import { loadSceneModuleMeta } from '@/scenes/registry';
+import type { SceneChip } from '@/scenes/types';
 import type { ChatSlashCommand } from '@/types';
 
 import type { ComposerAttachment } from '../chatTypes';
@@ -62,6 +64,7 @@ import {
 } from '../slashCommands';
 import type { UseChatSession } from '../useChatSession';
 import ChatPromptSuggestions from './ChatPromptSuggestions';
+import SceneChips from './SceneChips';
 import SlashCommandChip from './SlashCommandChip';
 
 /** 附件的第二行信息：上传中是进度，成功后是「PDF · 1.2 MB」，失败是错误原因。 */
@@ -73,6 +76,57 @@ function composerAttachmentStatus(attachment: ComposerAttachment): string {
   }
   if (attachment.uploadStatus === 'error') return attachment.error || '上传失败';
   return attachmentTypeLabel(attachment);
+}
+
+/**
+ * 入口胶囊的行容器（视觉契约 §6「位置铁律」的落地点）。
+ *
+ * ## 为什么必须有这一层，不能直接把 `SceneChips` 丢进 JSX
+ *
+ * `SceneChips` 按契约**只输出若干 `<button>`**，行、间距、虚线全归父级。
+ * 而它需要「没有任何胶囊时整个容器消失」这个能力 —— 所以这里用一个本地
+ * state 接住 `onLoaded`，`0` 个时返回 `null`。不这么做的话，未配场景的
+ * 员工也会在快捷提问和输入框之间多出一道虚线和 9px 空白。
+ *
+ * ## 数值全部来自契约，逐值照抄不要改
+ *
+ * `flex gap-[7px] flex-wrap` + `pb-[9px] border-b border-dashed border-[#e7dfd3] mb-[9px]`
+ * + 左侧 `pl-[20px]`（与输入框文字左缘对齐，同 `CHAT_PROMPT_ROW_CLASS` 的推导）。
+ */
+function SceneChipRow({
+  agentId,
+  disabled,
+  onSelect,
+}: {
+  agentId: string;
+  disabled: boolean;
+  onSelect: (chip: SceneChip) => void;
+}) {
+  const [hasChips, setHasChips] = useState(false);
+  // `SceneChips` 的 effect 依赖里**故意没有** `onLoaded`（父级每次都传新箭头
+  // 函数会导重拉），所以这里的回调必须稳定，否则它每次渲染都重发一次请求。
+  const handleLoaded = useCallback((chips: SceneChip[]) => {
+    setHasChips(chips.length > 0);
+  }, []);
+  if (!hasChips) {
+    // 仍然挂载 `SceneChips`：它要在 `agentId` 变化后取到数据，`onLoaded` 才
+    // 会把 `hasChips` 翻成 true。只渲染它、不渲染外面那层虚线容器。
+    return (
+      <div className="hidden">
+        <SceneChips agentId={agentId} disabled={disabled} onSelect={onSelect} onLoaded={handleLoaded} />
+      </div>
+    );
+  }
+  return (
+    <div className="mx-auto mb-[9px] flex w-full flex-wrap items-center justify-start gap-[7px] border-b border-dashed border-[#e7dfd3] pb-[9px] pl-[20px]">
+      <SceneChips
+        agentId={agentId}
+        disabled={disabled}
+        onSelect={onSelect}
+        onLoaded={handleLoaded}
+      />
+    </div>
+  );
 }
 
 export default function Composer({
@@ -125,7 +179,9 @@ export default function Composer({
     removeComposerAttachment,
     handleComposerPlusAction,
     displayedProfile,
+    handleChatMessagesScroll,
     sendQuickText,
+    effectiveAgentId,
     shareMode,
   } = chat;
 
@@ -226,6 +282,51 @@ export default function Composer({
     void send();
   };
 
+  /**
+   * 早期版本在输入区上方浮一张 `SceneChipFormPanel` 表单，「点开了哪一条」
+   * 用一个 `openSceneId` state 记着，只为在胶囊行显示一句
+   * 「已展开表单，填完点提交」。那段文案已按用户要求移除，
+   * 而这个 state 从来就**没有**被 `SceneChips` 用过（组件里没有
+   * `aria-pressed`，原先注释说它给按钮画选中态，实际上一直没实现）。
+   * 删文案后它彻底没有消费者了，所以连 state 一起删掉，
+   * 不要留一个「看着像有用」的死变量。
+   */
+  const sceneChipDisabled = Boolean(shareMode) || Boolean(currentSessionRunning);
+
+  /**
+   * 点胶囊：**一律落一条用户消息**，让表单进消息流（对齐
+   * `docs/scenes/scene-demo.html` 的交互，用户明确指定「以这个为准」）。
+   *
+   * demo 的链路是三步：
+   * 1. 落一条用户气泡（「行程规划」）—— 用户看得见自己点了什么，
+   *    也留在会话历史里，回看时能对上「这条结果是怎么来的」；
+   * 2. 助手回一句反问（prose），说明「先确认三个条件」；
+   * 3. 同一轮里把表单画进消息流。
+   *
+   * 我们这边 2、3 由后端 `_slot_form_block()` 产出（text 块 + form 块），
+   * 前端只要做对第 1 步。这也顺带解决了一个真问题：表单浮在输入区时，
+   * 提交出去的文本没有任何关键词，后端必然落回普通对话 —— 用户填完表去查了
+   * 一遍知识库。改成走一轮真实对话后，`scene_id` 会随助手消息回到前端，
+   * 提交时作为 `forced_scene_id` 带回，场景才真正续得上。
+   *
+   * 仍然读 `entry_behavior` 而不是无条件发消息：`send_text` 型入口的胶囊
+   * 文案本身就是一句话，直接发；`open_form` 型发 `send_text`（后端
+   * `_chip_send_text()` 三级回落的第一级），保证「点下去有东西发出去」。
+   */
+  const handleSceneChipSelect = async (chip: SceneChip) => {
+    const meta = await loadSceneModuleMeta(chip.module_key);
+    const behavior = meta?.entry_behavior ?? 'open_form';
+    // 两类的最终动作一致（发一句话），差别只在文案来源：
+    // `send_text` 型优先用场景配的那句话；`open_form` 型用胶囊标题，
+    // 让用户气泡显示「滑雪行程推荐」而不是一句拗口的配置文案。
+    const text = behavior === 'send_text'
+      ? (chip.send_text || chip.label || chip.scene_name)
+      : (chip.label || chip.send_text || chip.scene_name);
+    if (text) {
+      sendQuickText(text);
+    }
+  };
+
   return (
     <div className={CHAT_INPUT_SHELL_CLASS}>
       <div className={CHAT_COMPOSER_STAGE_CLASS}>
@@ -257,6 +358,26 @@ export default function Composer({
           </div>
         )}
         {/*
+          场景入口胶囊：管理员把场景绑到该员工之后，这里就长出按钮
+          （`GET /api/chat/scenes`，绑定即生效、解绑即消失，都不发版）。
+
+          **位置在快捷提问之上、同在输入框上方那一栏**（视觉契约 §6「位置铁律」）。
+          `SceneChips` 自己只输出 `<button>`，flex 行与虚线都由这里提供 ——
+          两边都不自己起行，才可能真正同栏；各自带 `w-full` 容器会各占一整行，
+          那就是契约明令禁止的「另起一行」（1280×800 上会顶到消息区）。
+
+          放在快捷提问**之前**而不是之后，是为了保住 `Composer.test.tsx` 锁定的
+          另一条位置契约：快捷提问行必须是 `form` 的前一个兄弟节点。夹在中间会
+          让那条断言失效。
+
+          没配场景时它返回 `null`，虚线容器也不渲染，不留空档。
+        */}
+        <SceneChipRow
+          agentId={effectiveAgentId}
+          disabled={sceneChipDisabled}
+          onSelect={(chip) => void handleSceneChipSelect(chip)}
+        />
+        {/*
           快捷提问：**常驻**在输入框上方的扁胶囊行（员工在「编辑数字员工档案 →
           快捷提问」里配的 1-3 句话）。点一下直接把整句发出去。
           不随轮次消失：用户在任意一轮都能一键追问，位置永远贴着输入框。
@@ -265,7 +386,7 @@ export default function Composer({
         <ChatPromptSuggestions
           prompts={suggestedPrompts}
           // 正在跑的一轮里再发会被推进队列，点了没反馈等于失灵；分享页只读。
-          disabled={Boolean(shareMode) || Boolean(currentSessionRunning)}
+          disabled={sceneChipDisabled}
           onSelect={(prompt) => sendQuickText(prompt)}
         />
         <form

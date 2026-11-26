@@ -1,16 +1,12 @@
-import { SCENE_PRIMARY_BUTTON_CLASS, SCENE_SECONDARY_BUTTON_CLASS } from '../../shared/buttons';
 import { SceneEmptyCard } from '../../shared/SceneEmptyCard';
 import type { SceneBlockProps } from '../../types';
 import {
-  actionLabels,
-  detailText,
   itineraryDays,
   itineraryHeader,
   itineraryMeta,
   primaryHit,
   priceNote,
   priceText,
-  selectText,
   subtitleText,
   type ItineraryDay,
 } from './itineraryData';
@@ -33,11 +29,6 @@ import {
 const CARD_CLASS =
   'overflow-hidden rounded-[14px] border border-[#ded7cc] bg-white '
   + 'shadow-[0_1px_2px_rgba(17,17,17,0.04),0_1px_8px_rgba(70,76,94,0.06)]';
-
-/** contract §1.5 主/次按钮（与空结果卡共用同一套尺寸，视觉上属于同一个家族）。
- *  唯一一份实现在 `shared/buttons.ts` —— 三处各写一份会漂成三种尺寸。 */
-const PRIMARY_BTN_CLASS = SCENE_PRIMARY_BUTTON_CLASS;
-const SECONDARY_BTN_CLASS = SCENE_SECONDARY_BUTTON_CLASS;
 
 /** 元信息条里的一项（key 10px / value 12.5px mono 600）。 */
 function MetaItem({
@@ -108,12 +99,12 @@ function DayRow({ day, isLast }: { day: ItineraryDay; isLast: boolean }) {
   );
 }
 
-export function ItineraryResultCard({
-  block,
-  params,
-  sendText,
-  disabled = false,
-}: SceneBlockProps) {
+/**
+ * 收下整份 `SceneBlockProps` 但只解构 `block` / `params`：
+ * 卡上没有任何可点元素了（按钮已移除，见价格条注释），
+ * `sendText` / `disabled` 在这张卡里无处可施。签名仍与 `ResultCard` 契约一致。
+ */
+export function ItineraryResultCard({ block, params }: SceneBlockProps) {
   const hit = primaryHit(block);
   const header = itineraryHeader(hit, params);
   const subtitle = subtitleText(header, params);
@@ -121,7 +112,6 @@ export function ItineraryResultCard({
   const days = itineraryDays(hit, params);
   const price = priceText(hit, params);
   const note = priceNote(params);
-  const labels = actionLabels(params);
 
   // 没有命中行的 result 块（后端有时会把空结果也塞成 result）：不画空卡，
   // 退化成一段文本，不去抢 EmptyState 的语义。
@@ -166,32 +156,35 @@ export function ItineraryResultCard({
         </div>
       )}
 
-      {/* 价格条 */}
+      {/*
+        价格条**只有价格和说明**，没有操作按钮。
+
+        这里刻意不放「选这个 / 看详情」：
+        - 「选这个」发出去的是「就选经典雪山五日」，而行程推荐本身就是终态 ——
+          用户看完卡就决定了，再让他点一次「选这个」只是把同一句话复述一遍；
+        - 「看详情」在 P0 只是 `sendText('看看经典雪山五日的详情')`，不发请求
+          也不开弹窗（见 `itineraryData.detailText` 注释），点了等于白转一圈
+          再回一张一样的卡。
+
+        代价是价格条在窄容器下会显得空。这是诚实的空 —— 比挂两颗点了没反应的
+        按钮强。真要放开，请等「点选 → 锁单」这条链路做出来（P1-4 的回执状态）
+        再说，那时按钮才有真实语义。
+
+        结构上仍保留「价格 → 说明（可省略）→ 右侧留白」，`min-w-0` 还在：
+        说明文字过长时仍然单行省略，不会把价格条撑成两行。
+      */}
       <div className="flex items-center gap-[10px] border-t border-[#e7dfd3] bg-[#fbfaf6] px-[14px] py-[11px]">
         {price ? (
-          <span className="font-mono text-[15px] font-semibold text-[#18181a]">{price}</span>
+          <span className="shrink-0 font-mono text-[15px] font-semibold text-[#18181a]">{price}</span>
         ) : null}
-        {note ? <span className="text-[11px] text-[#9a9b95]">{note}</span> : null}
-        <div className="ml-auto flex gap-[7px]">
-          <button
-            type="button"
-            className={SECONDARY_BTN_CLASS}
-            disabled={disabled}
-            onClick={() => sendText(detailText(header.title))}
-          >
-            {labels.secondary}
-          </button>
-          {/* 铁律：「选这个」走 sendText 起新一轮，**不许直接改状态**（PRD §5.3）。
-              只有这样才能保证所有交互在会话日志里可回放、可审计。 */}
-          <button
-            type="button"
-            className={PRIMARY_BTN_CLASS}
-            disabled={disabled}
-            onClick={() => sendText(selectText(header.title))}
-          >
-            {labels.primary}
-          </button>
-        </div>
+        {note ? (
+          // 单行省略：价格条在契约里恒为一行。窄容器（超管预览栏 304px）下
+          // 若允许折行，这段说明会折 3 行把条撑到 70px，与聊天里 520px 宽的
+          // 真实观感差得太远 —— 预览就失去参考价值了。全文挂在 title 上。
+          <span className="min-w-0 flex-1 truncate text-[11px] text-[#9a9b95]" title={note}>
+            {note}
+          </span>
+        ) : null}
       </div>
     </div>
   );

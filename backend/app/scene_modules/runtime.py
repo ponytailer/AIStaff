@@ -282,19 +282,60 @@ def dispatch_scene(
 # ============================================================
 
 
-def _scene_fallback_text(scene: Scene) -> str:
+def _scene_fallback_text(scene: Scene, db: Session | None = None) -> str:
     """场景级兜底文本。
 
     所有渠道的基线，不是某个 module 的私有参数：
     非 UI 渠道（企微/微信/短信）只吃文本，module 加载失败时也靠它。
     缺它的后果是「在微信用户那里变成空白消息」——最难发现的一类线上 bug，
     因为开发和测试都在 Web 端。所以发布校验把它列为阻断项。
+
+    ``db`` 传了就按「场景显式值 → 预设默认值」合并（``effective_ui_config``）：
+    超管在预设页改了兜底文案，存量场景下一句话就变，不用逐个重存。
     """
-    ui_config = dict(scene.ui_config_json or {})
+    from app.scenes.presets import effective_ui_config
+
+    ui_config = effective_ui_config(scene, db)
     return str(ui_config.get("fallback_text") or "").strip()
 
 
-def build_ui_blocks(scene: Scene, result: SceneRunResult) -> list[SceneUiBlock]:
+def scene_render_params(scene: Scene, db: Session | None = None) -> dict[str, Any]:
+    """算出这个场景交给前端 module 的 ``params``。
+
+    ## 为什么要单独抽一个函数
+
+    前端 ``sceneParamsOf()``（`src/pages/chat/messageBlockSlots.ts`）读的是
+    消息 metadata 的 ``scene_params`` 键。在本次改造之前**没有任何后端代码写
+    这个键**，所以聊天端所有 module 一直走代码里的默认值 —— 表现是
+    「在定义器里把按钮文案改成『立即预订』，聊天里还是『选这个』」，
+    且不报错不打日志。这是「配置驱动」在这条链路上完全失效的根因。
+
+    ## 为什么 params 可以进 metadata，而「场景配置」不行
+
+    ``SceneUiBlock`` 的注释明令不许带 UI 描述字段（title / color / layout），
+    因为那会让后端开始拼 UI、锁死前端定制能力。但 ``params`` 是**渲染参数**
+    （按钮文案、列映射、价格说明），不是 UI 结构描述；它正是 module 的
+    ``params_schema`` 声明的入参契约。放在 metadata 顶层而不是塞进每个 block，
+    是为了不打散 block 契约（``to_dict()`` 仍只透 5 个字段）。
+
+    ``db`` 为 ``None`` 时只用场景自身配置（纯函数调用/单测可用）。
+    """
+    from app.scenes.presets import effective_ui_config
+
+    ui_config = effective_ui_config(scene, db)
+    params = ui_config.get("params")
+    if not isinstance(params, dict):
+        return {}
+    # 丢掉空串：前端 ``params[key] ?? 默认值`` 的写法遇到空串会当成「配了但为空」，
+    # 于是按钮文案变成空白。留空 = 没配，让 module 走自己的默认值。
+    return {key: value for key, value in params.items() if value not in (None, "")}
+
+
+def build_ui_blocks(
+    scene: Scene,
+    result: SceneRunResult,
+    db: Session | None = None,
+) -> list[SceneUiBlock]:
     """给每个 block 补 ``module_key`` / ``module_version`` / ``fallback_text``。
 
     补的是「这块归谁画」与「画不出来时说什么」，**不碰 ``kind`` / ``data``**。
@@ -302,7 +343,11 @@ def build_ui_blocks(scene: Scene, result: SceneRunResult) -> list[SceneUiBlock]:
     """
     module_key = str(scene.module_key or "")
     module_version = int(scene.module_version or 0)
-    scene_fallback = _scene_fallback_text(scene)
+    scene_fallback = _scene_fallback_text(scene, db)
+    # 渲染参数随 result 一起带走：`turn_run` 把它写进消息 metadata 的
+    # `scene_params`，前端 `sceneParamsOf()` 才拿得到。放在 result 上而不是
+    # 让调用方自己算 —— 只有这里知道「场景 + 预设」合并后的最终值。
+    result.render_params = scene_render_params(scene, db)
 
     blocks: list[SceneUiBlock] = []
     for block in result.blocks:
@@ -400,7 +445,7 @@ def run_scene_instance(
             persist=False,
             action_overrides=action_overrides,
         )
-        result.blocks = build_ui_blocks(scene, result)
+        result.blocks = build_ui_blocks(scene, result, db)
         result.trace.append(
             {"key": "module_key", "value": "", "detail": "场景未装配 module_key"}
         )
@@ -417,7 +462,7 @@ def run_scene_instance(
         persist=persist,
         action_overrides=action_overrides,
     )
-    result.blocks = build_ui_blocks(scene, result)
+    result.blocks = build_ui_blocks(scene, result, db)
 
     if persist:
         result.run_id = _persist_run(

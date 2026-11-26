@@ -9,6 +9,7 @@
 > | 适用版本 | 场景 v3（插件模块模型，commit `bb79071c` 之后） |
 > | 代码基线 | `backend/app/scene_modules/`、`frontend-enterprise/src/scenes/` |
 > | 同步要求 | **这份文档必须跟着代码走。** 改了 `types.py` / `types.ts` / `constants.py` 的契约 → 当次改动里必须一起改本文，见 §9 |
+> | **所有 demo 的入口** | **`docs/scenes/index.html`** —— 想找某个页面长什么样，先开这个 |
 
 ---
 
@@ -44,6 +45,136 @@
 **关键分工：`scene_type` 决定「后端怎么处理」，`module_key` 决定「前端怎么画」。两者独立。**
 
 一个 `table_match` 场景可以用 `generic.table_match`（通用列表），也可以换成 `travel.itinerary`（逐日时间轴）—— 后端完全不用改。
+
+### 0.2.1 三层分层：谁改什么，改完谁遭殃
+
+场景的配置分散在三个层里。**搞错层是这一块最常见的返工来源**（典型症状：「我改了但没生效」或「我改完之后用户的配置被冲掉了」）。
+
+| 层 | 谁定 | 存在哪 | 用户能改 | 生效方式 | 改它要发版吗 |
+|---|---|---|---|---|---|
+| **L1 module 实现** | 开发者写代码 | `src/scenes/modules/<module_key>/` | 不能 | 发版 | **要** |
+| **L2 预设** | 超管，在 `/enterprise/scene-presets` 改 | 后端 `scene_presets` 表（`module_key` 主键） | 不能 | **渲染时实时回读** | **不要** |
+| **L3 场景实例** | 用户建场景时填 | 后端 `scenes` 表 | 名称/图标/描述/槽位/匹配策略 | 落库 | 不要 |
+
+用一句话记住：**L1 决定「能长什么样」，L2 决定「默认长什么样」，L3 是「这一个具体实例长什么样」。**
+
+#### 为什么要有 L2（预设层）
+
+没有 L2 时，「主按钮叫『选这个』还是『立即预订』」这类**全局文案**只有两个落点：
+
+- 写在前端代码里 → 客户想改一个词，走一次发版流程；
+- 存进每个 `scene` 的 `ui_config_json` → 改完全局要逐个场景打开重存，20 个场景改 20 次，漏一个就两个样。
+
+L2 把这类值抽到一张表，超管改一次、**所有存量场景下一次渲染就变**，不用重存、不用发版。
+
+#### 两类字段，两套生效方式（混了都会坏）
+
+`preset_json` 里的键按「用户能不能改」分成两组，定义在 `backend/app/scenes/presets.py`：
+
+```python
+#: 用户不能改 → 渲染时每次回读预设，超管改完全局立即生效
+REALTIME_KEYS = ("ui_config", "trigger")
+
+#: 用户能改 → 只在建场景时抄一份，之后归用户，预设再改也不动它
+SNAPSHOT_KEYS = ("slots", "match_action")
+```
+
+| 做错的方式 | 会怎样 |
+|---|---|
+| 把 `slots` 也做成实时 | 用户精心映射的「人数 → B 列」被预设的 `target: ""` 冲掉，匹配层拿不到列 → 查询必失败 |
+| 把 `ui_config` 做成快照 | 超管改完文案没生效，得逐个场景重存 —— 这就是 L2 本来要消灭的手工 |
+| 建场景时就把 `ui_config` 抄进 scene | 该场景从此**永久脱离预设**，后续超管改动对它全部无效（且没人会发现，因为旧值看起来「正常」） |
+
+所以 `SceneEditor` 的 `toPayload()` 在编辑时会把 `ui_config` / `trigger` **原样回写**（不是删掉，也不是用预设覆盖）：整份覆盖语义下，不带上就等于把它清空了。
+
+##### 第三类：`respond_action` —— 只在建场景时取建议值，之后完全不回读
+
+`respond_action`（含表单引导语 `ask_prompt`、回答模板、`max_items`）**不在上面任何一组里**：
+
+| 阶段 | 行为 |
+|---|---|
+| 新建场景（`applyPreset`） | 读预设的 `respond_action.ask_prompt` 作为**预填建议值** |
+| 建好之后 | 预设在改什么，这个场景都不受影响 |
+| 渲染时 | `channels.py` 直接读 `scene.respond_action_json`，**不经过** `effective_ui_config()` |
+
+**为什么单独一类**：这句引导语（表格上方「先确认这几个条件…」）描述的是
+「为什么现在要问你」，取决于这个场景面向谁、要解决什么事。超管不知道员工的
+场景叫什么名字，硬把它做成「预设说了算」只会让员工改不动一句本该自己写的话。
+
+⚠️ **不要在 `/enterprise/scene-presets` 页给 `ask_prompt` 加输入框**。加了之后
+超管能改能存，但任何已建场景都不会变 —— 「改了没反应」，这正是
+`primary_action_label` / `secondary_action_label` 两个字段被下架的原因。
+
+⚠️ `respond_action` 在保存时是**整份覆盖**（`api/scenes.py`：
+`row.respond_action_json = payload.respond_action`）。所以定义器必须
+「回填 + 带回」这个键，缺一半就会每次保存都清空员工配的引导语。
+
+#### 出厂预设在代码里，不落库
+
+`BUILTIN_PRESETS` 是 `presets.py` 里的常量。`get_preset()` 的语义是：
+
+```
+库里有这一行 → 用库里的
+库里没有     → 用 BUILTIN_PRESETS 里的
+```
+
+**为什么不用种子脚本在 `init_db` 里插数据**：`init_db` 目前唯一的 schema 动作是 `create_all`（见 `app/db/database.py`）。一旦塞进数据动作，新库（全量种子）和老库（只补缺失）的初始数据就会不一致，而这种不一致不会报错，只会让「为什么他的环境按钮文案是旧的」变成玄学。
+
+代价：超管「恢复出厂」= 删掉库里的覆盖行（`reset_preset`），回落到常量。所以**改出厂值要发版**，这符合定位（出厂值是开发者定义的产品默认）。
+
+#### 表不存在时的降级（线上必须保留）
+
+`scene_presets` 是新增表。老库没建时 `SELECT` 会抛 `OperationalError` → 如果不管，**所有场景渲染 500**。
+
+所以 `get_preset()` / `list_presets_safe()` 只捕获**表不存在**这一种错误并降级到出厂预设：
+
+```python
+def _is_missing_table_error(error) -> bool:
+    text = str(getattr(error, "orig", error) or "").lower()
+    return "no such table" in text or "does not exist" in text or "undefinedtable" in text
+```
+
+刻意**不用** `except OperationalError` 裸吞 —— 那会连带吞掉连接超时、锁等待，把「库连不上」伪装成「用出厂值」，故障现场直接消失。
+
+#### 新增 module 时要做的事（L2 部分）
+
+写完 module 后，在 `presets.py` 的 `BUILTIN_PRESETS` 里登记一份出厂预设：
+
+```python
+BUILTIN_PRESETS: list[dict[str, Any]] = [
+    {
+        "module_key": "travel.itinerary",   # 必须 === module 目录名 === meta.module_key
+        "display_name": "行程规划",          # 定义器下拉里显示的名字
+        "scene_type": "table_match",
+        "icon": "🎿",
+        "enabled": True,
+        "order_index": 0,
+        "preset_json": _ITINERARY_PARAMS,   # 见下
+    },
+]
+```
+
+`preset_json` 的完整结构（字段名与 `SceneCreateRequest` **逐字一致**）：
+
+```json
+{
+  "schema_version": 1,
+  "description": "新建场景时预填的描述，用户可改",
+  "icons": ["🎿", "🏔️", "🗺️"],          // 定义器图标下拉，第一个是默认值
+  "ui_config": {                          // → REALTIME
+    "fallback_text": "卡片渲染不出来时的兜底纯文本",
+    "form_title": "槽位表单标题",
+    "params": { "primary_action_label": "选这个" }   // 交给 module 组件的 render params
+  },
+  "trigger": { ... },                     // → REALTIME，当前固定为「按钮触发」，不在界面暴露
+  "slots": [ { "key": "people", "target": "", ... } ],   // → SNAPSHOT
+  "match_action": { "top_k": 3, ... }                    // → SNAPSHOT
+}
+```
+
+**只登记「有参数可调」的 module。** `generic.*` 四个没有 UI 参数，登记只会给超管挂一个空表单，让人以为漏了什么。
+
+`ui_config.fallback_text` 是**发布阻断项**：它为空时卡片渲染失败就真的什么都不显示。`effective_ui_config()` 因此是**按键合并**而非整份覆盖 —— 老场景自己存的那份 `fallback_text` 不能被预设里的空值冲掉。
 
 ### 0.3 三条铁律
 
@@ -85,17 +216,47 @@
 | 能力 | 后端 | 前端代码 | 已挂载到界面 | 有测试 |
 |---|---|---|---|---|
 | 4 个 generic module + `travel.itinerary` | — | ✅ 完成 | ✅ 经 `SceneBlockList` 渲染 | ✅ `constants.test.ts` / `SceneBlockList.test.tsx` |
-| 场景管理台（列表 + 定义器 8 区块） | ✅ | ✅ 完成 | ✅ `/enterprise/scenes` 路由 | ✅ `ScenesPage.test.tsx` |
+| 场景管理台（列表 + 定义器 **5 区块**） | ✅ | ✅ 完成 | ✅ `/enterprise/scenes` 路由 | ✅ `ScenesPage.test.tsx` |
 | 定义器试跑面板 | ✅ `/run` | ✅ 完成（在 `ScenesPage` 内） | ✅ | ✅ `SceneRunPanel.test.tsx` |
+| **L2 预设层**：`scene_presets` 表 + 实时继承 | ✅ `presets.py` | — | ✅ 渲染时经 `effective_ui_config` | ✅ 手工端到端已验 |
+| **超管预设配置页** | ✅ 5 条接口 | ✅ `ScenePresetsPage.tsx` | ✅ `/enterprise/scene-presets`（`isAdmin` 守卫 + 侧栏「场景预设」） | ⚠️ 无自动化测试 |
 | 会话内触发（消息 → 场景帧 → block 回显） | ✅ | — | ✅ `MessageBubble` → `SceneBlockList` | ✅ `test_scene_api.py` |
-| **入口胶囊 `SceneChips.tsx`** | ✅ `GET /api/chat/scenes` | ✅ **组件已写完** | ⚠️ **未挂载**：全库无 import，`Composer` 只渲染 `ChatPromptSuggestions` | ❌ 无测试 |
+| **入口胶囊**（`SceneChips.tsx`） | ✅ `GET /api/chat/scenes` | ✅ 完成 | ✅ 已挂载到 `Composer`（快捷提问之上、同栏虚线分隔） | ✅ `Composer.test.tsx` |
+| **点胶囊 → 表单进消息流** | ✅ `_slot_form_block()` | ✅ `ItinerarySlotForm` | ✅ 用户气泡 + 反问 + 表单卡 | ✅ `ItinerarySlotForm.test.tsx` / `test_scene_channels.py` |
+| **表单引导语 / 副标题可配** | ✅ 三级兜底（`ask_prompt` / `form_subtitle`） | ✅ 定义器两个输入框 | ✅ `/enterprise/scenes` 基础信息区块 | ✅ `test_scene_channels.py`（3 条：顺序 / 覆盖 / 默认句） |
+| **匹配策略 `on_empty` 三态** | ✅ `matcher.MatchAction` + `channels._empty_suggestions` | ✅ 定义器下拉 + `SceneEmptyCard` 按 `data.on_empty` 收建议区 | ✅ | ✅ `test_xianlin_ski_scene_e2e.py`（3 条：三档互不相同 / clarify 是问句 / 老值 `nothing` 归一） |
+| **人数容差 `people_tolerance`** | ✅ 默认 `0` 严格，放宽后 `people_widened` 计数并在正文声明 | ✅ 定义器输入框 + `MatchGrid` 显示（仅 `>0` 时） | ✅ | ✅ `test_xianlin_ski_scene_e2e.py` |
 | `execution_mode="scene_module"` 直通 | ✅ 四处白名单齐 | — | ✅ | ✅ |
 
-**关于入口胶囊这条 ⚠️**：`SceneChips.tsx` 的取数、`MAX_VISIBLE_SCENE_CHIPS`、「更多」折叠、视觉契约都已实现，`SceneChip` 类型也齐。**唯一缺的是在 `Composer` 里 import 并渲染它，再把 `onSelect` 接到 `open_form` / `send_text` 两个分支上**（`loadSceneModuleMeta()` 就是为这个准备的）。
+**定义器已从 8 区块精简到 5 区块**（基础信息 / 数据表 / 槽位 / 匹配策略 / 命中后回答）。删掉的三个是「场景界面」「触发条件」「绑定员工」：界面对普通用户不可配（归 L2），触发固定为按钮（归 L2），绑定改在员工侧做。**「命中后回答」现在是只读的卡片预览**，不再是模板输入框 —— 用户改不了模板，所以 `publishBlockers` 里「模板为空」那条阻断也随之删除（否则谁都发不出去）。
 
-> 换句话说：**场景能力可以正常用，只是用户目前只能靠「打字触发」，看不到入口胶囊。** 加 module / 加 scene_type 都不受影响。
+**超管预设页那条 ⚠️**：页面、接口、权限边界（非管理员 403）都已端到端验证过，但**只**补了 `ScenePresetsPage.test.tsx` 的最小护栏（2 条：没有「恢复出厂」按钮 + 页面能渲染）。JSON 互转、表单同步、切预设重置这三条仍未覆盖 —— 要补的话重点测：JSON 解析失败时保存被禁用、表单改动同步进 JSON 文本、切换预设时表单被重置（这条最容易回归 —— 不重置会把上一项的 JSON 存到这一项上）。
+
+**「恢复出厂」按钮已删除**（2026-11-26，用户要求）。它做的是 `resetScenePreset()`（删库里覆盖行、回落 `BUILTIN_PRESETS` 常量），对改坏配置的管理员确实有用，但**没有确认步骤**、一点就覆盖全页所有字段。这页每个字段都能手改回来，一个不可撤销的全局操作摆在「保存预设」旁边，误点概率高于真需要的概率。
+
+> 后端 `DELETE /api/scene-presets/{module_key}` **仍然保留** —— 删的只是 UI 入口，不是能力本身。运维/脚本恢复出厂仍走接口。
+
+> **关于入口胶囊**（2026-11-26 二次改造，**交互以 `docs/scenes/scene-demo.html` 为准**）：`SceneChips` 原来全库无 import —— 组件、类型、后端接口全齐，没人调用，所以「管理员配了场景但对话页看不到按钮」。现在已挂载，三条入口均可用：
 >
-> 这条如果被补上了，请把本行的 ⚠️ 改成 ✅ 并删掉这段说明 —— 这是 §9.1 里「实现状态变化」的唯一落点。
+> | 入口 | 触发方式 | 关键实现 |
+> |---|---|---|
+> | 胶囊点开填表 | `entry_behavior === 'open_form'` | 落一条**用户气泡**（胶囊标题）→ 后端回「反问 + `form` 块」→ module 的 `SlotForm` 画进消息流 → 提交走 `submitSlotForm(..., forcedSceneId)` |
+> | 胶囊直发一句话 | `entry_behavior === 'send_text'` | `sendQuickText(chip.send_text)`，空时回落 `label` |
+> | 打字关键词 | `trigger_json.keywords` 子串匹配 | `resolve_scene_hit()`，无需任何前端参与 |
+>
+> **为什么不再用输入区浮层**（这是本轮最重要的一次返工）：早期实现把表单画在输入框上方（`SceneChipFormPanel`），点胶囊直接弹表、不落任何消息。两个硬伤：
+> ① 用户看不到「我点了什么」，回看历史时对不上这条结果从哪来；
+> ② 提交的文本没有关键词，且当时前端**从不传** `forced_scene_id`，实测报文是 `execution_mode: "standard"`、`scene_id: null`、`knowledge_search ×2` —— 用户填完表去查了一遍知识库。改成「消息流内表单」后，`scene_id` 随助手消息回到前端（`messageBlockSlots.ts::sceneIdOf()`），提交时才真正带得回去。
+>
+> **四条红线**（改这块之前先读，都是踩过的）：
+> 1. **`scene_id` 必须从消息 metadata 透出**。表单提交文本是「人数：4；天数：5；预算：3000」，一个触发关键词都没有，不带 `forced_scene_id` 后端必然落回普通对话 —— 用户填的表白填。后端由 `turn_run.py` 写进 `metadata.scene_id`，前端 `sceneIdOf()` 读它，两个提交点（`SceneBlockList.onSubmitSlots` 与 `slot_form` 兜底）都要传。
+> 2. **缺必填槽位时只问不查，且引导语是正文而不是块**。空槽位下 matcher 每一层都放行（`slot_people is None → return True`），会把「恰好前 3 行」当命中结果，前端再按 `score <= 0 → 完全吻合` 标成绿色徽标 —— 用户刚点开、什么都没填，却被告知「这三个完全符合你的要求」。`channels.py::_run_table_match` 现在在有缺槽时**直接返回**（`detail.awaiting_input = True`），不出 `result`/`empty`。**产出形状是 `text = ask_prompt` + `blocks = [form]`** —— 引导语走正文，不许塞 text 块。否则前端「正文 → blocks」的渲染顺序会把硬编码正文顶在上面、员工配的那句挤到最下面。这个坑踩了三次，详见视觉契约 §3.5。
+> 3. **场景槽位声明的 `type`/`unit` 必须覆盖 `build_slot_form()` 的推断**。那个函数按字段名后缀猜类型（`*_amount` → number），而场景槽位 key 是 `people`/`days`/`budget`，一个后缀都不命中 → 三个数值字段全被编译成 `type: "text"`。后果不是难看而是错：前端画不出分段按钮，且提交出去是字符串，matcher 按数值比区间时会判成不可转换直接丢掉。`_slot_form_block()` 现在会把 `type`/`unit`/`prompt` 覆盖回去。
+> 4. **胶囊行必须放在快捷提问之上**。`Composer.test.tsx` 有一条断言锁着「快捷提问行是 `form` 的前一个兄弟节点」，夹在中间会让它失效；视觉契约同时要求两者同栏虚线分隔、不许另起一行。
+>
+> **`_run_scene_frame` 必须消费 `slot_submission`**（第 5 条，同样是踩过的）：早期它只读 `row.slots_json`，于是每轮表单提交都在重放「空槽位 → 你还没填」，用户填完表又弹回同一张空表，永远走不到结果卡。现在会把 `slot_submission` 合并进帧槽位并**写回**（`row.slots_json`）—— 写回是必须的，场景是多轮的，这一轮补了人数/天数，下一轮只补预算时前两个值得还在。
+>
+> **关键词目前没有 UI 入口**：用户侧 `SceneEditor` 和管理侧 `ScenePresetsPage` 都没有关键词输入框（预设默认 `keywords: []`）。要让关键词触发生效，得直接改 `trigger_json.keywords` 或补 UI。这是已知缺口，不是 bug。
 
 ---
 
@@ -106,9 +267,32 @@
 | 加一个**新的 UI 样式**（换个卡片画法） | 新增 module | §3 |
 | 加一个**新的业务处理逻辑**（比如「工单派发」） | 新增 scene_type | §4 |
 | 只是**改现有 module 的文案/布局** | 改 module | §3.6 |
+| **改按钮文案 / 价格说明 / 兜底文本**（全局生效，不发版） | 超管在 `/enterprise/scene-presets` 改 | §0.2.1 |
+
+> **`travel.itinerary` 的卡上没有按钮**（2026-11-26）：行程卡去掉了「选这个 / 看详情」。
+> 行程推荐本身是终态，那两颗按钮点了只是复述一句话再转一圈，属于「点了没反应」。
+> 所以它的 `params_schema` 与出厂预设里**也没有** `primary_action_label` /
+> `secondary_action_label` —— 预设页那两个输入框按 `params_schema` 决定渲染与否，
+> 不会再出现「改了文案、卡片上找不到变化」。`generic.table_match` 的按钮保持不变。
+> 详见 `scene-v3-visual-contract.md` §1「价格条上不放操作按钮」。
+| **给新 module 登记出厂参数** | 改 `BUILTIN_PRESETS` | §0.2.1 |
 | 改**表数量规则** | 改 `needs_table` | §5 |
 | 改**消息里 block 怎么分发** | 改挂载位 | §6 |
 | 加**新的 block kind** | ⚠️ 需要前后端同时改 | §4.5 |
+
+**开工前先问一个问题：这个改动要不要发版？**
+
+```
+客户要改的东西，属于哪一类？
+  ├─ 只是文案/数值（按钮叫法、价格说明、兜底文本、默认匹配策略）
+  │    → 不要动代码。让超管去 /enterprise/scene-presets 改，立即生效。见 §0.2.1
+  ├─ 卡片的结构/布局本身要变（多一栏、换个时间轴画法）
+  │    → 改 module，发版。见 §3.6
+  └─ 处理逻辑变了（要调外部 API、要状态机）
+       → 加 scene_type，发版。见 §4
+```
+
+**先把 L2 用满再考虑改代码** —— 大量「能不能把按钮改成 XX」的需求在预设层就结束了，改代码是最后手段。
 
 **先判断一件事：你需要新 `scene_type` 吗？**
 
@@ -214,6 +398,14 @@ export const SCENE_TYPE_META: Record<SceneType, SceneTypeMeta> = {
 ```
 
 **不需要改后端、不需要改注册表、不需要改任何 index 文件。** 注册表是 `import.meta.glob` 构建期自动发现。
+
+> **但如果新 module 有可调参数**（按钮文案、列名映射等），还要多做一步：在
+> `backend/app/scenes/presets.py` 的 `BUILTIN_PRESETS` 里登记一份出厂预设。
+> **不做这一步的后果**：超管页看不到它 → 这些参数只能硬编码在前端，客户想改就得发版
+> （正是 L2 要解决的问题）。详见 §0.2.1「新增 module 时要做的事（L2 部分）」。
+>
+> 登记完还要确认**前端下拉能看到它**：`scene-preset-options` 只返回库里**或**出厂常量里
+> 存在的 `module_key`。纯前端 module 没有预设 → 定义器下拉里选不到 → 看起来像「module 没生效」。
 
 ### 3.2 目录与文件
 
@@ -511,7 +703,7 @@ npx vite build 2>&1 | grep <你的module_key>
 
 **第 9 处容易被忽略**：`constants.test.ts` 里的 `BACKEND_*` 常量是**手抄的后端快照**，不是 import 来的。它是「前后端漂移」的守门员，所以必须跟着改；忘改的表现不是测试漏过，而是**新类型刚加就红** —— 这时别去怀疑代码，先看这张表第 9 行。
 
-**还有 4 处 `execution_mode` 白名单 —— 这个和 scene_type 无关，但新增「场景直通」链路时会踩**，见 §4.6。
+**还有 4 处 `execution_mode` 白名单 —— 这个和 scene_type 无关，但新增「场景直通」链路时会踩**，见 §4.7。
 
 ### 4.2 后端通道函数模板
 
@@ -617,7 +809,7 @@ const name = block.data.step_name;
 |---|---|---|
 | `text` | `content` | `channels.py` 各通道 |
 | `result` | `total` / `items[]` / `max_items` | `_run_table_match` |
-| `empty` | `reason` / `steps` / `funnel` / `suggestions` | `_run_table_match` |
+| `empty` | `reason` / `steps` / `funnel` / `suggestions` / `on_empty` / `nearest[]` | `_run_table_match` |
 | `step` | `step_name` / `step_index` / `step_total` / `status` / `missing` | `_run_sop_flow` |
 | `handoff` | `target` / `summary` / `ticket_id` / `context` | `_run_handoff` |
 | `form` | `build_slot_form()` 的原样输出：`kind` / `skill_id` / `step_id` / `step_name` / `title` / `submit_label` / `fields[]` | `build_slot_form_block` |
@@ -631,14 +823,62 @@ row_id / values{纯表格列} / score / days_dev / budget_dev / fused / source_t
 > **`result` 没有 `title` 键。** 早先文档写过 `title`，实测后端从不产出它 —— 前端若按 `data.title` 读标题会永远拿到 `undefined` 而静默回落默认文案。标题请在 module 里自己写死或从 `params` 取。
 >
 > **`values` 里的 `__` 前缀键已被剥掉。** `hit_payload()` 会过滤所有 `__` 开头的内部键（`__source_table__` 这类），所以 module 不能靠它们判断来源，要用 `source_table`。
+>
+> **`empty.nearest[]` 里的项与 `items[]` 同形**，但**语义完全不同**：它们是「最接近的」，不是命中。`status` 仍是 `no_match`、`hits` 仍为空。渲染时不许套用命中卡的样式（那会让用户拿去下单），前端按 `nearest` 单独渲染。只有 `on_empty="nearest"` 才有这个键，见 §4.5。
 
-### 4.5 加新 `kind`（慎做）
+### 4.5 `match_action` 全字段语义（`table_match` 专用）
+
+`scene.match_action_json` 由 `scenes/matcher.py` 的 `MatchAction.from_json()` 解析。**改这里等于改所有存量场景的筛选行为**，所以每个字段都要说清「配错会怎样」。
+
+| 字段 | 默认 | 含义 | 配错/漏配的症状 |
+|---|---|---|---|
+| `days_weight` | `1.5` | 天数偏差在综合分里的权重 | 调 0 → 天数不同的行分数一样，排序失去意义 |
+| `budget_weight` | `1.0` | 预算偏差的权重 | 同上 |
+| `days_tolerance` | `1` | 天数容差（±N 天） | 调大 → 「3 天」需求带出「5 天」方案 |
+| **`people_tolerance`** | `0` | **人数容差（±N 人）**，`0` = 严格相等 | 调大 → 4 人需求带出 6 人方案；**放宽命中的必须在正文声明**（见下） |
+| `max_score` | `2.0` | 综合偏差超过它 → 当作完全不相关，直接淘汰 | 调小 → 大量行在闸门被淘汰，结果为空 |
+| `top_k` | `3` | 最多返回几条 | — |
+| `rule_weight` | `0.5` | 决策模型融合分里规则分的占比 | 只影响 `use_decision_model=true` 时的排序 |
+| `use_decision_model` | `false` | 是否让模型参与排序 | 开但模型不可用 → 自动退回纯规则（不会失败） |
+| **`on_empty`** | `nearest` | 空结果策略，**三态**，见下 | 见下 |
+
+#### `on_empty` 三态（2026-11-26 补齐）
+
+这三档以前只有 `nearest` 真的被读过，而且前端下拉的第三个值写的是 `nothing`、后端白名单是 `none` —— 选「只说明没有结果」会被 `_as_choice` **静默回落成 `nearest`**。表现就是「我选了，但没变化」。现在：
+
+| 取值 | 空卡近似项 | 空卡建议按钮 | 正文结尾 | 语义 |
+|---|---|---|---|---|
+| `nearest` | ✅ 有 | ✅ 按卡住的层给 | 「下面这几个最接近，但…」 | 给参考，让用户自己判断 |
+| `clarify` | ❌ 无 | ✅ 按层给 + 「就看最接近的」退路 | **反问句**（以 `？` 结尾） | 主动问能否放宽 |
+| `none` | ❌ 无 | ❌ **整块不渲染** | 只说明结果 | 「只说明没有结果」 |
+
+三个实现要点：
+
+1. **`matcher` 只负责 `nearest` 有没有产项**，三档的差别在 `channels.py` 里分叉。这样 matcher 里只有一个 `if`，语义边界清楚。
+2. **模式必须透出到 `block.data.on_empty`**。前端建议区有一条「没有 `suggestions` 就给两颗兜底」的降级 —— 后端刻意不发建议时前端会补上两颗「放宽条件」，于是 `none` 在界面上完全看不出来。`SceneEmptyCard` 因此显式判 `data.on_empty === 'none'` 把整块收掉。
+3. **`nothing` 是历史别名**（`matcher._ON_EMPTY_ALIASES`）。存量场景的库里存的就是它，别名让它们不用迁移也能正确生效。前端现在只发 `none`，不再新增方言。
+
+> **改这块必须同时改三处**，漏一处就是「配置存了但不生效」：`matcher.MatchAction`（解析）+ `channels.py`（组装 `data` 与正文）+ 前端 `SceneMatchAction` 类型 / 定义器下拉 / `SceneEmptyCard`（渲染）。`tests/test_xianlin_ski_scene_e2e.py` 的第五层锁着「三档正文互不相同」—— 这条就是防「选了两档看起来一样」的回归。
+
+#### `people_tolerance` 放宽后必须在正文声明
+
+放宽 ≠ 静默。`matcher` 会把放宽命中的行数记进 `MatchResult.people_widened`，`channels.py` 在命中分支里追加一句：
+
+```
+其中 2 个方案的人数和你要的不完全一致，是按人数容差放宽后命中的。
+```
+
+**为什么加在正文而不是卡片里**：企微 / 微信 / 短信只吃 `text`（`result.text` 就是 `reply_fragment`），塞进卡片等于这些渠道永远不知道推荐是放宽过的。
+
+同理，`invalid_budget`（预算填了 0 或负数）也会追加一句「本次没有按预算筛选」—— 否则用户会以为预算是有效输入、结果被筛过。
+
+### 4.6 加新 `kind`（慎做）
 
 `kind` 是**跨前后端枚举**。加一个要动：`types.py` 的 `BlockKind`、`types.ts` 的 `BlockKind` + `BLOCK_KINDS`、`registry.ts` 的 `componentForKind`、`SceneModule` 的组件位。
 
 **先问：能不能用现有 kind 表达？** 同一个 kind 可以是列表、时间轴或表格 ——**kind 说的是「什么事」，不是「长什么样」**。要做新视觉，改 module 组件，不加 kind。
 
-### 4.6 四处 `execution_mode` 白名单（独立陷阱）
+### 4.7 四处 `execution_mode` 白名单（独立陷阱）
 
 场景直通链路用 `execution_mode = "scene_module"`。这个值在**四处**被校验，漏一处：
 
@@ -666,7 +906,7 @@ row_id / values{纯表格列} / score / days_dev / budget_dev / fused / source_t
 
 **漏 `planner.py` 白名单的症状最坑**：帧被归一化回 `standard` → 跑完整 Harness 循环（12-60s）→ **不报错**。用户只觉得「这个场景特别慢」。
 
-### 4.7 验收（必跑）
+### 4.8 验收（必跑）
 
 ```bash
 cd backend
@@ -680,10 +920,16 @@ cd backend
 # 3. 端到端（建场景 → 试跑）
 .venv/bin/python -m pytest tests/test_scene_api.py -q
 
-# 4. 全量。⚠️ 必须带 --basetemp，否则会有 ~182 个假 ERROR
+# 4. 真实场景全链路（仙林 AI G.O 的滑雪场景，9 层 40 条）
+#    改过 matcher / channels 的空结果、容差、on_empty 之后**必跑这条**
+.venv/bin/python -m pytest tests/test_xianlin_ski_scene_e2e.py -q
+
+# 5. 全量。⚠️ 必须带 --basetemp，否则会有 ~182 个假 ERROR
 .venv/bin/python -m pytest tests/ -q --basetemp=/tmp/pytest_scene
 ```
 
+> **第 4 条是唯一一份「真实配置 + 真实数据」的测试。** 前面几条测的是通道的通用契约，坏了说明框架有问题；它坏了说明**这个场景的配置或数据有问题** —— 两者的排查方向完全相反，所以不能合并。
+>
 > **`--basetemp` 不能省。** 沙箱会拦 pytest 默认临时目录，报 `FileExistsError: EEXIST: mkdir .../pytest-of-unknown`，产生 182 个假 ERROR。绕过之后只剩 16 个真失败（skills/desktop/packaging 缺依赖），与场景无关。
 
 ```bash
@@ -773,12 +1019,24 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 | 新建场景时 module 下拉是空的 | 没有 module 声明这个 `scene_type` | 新类型必须建 `generic.<新类型>/`（§4.1 第 10 处） |
 | 「任何场景都发布不了」 | 读了不存在的字段做阻断（如旧的 `table_id`） | `publishBlockers`；这是踩过的真实故障 |
 | 表区块整块不渲染 | `needs_table` 读成 `undefined` → 当成 `none` | 是否并存了 `table_range`/`min_tables` |
-| 场景执行特别慢（12-60s） | `planner.py` 白名单漏了 `"scene_module"` → 打回 `standard` | §4.6 四处白名单 |
-| 点了胶囊，等很久，得到一段泛泛的回答 | 同 §4.6 —— 帧被归一化回 `standard` | `session_schema` / `planner` / `turn_run` 三处白名单 |
+| 场景执行特别慢（12-60s） | `planner.py` 白名单漏了 `"scene_module"` → 打回 `standard` | §4.7 四处白名单 |
+| 点了胶囊，等很久，得到一段泛泛的回答 | 同 §4.7 —— 帧被归一化回 `standard` | `session_schema` / `planner` / `turn_run` 三处白名单 |
 | 微信/企微用户收到空白消息 | 通道没填 `text` | 通道函数的 `SceneRunResult.text` |
+| **空结果时同一句话说两遍**（气泡一句、卡片一句） | `empty_reason` 同时进了 `text` 块、`data.reason`、`result.text` | `_run_table_match` 的空结果分支：只留 `data.reason` + `empty_summary_for()` 的短句，**text 块删掉** |
+| **表单引导语跑到卡片下面 / 上面多出一句没配过的** | `ask_prompt` 塞进了 text 块而不是当正文 | 同前一条的病：`text = ask_prompt`，`blocks` 里不放 text 块 |
+| **「我选了某个选项，但没变化」** | 配置项一端有值、另一端不认（枚举方言不一致） | 对一遍后端 `_as_choice` 白名单与前端 TS 联合类型；`on_empty` 就踩过（`nothing` vs `none`） |
+| **空结果卡里「只说明没有结果」却出现放宽按钮** | 前端有「无 suggestions 就给两颗兜底」的降级，后端 `none` 不发 `suggestions` | `SceneEmptyCard` 判 `data.on_empty === 'none'` 收掉整个建议区 |
+| **人数放宽了但用户不知道** | 只改了 `people_tolerance`，没消费 `people_widened` | 命中分支的 `caveats`；非 UI 渠道只吃 `text` |
 | 发布提示说没事、点发布却 400 | `moduleNeeds` 三处只传了部分 | §5 末尾 |
 | 管理员改了表，保存后没生效 | `tables` 没发（`tablesDirty` 为假） | `SceneEditor.toPayload()` |
 | 新类型刚加完，前端测试就红 | `constants.test.ts` 的手抄快照没同步 | §4.1 第 9 处 |
+| **超管改了预设文案，聊天里没变** | 该场景的 `ui_config_json` 里有这一项（老场景建时抄进去了），按键合并时场景自己那份优先 | `effective_ui_config`；清掉 scene 的该项即可 |
+| **超管页改完，用户看到的按钮文案还是旧的** | `scene_params` 没写进 `assistant_metadata` → 前端 `sceneParamsOf()` 读到空 | `turn_run.py` 的 `scene_params` 汇总；`messageBlockSlots.ts:sceneParamsOf` |
+| **按钮文案配了，但卡片上是空白** | `params` 里存了空串（`""`）→ 前端 `?? 默认值` 不触发（空串不是 null） | `scene_render_params` 已过滤空值；别在预设里填 `""` |
+| **去超管页只看到「还没有可配置的场景类型」** | 新 module 没在 `BUILTIN_PRESETS` 登记 | §0.2.1；这是「开发者漏了一步」而非故障 |
+| **定义器下拉里没有刚写的 module** | 同上一行 —— 下拉的数据源是预设清单，不是 glob | `scene-preset-options` |
+| **所有场景渲染 500，报 `no such table: scene_presets`** | 老库没建新表，且降级保护被去掉/绕过 | `_is_missing_table_error`；跑 `scripts/fix_scene_v3_schema.py` |
+| **场景卡片价格条被压成竖排文字** | 按钮缺 `shrink-0 whitespace-nowrap` → flex 压窄按钮而不是撑开 | `src/scenes/shared/buttons.ts` |
 
 ---
 
@@ -791,8 +1049,9 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 [ ] 新 module：目录名 === module_key？点号命名？全小写？
 [ ] 新 module：supported_scene_types 只写了 1 个？（有断言锁着）
 [ ] 新 module：meta 七项齐了吗？
+[ ] 新 module 有可调参数：在 `BUILTIN_PRESETS` 登记出厂预设了吗？（不登记 → 超管页看不到）
 [ ] 新 scene_type：§4.1 的 10 处都改了吗？（第 9 处是测试里的手抄快照，最容易忘）
-[ ] 新 scene_type：§4.6 四处 execution_mode 白名单确认过吗？
+[ ] 新 scene_type：§4.7 四处 execution_mode 白名单确认过吗？
 [ ] 新通道：text 填了吗？trace 写了吗？没拼 UI 描述吗？
 [ ] 动契约了吗？动了就同步 §2 和 §9
 [ ] tsc -b 是 0 错误吗？
@@ -818,11 +1077,12 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 | 新增 module | §3 示例可以不动，但**目录清单**若在本文出现需同步 |
 | 新增 `kind` | §2.1 映射表、§4.4、§6 挂载位 |
 | 某通道改了 `data` 的键 | §4.4 表格对应行 |
+| **`match_action` 字段增删 / 改语义** | **§4.5 全字段语义表**（含 `on_empty` 三态、`people_tolerance`） |
 | 消息分发挂载位变化 | §6 |
-| `execution_mode` 白名单增删 | §4.6 |
+| `execution_mode` 白名单增删 | §4.7 |
 | 新增 `publishedBlockers` 类校验 | §5、§7 |
 | **某项能力从「未挂载/未完成」变成「已上线」** | **§0.5 实现状态表**（唯一落点） |
-| 验收命令变化（如改 test 路径） | §3.7、§4.7、附录 C |
+| 验收命令变化（如改 test 路径） | §3.7、§4.8、附录 C |
 
 **没在上表里的改动不用回来改这份文档。** 别为了「保持同步」把实现细节抄进来 —— 抄进来的每一行都是未来的谎言。
 
@@ -837,7 +1097,7 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 
 行号会随任何人加一行注释而失效，且失效后**看不出来**——读者按旧行号跳过去，会落到一段看起来合理的代码上，然后得出错误结论。
 
-> 本文自身也遵守这条：全文**零行号**，只在 §4.6 这类必须区分「改哪几处」的地方用 `grep` 特征串 + 归属表。
+> 本文自身也遵守这条：全文**零行号**，只在 §4.7 这类必须区分「改哪几处」的地方用 `grep` 特征串 + 归属表。
 
 **如果必须定位**，用「文件名 + 函数名/常量名 + 一句可 grep 的特征」：
 
@@ -851,15 +1111,25 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 | 文档 | 定位 | 什么时候看 |
 |---|---|---|
 | **本文** | **开发手册**：照做就能做 | 动手前 |
+| **`docs/scenes/index.html`** | **所有 demo 的入口页**（卡片列表，可搜索） | **想找某个页面长什么样时，先开这个** |
 | `scene-v2-prd.md` | 为什么这样设计（产品论证） | 想推翻某个决策时 |
 | `scene-v2-arch.md` | 架构与不变式 | 想知道「为什么要这样分层」 |
 | `scene-v2-impl-map.md` | 当时的施工映射（历史记录） | 考古用，**不要当现状** |
 | `scene-v3-visual-contract.md` | UI 逐值规格 | 写 module 组件时 |
 | `scene-v3-demo.html` | 视觉基准（浏览器打开对照） | 调 module 的间距/配色时 |
+| `scene-manager-demo.html` | **场景管理页**重做 demo（主从布局，待落地） | 改 `/enterprise/scenes` 列表页时 |
+| `scene-editor-demo.html` | **场景定义器**版式（7 个区块） | 改新建 / 编辑场景页时 |
+| `scene-presets-demo.html` | **场景模版 / 预设**管理页版式 | 改预设页时 |
+| `scene-demo.html` | **员工侧对话全流程**（按钮 → 引导语 → 表单 → 命中回答） | 改聊天端场景交互时 |
 
 > **冲突时以本文为准**，因为本文是唯一「按当前代码重写、且承诺跟随代码更新」的那份。设计文档冻结在各自的时间点，不追改。
 >
 > 但**视觉冲突以 `scene-v3-visual-contract.md` + demo 为准**：那些逐值规格是被实现的，不是设计意图，本文只引用不复述数值。
+
+> **新增 demo 的约定**：文件放 `docs/scenes/`、命名 `scene-<页面>-demo.html`，然后到
+> `docs/scenes/index.html` 补一张卡（名称 + 一句话说明演示什么 + 文件名 + 日期）。
+> 那一页是所有 demo 的唯一入口，demo 越写越多，没有索引就找不着了。
+> `scene-demo_副本.html` 是 `scene-demo.html` 的精确副本（MD5 一致），不单独列卡。
 
 ---
 
@@ -954,7 +1224,7 @@ export default defineSceneModule({
 });
 ```
 
-**第 7 步：验收** —— 跑 §4.7 全部命令。**特别检查 `vite build` 输出里有 `generic.ticket_dispatch-xxxx.js`。**
+**第 7 步：验收** —— 跑 §4.8 全部命令。**特别检查 `vite build` 输出里有 `generic.ticket_dispatch-xxxx.js`。**
 
 **第 8 步：回来改这份文档** —— §4.1 表格加一行、§2.2 代码块加一条、§9.1 若有新故障模式。
 
@@ -972,8 +1242,13 @@ backend/app/scene_modules/          ← 运行时（读 DB、分派、产 block�
 
 backend/app/scenes/                 ← 匹配库（纯计算，不知 DB/HTTP）
 ├── schema.py                       ← pydantic 请求/响应模型
+├── presets.py                      ← ★ L2 预设层：BUILTIN_PRESETS / effective_ui_config
 ├── matcher.py                      ← run_match（打分/漏斗）
 └── normalize.py                    ← 单位与列归一化
+
+backend/app/api/
+├── scenes.py                       ← /api/enterprise/scenes
+└── scene_presets.py                ← ★ 预设 CRUD（管理端 + 定义器只读选项两端）
 
 frontend-enterprise/src/scenes/     ← 前端框架层（框架无关）
 ├── types.ts                        ← 契约（与后端同构）
@@ -982,13 +1257,17 @@ frontend-enterprise/src/scenes/     ← 前端框架层（框架无关）
 ├── SceneBlockList.tsx              ← 把 blocks 列表变成 UI
 ├── SceneModuleSurface.tsx          ← 单个 module 的渲染壳
 ├── shared/                         ← module 共用组件
+│   └── buttons.ts                  ← ★ 三颗共用按钮样式（改这里影响所有卡片）
 └── modules/<module_key>/           ← ★ 你的 module 放这里
 
 frontend-enterprise/src/pages/scenes/  ← 管理台
 ├── ScenesPage.tsx                  ← 列表
-├── SceneEditor.tsx                 ← 定义器（8 个 Section：基础信息 / 场景界面 / 数据表 / 触发条件 / 槽位 / 匹配策略 / 命中后回答 / 绑定员工）
+├── SceneEditor.tsx                 ← 定义器（5 个 Section：基础信息 / 数据表 / 槽位 / 匹配策略 / 命中后回答）
 ├── SceneRunPanel.tsx               ← 试跑面板
 └── sceneUtils.ts                   ← 纯逻辑（publishBlockers 等）
+
+frontend-enterprise/src/pages/
+└── ScenePresetsPage.tsx            ← ★ 超管预设配置页（/enterprise/scene-presets）
 
 frontend-enterprise/src/pages/chat/   ← 对话端
 ├── messageBlockSlots.ts            ← 4 个挂载位 + toSceneBlock 转换点
@@ -1019,6 +1298,7 @@ frontend-enterprise/src/pages/chat/   ← 对话端
 新处理逻辑      → 加 scene_type（§4，10 处）
 改表数量规则    → 只动 needs_table（§5）
 改消息位置      → 动 messageBlockSlots（§6）
+只改文案/数值   → 超管去 /enterprise/scene-presets 改（§0.2.1，不发版）
 看不清症状      → 查 §7 故障表
 不确定要不要做  → 查 §1 判断题
 改完必须同步文档 → 查 §9.1 映射表
@@ -1029,6 +1309,11 @@ frontend-enterprise/src/pages/chat/   ← 对话端
 1. `scene_type` 定「后端怎么处理」，`module_key` 定「前端怎么画」，**两者独立**。
 2. 后端只说「发生了什么」（`kind` + `data`），从不说「画成什么样」。
 3. 加 module 零后端改动；加 scene_type 要动 10 处，其中 1 处在测试文件里。
+
+**再加一句记住三层：**
+
+> **L1 代码决定「能长什么样」，L2 预设决定「默认长什么样」，L3 实例才是「这一个长什么样」。**
+> `ui_config` / `trigger` 实时继承 L2；`slots` / `match_action` 建场景时抄一份后归用户。
 
 **改动后必跑：**
 
