@@ -860,3 +860,130 @@ def test_blocks_never_carry_duplicate_copy_of_text(db) -> None:
             assert content.strip() != (result.text or "").strip(), (
                 f"text 与 text 块内容重复: {content!r}"
             )
+
+# ===========================================================================
+# 第十层：空结果卡的两处体验修复（2026-11-26 用户截图反馈）
+# ===========================================================================
+
+
+def _empty_data(result):
+    block = _empty_block(result)
+    return dict(block.data or {}) if block else {}
+
+
+def test_empty_card_does_not_ship_funnel_by_default(db) -> None:
+    """空卡默认不下发 `steps` / `funnel`（用户：「这些文字没必要给用户看」）。
+
+    卡上那三行 `5 → 读表 / 5 → 人数对上 / 0 → 天数对上` 被用户点名删掉。
+    理由成立：`reason` 已经说了卡在哪层 + 下一步怎么办，漏斗是同一件事的
+    另一种写法；而「5」是台账行数，用户根本不关心。
+
+    ⚠️ 但 `detail.steps` / `result.trace` **必须仍然完整** —— 试跑面板
+    （`SceneEditor` 的 RunPanel）与排障靠它看每层淘汰了多少。
+    这就是「管理员要漏斗，用户要一句话」的落点，两处不一致是**有意的**。
+    """
+    scene = _make_ski_scene(db)
+    result = _run(db, scene, {"people": 3, "days": 4, "budget": 4000})
+
+    data = _empty_data(result)
+    assert "steps" not in data, "空卡不该默认下发 steps"
+    assert "funnel" not in data, "空卡不该默认下发 funnel"
+
+    # 反向护栏：完整漏斗仍然在 detail 与 trace 里，没有被误删
+    assert len(result.trace) == 5, f"trace 应保留完整 5 步，实际 {len(result.trace)}"
+    detail_steps = result.detail.get("steps") or []
+    assert len(detail_steps) == 5, f"detail.steps 应保留完整 5 步，实际 {len(detail_steps)}"
+
+
+def test_empty_card_ships_current_slots_for_rerun(db) -> None:
+    """空卡必须带上本轮**完整槽位**，否则建议按钮会把条件丢掉。
+
+    按钮只改一个槽（`{"days": 6}`）。若前端只发这一个键，新帧的
+    `slots_json` 是空的，人数与预算会被抹成空值 —— 用户点一下
+    「按 6 天找」，实际是在用「6 天 + 无人数 + 无预算」重新查表。
+    """
+    scene = _make_ski_scene(db)
+    slots = {"people": 3, "days": 4, "budget": 4000}
+    data = _empty_data(_run(db, scene, slots))
+
+    assert data.get("slots") == slots, f"应原样下发本轮槽位，实际 {data.get('slots')}"
+    # 中文标签一起下发：用户气泡里不能出现 `people：3`
+    labels = data.get("slot_labels") or {}
+    assert labels.get("people") == "人数", f"缺人数中文标签: {labels}"
+    assert labels.get("days") == "天数", f"缺天数中文标签: {labels}"
+
+
+def test_empty_suggestions_carry_hittable_slot_patch(db) -> None:
+    """每颗「放宽」按钮都带**具体的、点下去一定能命中**的槽位调整。
+
+    这是线上真实故障的回归锁：按钮原先只发一句「天数可以再灵活一点」，
+    那句话进了普通对话、没有触发关键词，后端落回 `standard` 模式，
+    一个方案都没重算。现在按钮必须给出 `patch`，让前端改槽重跑。
+
+    **「一定能命中」是本条测试的核心**。它逼出过一个真 bug：只改人数
+    不够 —— 表里 4 人方案的天数是 5/6，用户填 4 人 4 天时把人数从 3
+    改成 4，天数层照样归零，点下去还是空。所以 `patch` 允许含多个槽，
+    由 `_rerun_patch` 从近似行里补齐后面的层。
+    """
+    scene = _make_ski_scene(db, match_action={"days_tolerance": 0, "people_tolerance": 0})
+
+    # 卡人数（3 人 / 4 天）：人数改成 4 之后天数 4 仍对不上 → patch 必须连天数一起改
+    slots = {"people": 3, "days": 4, "budget": 4000}
+    data = _empty_data(_run(db, scene, slots))
+    people_btn = next(
+        (s for s in data.get("suggestions") or [] if (s.get("patch") or {}).get("people")),
+        None,
+    )
+    assert people_btn, f"卡人数时应有改人数的按钮: {data.get('suggestions')}"
+    assert people_btn["patch"]["people"] == 4, f"最近的人数应是 4: {people_btn['patch']}"
+    # 标签要说清会改成什么，用户点之前就能判断
+    assert "4" in str(people_btn["label"]), f"标签应带具体值: {people_btn['label']}"
+
+    # 点下去**真的能出结果** —— 这是「可命中」的实证，不是推测
+    rerun_slots = {**slots, **people_btn["patch"]}
+    assert "result" in _kinds(_run(db, scene, rerun_slots)), (
+        f"按建议值 {rerun_slots} 重跑必须真的有结果（否则按钮等于骗人）"
+    )
+
+    # 卡天数（4 人 / 8 天）：4 人方案的天数是 5/6，最近的是 6
+    slots = {"people": 4, "days": 8, "budget": 3000}
+    data = _empty_data(_run(db, scene, slots))
+    days_btn = next(
+        (s for s in data.get("suggestions") or [] if (s.get("patch") or {}).get("days")),
+        None,
+    )
+    assert days_btn, f"卡天数时应有改天数的按钮: {data.get('suggestions')}"
+    assert days_btn["patch"]["days"] == 6, f"最近的天数应是 6: {days_btn['patch']}"
+    rerun_slots = {**slots, **days_btn["patch"]}
+    assert "result" in _kinds(_run(db, scene, rerun_slots)), (
+        f"按建议值 {rerun_slots} 重跑必须真的有结果"
+    )
+
+
+def test_budget_button_not_offered_when_people_layer_is_zero(db) -> None:
+    """卡在人数层时**不单独给**「预算再高一点」按钮 —— 那是错误引导。
+
+    原实现写死两颗按钮，卡人数时也给预算按钮：用户调高预算依然 0 人，
+    会以为系统在乱指路。现在按「漏斗第一个归零的位置」决定给哪颗。
+
+    ⚠️ 注意区分两件事：
+      - **单独的预算按钮**：卡人数时不出现（用户点它改变不了任何事）；
+      - **patch 里补 budget**：允许，而且必要 —— 人数和天数对上后，
+        预算太低仍会在闸门被淘汰（9 人 / 1 天 / 100 元 的真实案例）。
+        那是「让这颗按钮真的能出结果」的一部分，不是「给了一颗预算按钮」。
+    """
+    scene = _make_ski_scene(db)
+    data = _empty_data(_run(db, scene, {"people": 3, "days": 4, "budget": 4000}))
+    suggestions = data.get("suggestions") or []
+
+    # 不许出现「只改预算」的按钮（patch 只有 budget 一个键）
+    budget_only = [
+        s for s in suggestions if set((s.get("patch") or {}).keys()) == {"budget"}
+    ]
+    assert not budget_only, f"人数层就归零了，不该给纯预算按钮: {budget_only}"
+
+    # 但必须有改人数的按钮（那才是真正的出路）
+    people_buttons = [
+        s for s in suggestions if (s.get("patch") or {}).get("people") is not None
+    ]
+    assert people_buttons, f"应给改人数的按钮: {suggestions}"

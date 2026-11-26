@@ -202,11 +202,15 @@ export function GenericTableMatchResultCard({
  * 2. 原因（`data.reason`，后端已量化到「卡在哪一层」）；
  * 3. 漏斗（`data.steps`，**每一步的真实数字**；前端重算会和试跑面板对不上）+ 两个可点的建议。
  */
-export function GenericTableMatchEmptyState({ block, sendText, disabled = false }: SceneBlockProps) {
+export function GenericTableMatchEmptyState({ block, sendText, submitSlots, canSubmitSlots, disabled = false }: SceneBlockProps) {
   return (
     <SceneEmptyCard
       block={block}
       sendText={sendText}
+      // 建议按钮要能「改槽重跑」：带上提交能力，按钮才会走确定性
+      // 改槽路径而不是发一句自然语言（后者会落回普通对话）。
+      submitSlots={submitSlots}
+      canSubmitSlots={canSubmitSlots}
       disabled={disabled}
       dataModule="generic.table_match.empty"
     />

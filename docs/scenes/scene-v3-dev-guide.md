@@ -818,7 +818,7 @@ const name = block.data.step_name;
 |---|---|---|
 | `text` | `content` | `channels.py` 各通道 |
 | `result` | `total` / `items[]` / `max_items` | `_run_table_match` |
-| `empty` | `reason` / `steps` / `funnel` / `suggestions` / `on_empty` / `nearest[]` | `_run_table_match` |
+| `empty` | `reason` / `suggestions` / `on_empty` / `nearest[]` / `slots` / `slot_labels` / **`steps` / `funnel`（默认不发）** | `_run_table_match` |
 | `step` | `step_name` / `step_index` / `step_total` / `status` / `missing` | `_run_sop_flow` |
 | `handoff` | `target` / `summary` / `ticket_id` / `context` | `_run_handoff` |
 | `form` | `build_slot_form()` 的原样输出：`kind` / `skill_id` / `step_id` / `step_name` / `title` / `submit_label` / `fields[]` | `build_slot_form_block` |
@@ -834,6 +834,10 @@ row_id / values{纯表格列} / score / days_dev / budget_dev / fused / source_t
 > **`values` 里的 `__` 前缀键已被剥掉。** `hit_payload()` 会过滤所有 `__` 开头的内部键（`__source_table__` 这类），所以 module 不能靠它们判断来源，要用 `source_table`。
 >
 > **`empty.nearest[]` 里的项与 `items[]` 同形**，但**语义完全不同**：它们是「最接近的」，不是命中。`status` 仍是 `no_match`、`hits` 仍为空。渲染时不许套用命中卡的样式（那会让用户拿去下单），前端按 `nearest` 单独渲染。只有 `on_empty="nearest"` 才有这个键，见 §4.5。
+>
+> **`empty.steps` / `empty.funnel` 默认不下发。** 这两行漏斗（`5 → 读表` / `0 → 人数对上`）是开发者视角的调试信息，直接摊在用户面前只是噪音 —— 用户只关心「没找到」和「那我还能怎么办」。要打开它得显式配 `ui_config.params.show_empty_funnel = true`（`channels._show_empty_funnel()`）。`matcher` 侧不受影响：`result.trace` 永远完整 5 步，试跑面板照常看。
+>
+> **`empty.slots` 是「本轮完整槽位」，`empty.slot_labels` 是槽位中文名。** 两者专供空卡建议按钮使用，见 §4.5「建议按钮必须是改槽重跑」。`slots` 必须发**完整**的一份，不能只发被认为要改的那一个 —— 场景轮不走 `session.slots_json`，前端若不带上其余槽位，重跑时人数和预算会被抹成空值。
 
 ### 4.5 `match_action` 全字段语义（`table_match` 专用）
 
@@ -930,6 +934,38 @@ row_id / values{纯表格列} / score / days_dev / budget_dev / fused / source_t
 ```
 
 > **槽位值要做脏数据处理再拼文案。** `channels._as_number()` 存在的理由：历史数据里 `people` 可能是字符串 `"4"`，而 `format_number()` 内部有 `float(value) == int(value)` —— 直接传字符串会抛 `TypeError`，把「渲染空结果卡」变成 500。空结果卡是错误路径，**在错误路径上再崩一次是最糟的体验**。
+
+#### 建议按钮必须是「改槽重跑」，不能只是发一句话
+
+空卡的 `suggestions[]` 每项长这样：
+
+```json
+{ "label": "按 4 人 / 5 天 / ¥3000 找", "send_text": "人数可以换一下", "patch": { "people": 4, "days": 5, "budget": 3000 } }
+```
+
+三条硬规则，**漏一条按钮就是坏的**：
+
+**① `patch` 必须带上「点下去真能出结果」的全套取值，不能只改当前卡住的那一个槽。**
+
+人数是第一层、天数是第二层。3 人 / 4 天的空结果，把人数从 3 改成 4 之后**天数 4 依然对不上**（表里 4 人方案的天数是 5/6），点下去还是空。更极端：9 人 / 1 天 / 100 元的场景，人数天数都改对了仍会被预算闸门淘汰。
+
+所以 `channels._rerun_patch()` 是从 `MatchResult.row_combos`（表里三列都有效的完整三元组）里挑一行，把**整行**的三列一起写进 `patch`。这里关键在 `row_combos` 而不是 `nearest`：`nearest` 只从 `scored` 里取，而 `scored` 需要先过人数和天数两层 —— 正好卡在人数层时 `scored` 为空，`nearest` 也是空的，拿不到任何候选。
+
+**② `label` 必须说清 patch 里的全部改动。**
+
+用户点「按 4 人找」，结果卡上却是「5 天、¥3000」，他会觉得系统偷偷改了条件。这与 §4.5「放宽了要声明」是同一条原则。`channels._patch_label()` 统一拼成 `按 4 人 / 5 天 / ¥3000 找`。
+
+**③ 前端必须走 `submitSlots`（结构化写槽），不能走 `sendText`。**
+
+这是**踩过的真实故障**：按钮原先只调 `sendText('人数可以换一下')`，这句话进了普通对话，没有触发关键词 → `resolve_scene_hit()` 落空 → 后端退回 `standard` 模式，一个方案都没重算。用户看到的是「点了按钮，回到普通聊天」。
+
+现在的通路是：`SceneEmptyCard` 判 `item.patch && canSubmitSlots` → `submitSlots({ ...currentSlots, ...item.patch })` → `MessageBubble` 用 `sceneFormForSubmit()` 合成最小 `A2UIForm` → `chat.submitSlotForm()`。与「用户自己填表提交」走**完全相同**的一条路，后端不需要新增任何分支。
+
+> ⚠️ **判 `canSubmitSlots`，不要判 `submitSlots`。** `SceneBlockList` 会把所有回调兜底成 no-op（防止 module 里出现 `is not a function` 把整卡崩掉），所以 `submitSlots` 在分享页 / 历史回看里**也非空**，只是调了什么都不做。`if (submitSlots)` 永远为真 —— 表现就是「点了没反应」而不是退回 `sendText`。`SceneBlockProps.canSubmitSlots` 由 `SceneBlockList` 显式传 `Boolean(onSubmitSlots)`。
+
+> ⚠️ **`MessageBubble.onSubmitSlots` 里不许出现 `if (!form) return;` 的裸形式。** 空卡那一轮**没有 form 块**，裸判会让按钮的提交在第一行被吞掉且不报错。必须用 `sceneFormForSubmit(blocks, values)` —— 它没有 form 块时会按 `values` + `slot_labels` 合成一份，`values` 也空才返回 `null`。
+
+`patch` 的唯一数据来源是 `MatchResult.row_combos`（`matcher.py` 在 `run_match()` 末尾收集）。**不要给各列分别维护一份候选值列表** —— 单列候选只保证「这个值在表里存在」，不保证组合能命中，用它算出的 patch 有一半点下去还是空。
 
 ### 4.6 加新 `kind`（慎做）
 
@@ -1095,6 +1131,12 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 | **改了模块的 `params` 默认值，存量场景完全没变** | 同上一条的同一个病根：`effective_ui_config` 按键合并、场景自己显式存过的键优先。改代码默认值只影响**新建**的场景 | `scene.ui_config_json.params` 里有没有这个键；有就要写清理脚本删掉它（参考 `scripts/fix_show_source_table.py`） |
 | **场景卡头上多出「来自「xxx 副本」」** | `show_source_table` 还是老默认（`true`） | 三处：两个 module 的 `params.ts`（`params_schema.default` + `DEFAULTS`）+ `presets.py` 的 `BUILTIN_PRESETS`；存量跑 `scripts/fix_show_source_table.py` |
 | **空结果卡的漏斗连着好几行 `0 → 0`** | 没走 `channels._visible_funnel()`，把完整 5 步全画了 | 空块的 `steps` / `funnel` 必须用裁剪后的 `visible_trace`；`matcher` 里的 `trace` 保持完整给试跑面板 |
+| **空结果卡上根本看不到漏斗（默认）** | 这是**预期行为**，不是故障 | `channels._show_empty_funnel()`：要看得配 `params.show_empty_funnel=true` |
+| **点了空卡上的建议按钮，回到普通聊天、没有重算** | 按钮走了 `sendText` 而不是 `submitSlots` → 无触发关键词 → 后端退回 `standard` | §4.5「建议按钮必须是改槽重跑」第 ③ 条；`SceneEmptyCard` 的 `canSubmitSlots` |
+| **点了按钮，一个方案都没变（也不报错）** | `submitSlots` 被 `SceneBlockList` 兜底成 no-op，而代码判的是 `if (submitSlots)`（永远为真） | 改判 `canSubmitSlots`（`SceneBlockProps`） |
+| **点了按钮，标签说要「4 人」，结果卡却是 5 天 ¥3000** | `patch` 改了好几个槽，`label` 只写了当前点的那一个 | `channels._patch_label()` 必须拼出全部改动 |
+| **按钮的 `patch` 只改了卡住的那个槽，点下去还是空** | 人数是第一层、天数是第二层，只改一个不够；极端情况预算也得一起抬 | `channels._rerun_patch()` 从 `MatchResult.row_combos` 取整行三列；`nearest` 在卡人数层时是空的，用不了 |
+| **空卡按钮提交后人数 / 预算被抹成空值** | `empty.slots` 只发了要改的那一个槽，其余没带 → 前端合并后是空 | 后端 `empty.slots` 必须发本轮**完整**槽位（场景轮不走 `session.slots_json`） |
 | **超管页改完，用户看到的按钮文案还是旧的** | `scene_params` 没写进 `assistant_metadata` → 前端 `sceneParamsOf()` 读到空 | `turn_run.py` 的 `scene_params` 汇总；`messageBlockSlots.ts:sceneParamsOf` |
 | **按钮文案配了，但卡片上是空白** | `params` 里存了空串（`""`）→ 前端 `?? 默认值` 不触发（空串不是 null） | `scene_render_params` 已过滤空值；别在预设里填 `""` |
 | **去超管页只看到「还没有可配置的场景类型」** | 新 module 没在 `BUILTIN_PRESETS` 登记 | §0.2.1；这是「开发者漏了一步」而非故障 |

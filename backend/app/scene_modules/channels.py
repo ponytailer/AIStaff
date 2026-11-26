@@ -31,7 +31,7 @@ from app.scenes.presets import effective_ui_config
 # 空结果文案里要把用户填的原始槽位值嵌进句子，直接用 f-string 会打出
 # 「没有 None 人的方案」或「4000.0 元」。复用 normalize 的同一份实现，
 # 保证「卡片里的 4000」和「试跑面板里的 4000」是同一个字符串。
-from app.scenes.normalize import format_number
+from app.scenes.normalize import format_number, normalize
 
 if TYPE_CHECKING:  # 只用于类型标注，运行期不 import（避免 api → runtime 的循环链）
     from app.db.models import Scene
@@ -501,11 +501,162 @@ def empty_summary_for(result: Any, slots: dict[str, Any]) -> str:
     return "这组条件没对上，下面是最接近的几个。"
 
 
+def _show_empty_funnel(scene: "Scene", db: Session) -> bool:
+    """空结果卡要不要展示漏斗（`5 → 读表` 那几行）。
+
+    **默认 False。** 这是个纯展示开关，不是功能开关 —— 关闭时
+    `detail.steps` / `result.trace` 仍然完整，试跑面板与排障都不受影响。
+
+    为什么默认关：`reason` 已经把「卡在哪层 + 下一步怎么办」说完了，
+    漏斗是同一件事的另一种写法。用户看到「5 → 读表」第一反应是
+    「5 是什么？」，而那个 5 是他自己台账的行数 —— 与他无关。
+
+    取值走 `effective_ui_config` 的 `params`（与 `show_source_table` 同一个
+    位置），所以超管在预设页或场景里都能打开；存量场景不受改默认值影响，
+    因为这里按 `False` 兜底、只认显式 `true`。
+    """
+    try:
+        params = dict(effective_ui_config(scene, db).get("params") or {})
+    except Exception:
+        # 配置读不出来不该让「渲染空结果卡」失败 —— 这是错误路径，
+        # 在错误路径上再崩一次是最糟的体验。退回默认（不展示）。
+        return False
+    return params.get("show_empty_funnel") is True
+
+
+# ===========================================================================
+# 空结果建议按钮
+# ===========================================================================
+
+
+#: 槽位 key → 标签里用的单位后缀。只用于拼按钮文案。
+_PATCH_UNIT: dict[str, str] = {"people": "人", "days": "天"}
+
+
+def _patch_label(
+    patch: dict[str, Any],
+    fallback: str,
+) -> str:
+    """把 `patch` 拼成「按 4 人 / 5 天 / ¥3000 找」这样的按钮文案。
+
+    ## 为什么要把所有改动的槽都说出来
+
+    用户点的是「换人数」，但 `patch` 里常常还有天数与预算（只改一项救不回
+    一个方案 —— 见 `_rerun_patch`）。如果标签只写「按 4 人找」，点下去
+    结果卡上却是「5 天、¥3000」，他会觉得**系统偷偷改了他没同意的条件**。
+
+    这跟「放宽了要声明」是同一条原则：任何替用户做的决定都必须让他看见。
+    所以标签把每一项都列出来，用户在点之前就知道会发生什么。
+
+    顺序固定为 人数 → 天数 → 预算（与表单字段顺序一致）。
+    """
+    parts: list[str] = []
+    for key in ("people", "days"):
+        value = patch.get(key)
+        if value is None:
+            continue
+        parts.append(f"{format_number(value)} {_PATCH_UNIT[key]}")
+    budget = patch.get("budget")
+    if budget is not None:
+        parts.append(f"¥{format_number(budget)}")
+    if not parts:
+        return fallback
+    return f"按 {' / '.join(parts)} 找"
+
+
+def _rerun_patch(
+    result: Any,
+    slots: dict[str, Any],
+    slot: str,
+) -> dict[str, Any]:
+    """算出一组**点下去一定能出结果**的槽位调整（可能不止一个槽）。
+
+    这是「按钮要真能承上」的实现。核心洞察：**只改一个槽常常不够**。
+
+    真实案例（用户截图那次）：3 人 / 4 天 / 4000 元 全空，卡在人数层。
+    把人数从 3 改成 4 依然空 —— 表里 4 人方案的天数是 5/6，用户填的是 4 天，
+    天数层接着归零。用户点一次按钮，得到另一个空结果，比不给建议更糟。
+
+    所以这里从 `result.row_combos`（表里三列都有效的**整行**）里挑一组
+    **成套**的取值，保证「人数 → 天数」两层都能过：
+
+      1. 只在用户点的那一列上做近似（他点的就是「换人数」，别动他不想动的）；
+      2. 其余列直接取那一行的真实值 —— 否则组合不成立；
+      3. 预算不碰：它不是硬约束（走打分 + 闸门），抬高由专门的按钮负责。
+
+    返回 `{槽位: 值}`；空 dict 表示算不出（调用方退回纯文本按钮）。
+    """
+    combos = list(getattr(result, "row_combos", None) or [])
+    if not combos:
+        # 表里没有一行三列都有效 —— 数据侧问题，改槽救不回来
+        return {}
+
+    def _num(key: str) -> float | None:
+        norm = normalize(slots.get(key))
+        return norm.num if norm is not None and norm.ok and norm.num > 0 else None
+
+    want_people = _num("people")
+    want_days = _num("days")
+
+    # 只在**用户点击的那一列**上做距离排序，其余列取该行的真值。
+    #
+    # 为什么不能对两列同时求距离后再挑：那样会选出「人数差 0.5、天数差 0.5」
+    # 的行，而用户点的是「换人数」，他接受的是人数变化、不接受天数偷偷变
+    # 得更多。以被点的那列为第一关键字，能让建议更符合他的预期。
+    if slot == "days":
+        def key(row: dict[str, float]) -> tuple[float, float, float]:
+            return (
+                abs(row["days"] - want_days) if want_days is not None else 0.0,
+                abs(row["people"] - want_people) if want_people is not None else 0.0,
+                row["budget"],
+            )
+    else:
+        def key(row: dict[str, float]) -> tuple[float, float, float]:
+            return (
+                abs(row["people"] - want_people) if want_people is not None else 0.0,
+                abs(row["days"] - want_days) if want_days is not None else 0.0,
+                row["budget"],
+            )
+
+    best = min(combos, key=key)
+
+    def _clean(value: float) -> int | float:
+        return int(value) if value == int(value) else value
+
+    patch: dict[str, Any] = {}
+    # 被点的那一列一定下发（哪怕值没变，也要让标签上的"按 X 找"名副其实）
+    if slot in ("people", "days"):
+        patch[slot] = _clean(best[slot])
+    # 另外的硬约束列一并用该行的真值补齐 —— 这是「组合成立」的关键。
+    # 用户没填过的列不替他填（那是另一个语义：补空槽，不是放宽）。
+    for other in ("people", "days"):
+        if other == slot:
+            continue
+        if (want_people if other == "people" else want_days) is None:
+            continue
+        patch[other] = _clean(best[other])
+
+    # 预算也要一起抬：人数和天数都对上、最后被预算闸门淘汰的**是常态**。
+    #
+    # 真实案例：9 人 / 1 天 / 100 元 → patch 出「6 人 5 天」，重跑仍然空 ——
+    # 因为 100 元远低于表里最便宜的 980 元，整行在闸门被淘汰。此时标签
+    # 写「按 6 人找」而结果还是空，就是**骗人**：用户点第二次会怀疑功能坏了。
+    #
+    # 所以这里把预算一并抬到该行的真实预算。这不是「偷偷改条件」——
+    # 标签本来就说明了会换人数/天数，重跑的结果卡片上也会显示新预算。
+    if "budget" in best and best["budget"] > 0:
+        want_budget = _num("budget")
+        # 只在用户填过预算时补（没填就不该凭空塞一个）
+        if want_budget is not None and abs(best["budget"] - want_budget) > 1e-9:
+            patch["budget"] = _clean(round(best["budget"]))
+    return patch
+
+
 def _empty_suggestions(
     result: Any,
     slots: dict[str, Any],
     mode: str,
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """空卡下方的「放宽建议」按钮，**按卡住的那一层给**。
 
     原先这里是写死的两颗（「放宽预算再试」/「换个人数」）—— 无论卡在
@@ -513,34 +664,106 @@ def _empty_suggestions(
     是「表里没有 3 人方案」，等于把他往错方向推。
 
     现在按漏斗里**第一个归零的层**生成建议，并且：
+
       - `clarify` 模式多给一颗「都不改，就看看最接近的」，因为这一档的
         语义就是「反问能不能放宽」，用户需要一条「不想放宽」的退路；
       - 只给 `nearest` / `clarify` 用。`none` 的调用方（空结果分支）
         根本不会调用本函数 —— 「只说明没有结果」就是不给建议按钮。
+
+    ## 每颗按钮都带 `slot_patch`（2026-11-26 补）
+
+    早期这里只给 `label` + `send_text`，于是按钮做了「一句话」而不是
+    「一个动作」：`send_text` 是「天数可以再灵活一点」，进了普通对话，
+    没有任何触发关键词，后端落回 `standard` 模式，一个方案都没重算。
+    用户点完只看到模型开始闲聊 —— 这就是截图里的第二处问题。
+
+    现在每颗按钮多给 `{"slot": "days", "value": 6}`，前端拿到后直接改
+    槽位重跑（走 `submitSlots` + `forcedSceneId`），不经过模型。
+
+    `send_text` 仍然保留：非 UI 渠道（企微/微信/短信）只吃文本，
+    历史回看也只有文本，它们是**降级路径**而不是被删掉的旧逻辑。
     """
     people_step = next((s for s in result.steps if s.key == "people"), None)
     days_step = next((s for s in result.steps if s.key == "days"), None)
     score_step = next((s for s in result.steps if s.key == "score"), None)
 
-    suggestions: list[dict[str, str]] = []
+    suggestions: list[dict[str, Any]] = []
     if result.total == 0 or (result.unconvertible and result.unconvertible >= result.total):
-        # 数据侧的问题，放宽条件没用 —— 给的都是「去修数据」的动作
+        # 数据侧的问题，放宽条件没用 —— 给的都是「去修数据」的动作。
+        # ⚠️ 这颗**不能**带 slot_patch：改槽位救不了数据故障，
+        # 带上了会让用户反复点，每次都空。
         suggestions.append({"label": "检查数据表", "send_text": "帮我看看数据表的列映射"})
         return suggestions
 
     if result.invalid_budget or (score_step and score_step.to == 0):
-        suggestions.append({"label": "预算再高一点", "send_text": "预算可以再高一点"})
+        # ⚠️ 只有**预算层真的跑到了**才给这颗按钮（`score_step` 存在）。
+        # 卡在人数层时 `score_step` 也可能是 `0 → 0`（打过卡但没行进来），
+        # 此时「预算再高一点」是错误引导 —— 用户改了预算依然 0 人，
+        # 他会觉得系统在乱指路。这一条正是 `_empty_suggestions` 注释里
+        # 说要修的那个病（原来写死两颗，不分卡在哪层）。
+        score_reached = score_step is not None and score_step.from_ > 0
+        if result.invalid_budget or (score_reached and score_step.to == 0):
+            # 预算不是硬约束（走打分 + 闸门），「改成多少」取决于差多少。
+            # 取近似项里的最低预算，往上留 10% 余量 —— 直接给近似项的最低值
+            # 会卡在闸门边界上（`score <= max_score` 恰好等于时能过，浮点误差
+            # 可能让它过不去），留一点余量比「点了还是空」好。
+            budget_value: int | float | None = None
+            nearest_rows = list(getattr(result, "nearest", []) or [])
+            budgets = [
+                float(r.nb.num)
+                for r in nearest_rows
+                if getattr(r, "nb", None) is not None and r.nb.ok and r.nb.num > 0
+            ]
+            if budgets:
+                budget_value = round(min(budgets) * 1.1)
+            # 与人数/天数一致：标签说清改成多少。预算用「元」这个单位，
+            # 用户判断得比「再高一点」准确得多。
+            #
+            # 这里不走 `_patch_label` —— 那颗按钮只改预算一个槽，
+            # 而该函数的句式是「按 X / Y / ¥Z 找」，套在预算单改上会拧。
+            item: dict[str, Any] = {
+                "label": (
+                    f"预算提到 ¥{format_number(budget_value)}"
+                    if budget_value is not None
+                    else "预算再高一点"
+                ),
+                "send_text": "预算可以再高一点",
+            }
+            if budget_value is not None:
+                item["patch"] = {"budget": budget_value}
+            suggestions.append(item)
+
     if people_step and people_step.to == 0 and people_step.from_ > 0:
-        suggestions.append({"label": "换个人数", "send_text": "人数可以换一下"})
+        patch = _rerun_patch(result, slots, "people")
+        # 标签把**所有**会变的槽都列出来，不只用户点的那一个 ——
+        # 点下去结果卡上出现「5 天、¥3000」而标签只写「按 4 人找」，
+        # 用户会以为系统偷偷改了他没同意的条件。
+        item: dict[str, Any] = {
+            "label": _patch_label(patch, "换个人数"),
+            "send_text": "人数可以换一下",
+        }
+        if patch:
+            item["patch"] = patch
+        suggestions.append(item)
+
     if days_step and days_step.to == 0 and days_step.from_ > 0:
-        suggestions.append({"label": "天数灵活一点", "send_text": "天数可以再灵活一点"})
+        patch = _rerun_patch(result, slots, "days")
+        item = {
+            "label": _patch_label(patch, "天数灵活一点"),
+            "send_text": "天数可以再灵活一点",
+        }
+        if patch:
+            item["patch"] = patch
+        suggestions.append(item)
 
     if not suggestions:
         # 兜底：卡在两个已知层都不成立的地方（比如规范化层），
         # 与其给一句空建议，不如给「重填条件」这个通用出口。
+        # 这颗同样不带 patch —— 没有明确的可调项时，让用户自己重填表。
         suggestions.append({"label": "换个条件再找", "send_text": "我想换个条件再找一次"})
 
     if mode == "clarify":
+        # 「就看最接近的」是纯展示动作，不改任何槽位
         suggestions.append({"label": "就看最接近的", "send_text": "看看最接近的几条"})
     return suggestions[:3]
 
@@ -949,15 +1172,36 @@ def _run_table_match(
         visible_trace = _visible_funnel(trace)
         empty_data: dict[str, Any] = {
             "reason": empty_reason,
-            # `steps` 与 `funnel` 同时给：视觉契约（v3 §2）读 `data.steps`
-            # 拿漏斗，arch §2.2 冻的是精简的 `funnel`。两个都发是
-            # 加法，不破坏任何一侧的读法。
-            "steps": visible_trace,
-            "funnel": [
+            # 漏斗**默认不下发给用户卡**（2026-11-26 用户要求）。
+            #
+            # 原先 `steps` / `funnel` 都发，卡上就出现三行：
+            #     5 → 读表
+            #     5 → 人数对上
+            #     0 → 天数对上
+            # 用户的原话是「这些文字没必要给用户看」。判断成立：
+            #   · `reason` 已经说了卡在哪层 + 下一步怎么做，漏斗是它的
+            #     **另一种写法**，不是新信息；
+            #   · 「5 → 读表」里的 5 是表的行数，用户根本不关心台账有几行；
+            #   · 「人数对上 / 天数对上」是筛选器内部的分层命名，用户
+            #     没见过这套词。
+            #
+            # 但**完整 trace 仍然在 `detail.steps` 与 `result.trace` 里**，
+            # 试跑面板（`SceneEditor` 的 RunPanel 读 `result.steps`）照旧
+            # 拿到 5 步 —— 排障要看每层的真实数字。两处用不同数据是有意的：
+            # **管理员要漏斗，用户要一句话。**
+            #
+            # 想恢复展示时，在场景 `ui_config.params` 里设
+            # `show_empty_funnel: true`（走下面的条件，不用改代码）。
+        }
+
+        if _show_empty_funnel(scene, db):
+            # 保留这条通路：多层级筛选的诊断场景（比如管理员自己配的
+            # 内部工具）确实需要看到每层淘汰了多少。
+            empty_data["steps"] = visible_trace
+            empty_data["funnel"] = [
                 {"label": s["label"], "from": s["from"], "to": s["to"]}
                 for s in visible_trace
-            ],
-        }
+            ]
 
         # `on_empty` 三态在这里真正分叉（matcher 只负责 `nearest` 有没有产项）：
         #
@@ -973,6 +1217,34 @@ def _run_table_match(
         empty_data["on_empty"] = on_empty_mode
         if on_empty_mode != "none":
             empty_data["suggestions"] = _empty_suggestions(result, slots, on_empty_mode)
+
+        # 当前这一轮生效的**完整槽位**，随空卡一起下发。
+        #
+        # 为什么前端需要它：建议按钮只改一个槽（`days: 6`），但下一轮必须
+        # 带着人数和预算一起重算 —— 只发 `{days: 6}` 的话，新帧的
+        # `slots_json` 是空的（`frames.py` 里 `base_slots` 从 session 取，
+        # 而场景轮不走 session 槽位），等于把另外两个条件抹掉了。
+        #
+        # 放在 `empty` 块而不是消息 metadata：这个数据只对这一块有意义，
+        # metadata 是整条消息共享的，且会被分享页读到。
+        #
+        # 只下发**有值的**槽位（空串/None 会让 matcher 当成 0 处理）。
+        empty_data["slots"] = {
+            str(k): v
+            for k, v in (slots or {}).items()
+            if v is not None and str(v).strip() != ""
+        }
+        # 槽位 key → 中文名。前端拿它拼「人数：4」而不是「people：4」。
+        #
+        # 为什么必须下发：建议按钮走 `submitSlots` 会往会话里落一条**用户消息**，
+        # 那条消息的文本由 `slotSubmissionText()` 按字段 label 拼。没有 label
+        # 时它会退回字段名，用户在气泡里看到 `people：4；days：6` —— 一个
+        # 纯英文键名，与界面其他地方的中文完全不一致。
+        empty_data["slot_labels"] = {
+            str(slot.get("key")): str(slot.get("label") or slot.get("target") or slot.get("key"))
+            for slot in (scene.slots_json or [])
+            if str(slot.get("key") or "").strip()
+        }
 
         # `on_empty="nearest"`：给差距最小的一批供参考。
         # 单独放在 `nearest` 字段而不是混进 `items`：前端据此渲染成

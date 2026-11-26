@@ -161,6 +161,20 @@ class MatchResult:
     people_widened: int = 0
     # 空结果时若 on_empty="nearest"，这里给差距最小的一批（不当作命中）。
     nearest: list[MatchRow] = field(default_factory=list)
+    # 每行的人数 / 天数 / 预算三元组（三列都有效的行）。
+    #
+    # 供空结果建议按钮算出**能命中**的成套取值（`channels._rerun_patch`）。
+    #
+    # 为什么要整行、而不是各列分别给一份候选值：单列候选只保证「这个值在表里
+    # 存在」，不保证**组合**能命中。真实案例：3 人 / 4 天 空结果，people 列里
+    # 有 4、days 列里有 5，但「4 人 4 天」这个组合在表里根本不存在 —— 只改
+    # 人数等于没改，用户点完还是空。
+    #
+    # 为什么不在 `channels.py` 里自己扫表：能在某一层之后还活着的行，只有
+    # matcher 知道（它逐层过滤）。在别处重算等于把过滤逻辑实现第二遍，两边
+    # 一旦漂移，按钮就会给出「改成 6 天」但 6 天其实也没结果 —— 那比不给
+    # 建议更坏，用户会以为系统在骗他。
+    row_combos: list[dict[str, float]] = field(default_factory=list)
 
     def steps_json(self) -> list[dict[str, Any]]:
         return [s.to_dict() for s in self.steps]
@@ -371,7 +385,12 @@ def run_match(
             f"{format_number(slot_people.num + people_tol)} 人"
             f"（已配置容差 ±{people_tol}）"
         )
-        people_label = f"人数 ±{people_tol}"
+        # ⚠️ 不要写成「人数 ±1」。±N 是配置的样子，不是用户关心的东西：
+        # 用户只想知道「我要 4 人，表里有几行能满足」。容差多少已经在
+        # `detail` 里写全（展开可见），标签统一成「人数对上」，
+        # 与下一层「天数对上」句式一致，三层连起来读是一句话：
+        #   读表 → 人数对上 → 天数对上
+        people_label = "人数对上"
     else:
         people_detail = (
             f"必须等于 {format_number(slot_people.num)} 人，"
@@ -566,6 +585,33 @@ def run_match(
     if not hits and str(action.on_empty) == "nearest":
         nearest = sorted(scored, key=lambda r: r.score)[: action.top_k]
 
+    # 每一行的人数 / 天数 / 预算三元组（只留三列都有效的行）。
+    #
+    # 供空结果建议按钮算出**能命中**的成套取值（`channels._rerun_patch`）。
+    #
+    # 为什么要整行、而不是各列分别给一份候选值：单列候选只保证「这个值在表里
+    # 存在」，不保证**组合**能命中。真实案例：3 人 / 4 天 空结果，people 列里
+    # 有 4、days 列里有 5，但「4 人 4 天」这个组合在表里根本不存在 —— 只改
+    # 人数等于没改，用户点完还是空。
+    #
+    # 为什么不在 `channels.py` 里自己扫表：能在某一层之后还活着的行，只有
+    # matcher 知道（它逐层过滤）。在别处重算等于把过滤逻辑实现第二遍，两边
+    # 一旦漂移，按钮就会给出「改成 6 天」但 6 天其实也没结果 —— 那比不给
+    # 建议更坏，用户会以为系统在骗他。
+    #
+    # 口径是 `normalized`（全部行）而不是逐层过滤后的：用户点按钮的语义是
+    # 「换个条件重新筛」，候选必须来自全表，不能被当前条件先筛一遍。
+    row_combos: list[dict[str, float]] = [
+        {"people": r.np.num, "days": r.nd.num, "budget": r.nb.num}
+        for r in normalized
+        if r.np is not None
+        and r.np.ok
+        and r.nd is not None
+        and r.nd.ok
+        and r.nb is not None
+        and r.nb.ok
+    ]
+
     return MatchResult(
         steps=steps,
         ranked=ranked,
@@ -581,4 +627,5 @@ def run_match(
         invalid_budget=invalid_budget,
         people_widened=len(people_widened_ids),
         nearest=nearest,
+        row_combos=row_combos,
     )

@@ -448,6 +448,55 @@ function TurnDurationNote({ timing }: { timing: TurnTraceTiming }) {
   );
 }
 
+/**
+ * 场景块提交时用的表单描述。
+ *
+ * ## 为什么要容得下「没有 form 块」
+ *
+ * 原先这里直接 `if (!form) return;` —— 对表单块是对的，但**空结果卡的
+ * 建议按钮也走这个入口**，而那一轮没有 form 块。后果是点了按钮什么都不
+ * 发生，且不报错：用户只会觉得按钮坏了。这是线上真实故障。
+ *
+ * 空卡的按钮不需要 form 的元信息（它是「改槽重跑」，不是「填表提交」）：
+ * `slotSubmissionText` 只用 `fields` 拼一句可读文本，真正被后端消费的是
+ * `slot_submission` 里的结构化取值。所以这里按本次改动项合成一份最小表单，
+ * 让「改槽 → 重跑」与「填表 → 提交」走**完全相同的通路**。
+ *
+ * `slot_labels` 给合成表单一副中文标签（后端随空卡下发 `empty.slot_labels`）：
+ * 不给的话用户气泡里会出现 `people：4；days：6` 这种英文键名。
+ *
+ * @returns `null` 表示这次提交没法进行（既没有 form，`values` 也是空的）。
+ */
+export function sceneFormForSubmit(
+  blocks: A2UIBlock[],
+  values: Record<string, unknown>,
+): A2UIForm | null {
+  const form = blocks
+    .map((block) => formPayloadOf(block))
+    .map((payload) => (payload ? parseA2UIForm(payload) : null))
+    .find((candidate) => candidate !== null);
+  if (form) return form;
+
+  const labels: Record<string, string> = {};
+  for (const block of blocks) {
+    const raw = block.data?.slot_labels;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof value === 'string' && value.trim()) labels[key] = value.trim();
+    }
+  }
+  const fields = Object.keys(values).map((name) => ({
+    name,
+    label: labels[name] || name,
+    // 类型只影响 `slotSubmissionText` 的格式化（数值/布尔有特殊分支），
+    // 提交载荷用的是 `values` 原值，不受这里影响。
+    type: (typeof values[name] === 'boolean' ? 'boolean' : 'number') as A2UIForm['fields'][number]['type'],
+    required: true,
+  }));
+  if (fields.length === 0) return null;
+  return { kind: 'slot_form', fields };
+}
+
 export default function MessageBubble({
   chat,
   item,
@@ -909,10 +958,7 @@ export default function MessageBubble({
                   params={sceneParamsOf(item)}
                   onSendText={(text) => chat.sendQuickText(text)}
                   onSubmitSlots={(values) => {
-                    const form = group.blocks
-                      .map((block) => formPayloadOf(block))
-                      .map((payload) => (payload ? parseA2UIForm(payload) : null))
-                      .find((candidate) => candidate !== null);
+                    const form = sceneFormForSubmit(group.blocks, values);
                     if (!form) return;
                     // scene id 必须一路带下去：提交文本无关键词，不带
                     // `forced_scene_id` 后端必然落回普通对话（用户填的表白填）。

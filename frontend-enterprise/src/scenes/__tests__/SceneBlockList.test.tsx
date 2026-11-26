@@ -83,9 +83,19 @@ function emptyBlock(): SceneUiBlock {
         { label: '归一化后 4 行（1 行单位异常已剔除）', from: 4, to: 4 },
         { label: '人数硬约束后 0 行', from: 4, to: 0 },
       ],
+      // 本轮起后端在建议项上多给 `patch`（`{槽位: 值}`），让按钮能改槽重跑。
+      // 这里保留**一颗有 patch、一颗没有**的真实形态：不是所有按钮都改条件
+      // （「就看最接近的」「检查数据表」就不改）。
+      // patch 里有多个槽是常态 —— 只改人数不够（天数层还卡着）。
+      slots: { people: 8, days: 3, budget: 500 },
+      slot_labels: { people: '人数', days: '天数', budget: '预算' },
       suggestions: [
-        { label: '放宽预算再试', send_text: '预算可以再高一点' },
-        { label: '换个人数', send_text: '人数可以换一下' },
+        { label: '预算再高一点', send_text: '预算可以再高一点' },
+        {
+          label: '按 4 人找',
+          send_text: '人数可以换一下',
+          patch: { people: 4, days: 5 },
+        },
       ],
     },
   };
@@ -231,11 +241,59 @@ describe('generic.table_match', () => {
   it('empty 块一定给两个可点的建议（只给「没找到」会让用户卡死）', async () => {
     const onSend = vi.fn();
     render(<SceneBlockList blocks={[emptyBlock()]} onSendText={onSend} />);
-    const first = await screen.findByRole('button', { name: '放宽预算再试' });
-    expect(screen.getByRole('button', { name: '换个人数' })).toBeTruthy();
+    const first = await screen.findByRole('button', { name: '预算再高一点' });
+    expect(screen.getByRole('button', { name: '按 4 人找' })).toBeTruthy();
     await userEvent.click(first);
-    // send_text 优先于 label（后端给了就按后端的发，那才是它想说的话）。
+    // 这颗没有 slot → 走 sendText（send_text 优先于 label）。
     expect(onSend).toHaveBeenCalledWith('预算可以再高一点');
+  });
+
+  it('带 slot 的建议走 submitSlots 改槽重跑，而不是只发一句话', async () => {
+    // 这是真实线上故障的回归锁：按钮原先只调 sendText('人数可以换一下')，
+    // 那句话进了普通对话、没有触发关键词，后端落回 standard 模式，
+    // 一个方案都没重算。按钮必须**改槽位并带场景 ID 重跑**。
+    const onSubmitSlots = vi.fn();
+    const onSend = vi.fn();
+    render(
+      <SceneBlockList
+        blocks={[emptyBlock()]}
+        onSendText={onSend}
+        onSubmitSlots={onSubmitSlots}
+      />,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: '按 4 人找' }));
+
+    // 必须把本轮**完整槽位**带上再合并 patch：
+    // 只发 patch 里的 `{people: 4, days: 5}` 会让预算在后端变成空值
+    // （等于丢了一个条件）。patch 里有多个槽也是常态 —— 只改人数不够，
+    // 天数层还卡着。
+    expect(onSubmitSlots).toHaveBeenCalledWith({
+      people: 4,
+      days: 5,
+      budget: 500,
+    });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it('没有 submitSlots 时带 slot 的建议退回 sendText（分享页/回看不崩）', async () => {
+    // 分享页与历史回看只读，不提供提交入口。此时最差该是「发一句话」，
+    // 而不是「点了没反应」。
+    const onSend = vi.fn();
+    render(<SceneBlockList blocks={[emptyBlock()]} onSendText={onSend} />);
+    await userEvent.click(await screen.findByRole('button', { name: '按 4 人找' }));
+    expect(onSend).toHaveBeenCalledWith('人数可以换一下');
+  });
+
+  it('空卡默认不下发漏斗（用户要的是结论，不是每层淘汰了几行）', async () => {
+    // 后端默认不发 `steps` / `funnel` —— `reason` 已经把「卡在哪层 +
+    // 下一步怎么办」说完了。这条锁住「不发就真的不画」，防止前端
+    // 又给一个「没有 steps 就编一份」的兜底。
+    const block = emptyBlock();
+    block.data = { ...block.data, steps: undefined, funnel: undefined };
+    render(<SceneBlockList blocks={[block]} />);
+    expect(await screen.findByText(/没有一张表的人数列等于 8/)).toBeTruthy();
+    expect(screen.queryByText('原始 5 行')).toBeNull();
+    expect(screen.queryByText('人数硬约束后 0 行')).toBeNull();
   });
 
   it('empty 块没有 suggestions 时也要有两个兜底建议', async () => {

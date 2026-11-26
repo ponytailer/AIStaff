@@ -167,6 +167,19 @@ export type SceneBlockProps = {
   sendText: (text: string) => void;
   /** 提交结构化槽位取值（框架写槽，不让模型解析自然语言）。 */
   submitSlots: (values: Record<string, unknown>) => void;
+  /**
+   * `submitSlots` 是否**真的可用**。
+   *
+   * 为什么不能靠 `if (submitSlots)` 判断：`SceneBlockList` 会把所有回调
+   * 兜底成 no-op（防止 module 里出现 `is not a function` 把整卡崩掉），
+   * 所以它在分享页 / 历史回看里也**非空**，只是调了什么都不做。
+   * 于是「点了建议按钮没反应」这类问题在类型上完全看不出来。
+   *
+   * 需要判断的场景：空结果卡的建议按钮 —— 有提交能力时走「改槽重跑」，
+   * 没有时退回 `sendText`（发一句话，而不是静默失败）。
+   * 不传视为 `false`，让最保守的路径成为默认。
+   */
+  canSubmitSlots?: boolean;
   /** 打开外链（分享页 / 历史回看时为 no-op）。 */
   openExternal: (url: string) => void;
   /** 只读态（分享页 / 历史回看 / 场景已归档）。 */

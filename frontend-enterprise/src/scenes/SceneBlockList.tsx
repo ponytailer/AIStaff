@@ -63,6 +63,13 @@ export default function SceneBlockList({
   const sendText = onSendText ?? (() => {});
   const submitSlots = onSubmitSlots ?? (() => {});
   const openExternal = onOpenExternal ?? (() => {});
+  // 「提交能力是否真的可用」必须**单独**带下去。
+  //
+  // 为什么不能靠 module 里判 `if (submitSlots)`：上面那句已经把它兜底成
+  // 非空函数了，判不出来。于是「空结果卡在分享页点建议按钮」会走进
+  // `submitSlots(...)` 分支、调到一个 no-op —— 界面上的表现是**点了没反应**，
+  // 而不是退回 `sendText`。这是个真发生过的问题，所以这里把能力显式表达。
+  const canSubmitSlots = Boolean(onSubmitSlots);
 
   return (
     <div className={`flex flex-col gap-[9px] ${className}`} data-scene-blocks={blocks.length}>
@@ -98,6 +105,7 @@ export default function SceneBlockList({
                     params={params}
                     sendText={sendText}
                     submitSlots={submitSlots}
+                    canSubmitSlots={canSubmitSlots}
                     openExternal={openExternal}
                     disabled={disabled}
                     renderBuiltin={renderBuiltin}

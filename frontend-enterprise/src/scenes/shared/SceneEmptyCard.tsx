@@ -8,15 +8,29 @@ import { SCENE_SECONDARY_BUTTON_CLASS } from './buttons';
  * `index.tsx` 的目录都会被注册表当成 module，共享组件放进去会让「目录名 === module_key」
  * 那条不变式出现例外，后来人一定会踩。
  *
- * ## 漏斗必须显示每一步的真实数字
+ * ## 漏斗默认不显示（2026-11-26）
  *
- * 来源是 `data.steps`（matcher 的 `steps` 数组），**不许前端重算** —— 自己算会和试跑
- * 面板对不上，而「试跑里 5→4→2、消息里 5→4→1」是最伤信任的一类不一致。
- * 后端老字段叫 `funnel`（arch §2.2 的 `empty` 形状），两种都认。
+ * `data.steps` / `data.funnel` 仍被读取（后端可用 `show_empty_funnel` 打开），
+ * 但默认不下发 —— `data.reason` 已经把「卡在哪层 + 下一步怎么办」说完了，
+ * 漏斗是同一件事的另一种写法。用户原话：「这些文字没必要给用户看」。
+ * 前端这里**保留渲染能力**而不是删掉：诊断场景仍需要它，删了就得改两处。
  *
- * ## 两个建议按钮不能省
+ * ## 建议按钮必须能改槽重跑，不能只发一句话
  *
- * 它们是「让用户能继续」的关键：只给一段「没找到」会让用户卡死在这一轮。
+ * 这是踩过的真实故障：按钮只调 `sendText('天数可以再灵活一点')`，这句进了
+ * 普通对话，没有任何触发关键词 —— 后端 `resolve_scene_hit()` 落空，退回
+ * `standard` 模式，一个方案都没重算。用户点完看到的是模型开始闲聊。
+ *
+ * 现在每颗按钮读 `suggestion.patch`（`{槽位: 数值}`，后端算好的**能命中**的组合），
+ * 把它合并进 `data.slots`（本轮生效的完整槽位）后走 `submitSlots` —— 那是
+ * 「改槽 + 带 `forcedSceneId` 重跑」的既有通路，与表单提交完全一致，不经过模型。
+ *
+ * 没有 `patch` 的按钮（「就看最接近的」「检查数据表」）仍然走 `sendText`：
+ * 它们本来就不改条件，是纯展示或纯咨询动作。
+ *
+ * ⚠️ **`patch` 里可能有多个槽，而且 `label` 必须把它们全写出来**。人数是第一层、
+ * 天数是第二层，只改一个常常还是空；后端因此会把「成套取值」一起下发。若
+ * 标签只写「按 4 人找」而结果卡上是 5 天 ¥3000，用户会以为系统偷偷改了条件。
  */
 
 type EmptyStep = { key: string; label: string; from: number | null; to: number | null };
@@ -36,14 +50,40 @@ function readSteps(data: Record<string, unknown>): EmptyStep[] {
     .filter((row) => Boolean(row.label));
 }
 
-function readSuggestions(data: Record<string, unknown>): { label: string; sendText: string }[] {
+type EmptySuggestion = {
+  label: string;
+  sendText: string;
+  /**
+   * 要改哪些槽位、改成什么（后端 `patch`）。缺省表示这颗按钮不改条件。
+   *
+   * **可能是多个槽**：只改一个常常不够。人数是第一层、天数是第二层，
+   * 表里 4 人方案是 5/6 天 —— 用户填 4 人 4 天时，把人数改成 4 等于
+   * 什么都没改，点下去还是空。后端会一并算出「能出结果的最小改动组合」。
+   */
+  patch?: Record<string, number>;
+};
+
+function readSuggestions(data: Record<string, unknown>): EmptySuggestion[] {
   if (!Array.isArray(data.suggestions)) return [];
   return data.suggestions
     .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
-    .map((row) => ({
-      label: typeof row.label === 'string' ? row.label : '',
-      sendText: typeof row.send_text === 'string' ? row.send_text : '',
-    }))
+    .map((row) => {
+      const suggestion: EmptySuggestion = {
+        label: typeof row.label === 'string' ? row.label : '',
+        sendText: typeof row.send_text === 'string' ? row.send_text : '',
+      };
+      // `patch` 是 `{槽位: 数值}`。只收数值型：槽位如果不是数值（枚举/文本），
+      // 后端本来就不会给 patch —— 收了也只会污染提交载荷。
+      const raw = row.patch;
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        const patch: Record<string, number> = {};
+        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+          if (typeof value === 'number' && Number.isFinite(value)) patch[key] = value;
+        }
+        if (Object.keys(patch).length > 0) suggestion.patch = patch;
+      }
+      return suggestion;
+    })
     .filter((row) => Boolean(row.label));
 }
 
@@ -54,6 +94,8 @@ export function SceneEmptyCard({
   block,
   title,
   sendText,
+  submitSlots,
+  canSubmitSlots = false,
   disabled = false,
   dataModule = '',
 }: {
@@ -61,6 +103,13 @@ export function SceneEmptyCard({
   /** 卡头结论。缺省用 block 里给的 `title`，再缺省用通用文案。 */
   title?: string;
   sendText: SceneBlockProps['sendText'];
+  /** 改槽重跑的入口。 */
+  submitSlots?: SceneBlockProps['submitSlots'];
+  /**
+   * 提交能力是否真的可用。**必须由调用方显式传**，不要自己判 `submitSlots` ——
+   * 它永远非空（框架兜底成 no-op），判不出来。见 `SceneBlockProps.canSubmitSlots`。
+   */
+  canSubmitSlots?: boolean;
   disabled?: boolean;
   dataModule?: string;
 }) {
@@ -73,6 +122,10 @@ export function SceneEmptyCard({
     : (block.fallback_text || '');
   const steps = readSteps(data);
   const suggestions = readSuggestions(data);
+  /** 本轮生效的完整槽位（后端 `empty.slots`）。合并 patch 时以它为底。 */
+  const currentSlots = (data.slots && typeof data.slots === 'object' && !Array.isArray(data.slots))
+    ? data.slots as Record<string, unknown>
+    : {};
 
   return (
     <div
@@ -125,7 +178,22 @@ export function SceneEmptyCard({
               type="button"
               disabled={disabled}
               className={EMPTY_CARD_BUTTON_CLASS}
-              onClick={() => sendText(item.sendText || item.label)}
+              onClick={() => {
+                // 带 `patch` 的建议 → 改槽位重跑（确定性，不过模型）。
+                //
+                // 合并 `currentSlots` 而不是只发 patch：patch 里只含要改的槽，
+                // 其余条件必须带着 —— 只发 `{days: 6}` 会让人数和预算在后端
+                // 变成空值，等于用户点一下就把两个条件丢了。后端把本轮完整
+                // 槽位放在 `data.slots` 一起下发，正是为了这里能合并。
+                //
+                // ⚠️ 判 `canSubmitSlots` 而**不是** `submitSlots`：后者被
+                // 框架兜底成 no-op，永远为真 —— 分享页里会静默什么都不做。
+                if (item.patch && canSubmitSlots && submitSlots) {
+                  submitSlots({ ...currentSlots, ...item.patch });
+                  return;
+                }
+                sendText(item.sendText || item.label);
+              }}
             >
               {item.label}
             </button>
