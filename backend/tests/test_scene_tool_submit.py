@@ -505,6 +505,115 @@ def test_keyword_triggers_scene(db):
 
 
 # ============================================================
+# 第 5.5 层：表单提交那轮**不带关键词**，靠 forced_scene_id 进场景
+# ============================================================
+
+
+#: 表单提交轮实际发出去的文本（前端 `submitSlotForm` 拼的）。
+#:
+#: 关键事实：**一个触发关键词都没有**。用户的原始一句话（「我想叫客房送物」）
+#: 在表单那一轮就已经用掉了；提交轮只有字段值。
+SUBMISSION_TEXT = "房间号：8302；需要送的物品：矿泉水"
+
+
+def test_submission_text_alone_matches_nothing(db):
+    """先把前提钉死：这段文本靠关键词匹配**必然**命中不到场景。
+
+    这条不是凑数 —— 它锁的是下一个用例的因果。如果哪天有人给场景加了
+    关键词「房间号」，下面那条用例就会因为**错误的原因**通过（不是靠
+    forced，而是靠关键词撞上了），回归保护就失效了。
+    """
+    from app.scene_modules.runtime import resolve_scene_hit
+
+    scene = _make_scene(db)
+    _bind(db, scene)
+
+    hit = resolve_scene_hit(
+        db, tenant_id=TENANT, agent_id="agent_xianlin", message=SUBMISSION_TEXT
+    )
+
+    assert hit is None, (
+        "表单提交文本不该命中任何场景关键词，否则"
+        "「不带 forced_scene_id 会落回普通对话」这个 bug 就测不出来了"
+    )
+
+
+def test_forced_scene_id_carries_submission_into_scene(db):
+    """带 `forced_scene_id` → 同一段无关键词文本也能进场景。
+
+    这就是前端 `MessageBubble` 必须传第三个参数的原因：不传，`resolve_scene_hit`
+    拿到的是上一段那个 `None`，整轮落回通用问答 —— 模型自由发挥回一句
+    「已记录」，既不调接口也没有回执卡，而且**不报错**。
+    """
+    from app.scene_modules.runtime import resolve_scene_hit
+
+    scene = _make_scene(db)
+    _bind(db, scene)
+
+    hit = resolve_scene_hit(
+        db,
+        tenant_id=TENANT,
+        agent_id="agent_xianlin",
+        message=SUBMISSION_TEXT,
+        forced_scene_id=scene.id,
+    )
+
+    assert hit is not None
+    assert hit.id == scene.id
+
+
+def test_forced_scene_id_outside_binding_is_rejected(db):
+    """没绑给这个员工的场景，即使指定了也不许进（越权防线）。
+
+    与上面那条是一对：`forced_scene_id` 是**用户可控输入**，必须校验它落在
+    候选集内。只做「有值就用」会让任何人拿一个 id 就调通别人员工的场景。
+    """
+    from app.scene_modules.runtime import resolve_scene_hit
+
+    scene = _make_scene(db)
+    _bind(db, scene)
+    other = _make_scene(db, name="别人的场景")
+
+    hit = resolve_scene_hit(
+        db,
+        tenant_id=TENANT,
+        agent_id="agent_xianlin",
+        message=SUBMISSION_TEXT,
+        forced_scene_id=other.id,
+    )
+
+    assert hit is None
+
+
+def test_submission_with_forced_scene_id_produces_receipt_block(db, monkeypatch):
+    """端到端：带 forced 的表单提交必须**真的调接口并出回执块**。
+
+    这条把「用户填完表走了普通问答」的两层后果一次锁住：
+    - 没调接口 → `requests` 为空；
+    - 没回执卡 → 块里没有 `result`（用户看到的就是一句纯文字）。
+
+    权限那关也要过：`_run` 传 `agent_id`，工具必须已绑定且启用 —— 否则
+    上一节修掉的越权拦截会把请求挡下来，这条用例会误报成「链路断了」。
+    """
+    scene = _make_scene(db)
+    _bind(db, scene)
+    _bind_tool(db)
+    requests = _patch_http(monkeypatch, lambda request: httpx.Response(200, json=DELIVERY_RESPONSE))
+
+    result = _run(
+        db,
+        scene,
+        {"room_no": "8302", "item": "矿泉水"},
+        agent_id="agent_xianlin",
+    )
+
+    assert len(requests) == 1, "表单填全了却没调接口，用户看到的就只会是一句口头承诺"
+    receipt = [b for b in result.blocks if b.kind == "result"]
+    assert len(receipt) == 1, f"没有回执块，消息会退化成纯文字。实际块：{_kinds(result)}"
+    values = receipt[0].data["items"][0]["values"]
+    assert values.get("order_no"), "回执里必须带单号，它是用户后续回查的唯一凭据"
+
+# ============================================================
 # 第 6 层：工具权限（回归：员工没绑工具时不许调）
 # ============================================================
 

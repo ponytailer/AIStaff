@@ -149,15 +149,40 @@ export function tailSegments(blocks: A2UIBlock[]): TailSegment[] {
 }
 
 /**
+ * 把「表单块的外层 data」剥到「表单描述」本身。
+ *
+ * ## 为什么必须有这一个函数（而不是各调用方自己判）
+ *
+ * 表单描述在两种块里躺的位置**不一样**，这是历史事实：
+ *
+ * | 块来源 | `data` 形状 | 剥壳 |
+ * |---|---|---|
+ * | 后端 `form` 块（`_slot_form_block`） | `data` **就是** `build_slot_form()` 的输出 | 不用剥 |
+ * | 前端合成的 `slot_form` 块（`synthesizedBlocks`） | `{ form: <表单描述> }` | 要剥 |
+ *
+ * 曾经有两条路各写各的判法：`SlotFormCard` 那条用本函数（能剥），
+ * `renderFormForScene`（`SceneBlockList` 注入给 module 的 `renderForm`）直接
+ * `parseA2UIForm(data)`（不能剥）。于是同一份数据在两个入口**一个能填、一个
+ * 整块不渲染**，而且不报错 —— 正是「同一个东西出现在不同地方长得不一样」。
+ *
+ * 判据收敛到这里以后，两边都调它，嵌套/平铺都能吃，再也不会漂。
+ */
+export function normalizeFormData(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const record = data as Record<string, unknown>;
+  const nested = record.form;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>;
+  }
+  return record;
+}
+
+/**
  * 从块里取「表单描述」。`form` 块的 `data` 就是 `build_slot_form()` 的输出，
  * 与 legacy `metadata.a2ui` 同形，所以复用同一份解析（`parseA2UIForm`）。
  */
 export function formPayloadOf(block: A2UIBlock): Record<string, unknown> | null {
-  const data = block.data;
-  if (!data || typeof data !== 'object') return null;
-  const nested = (data as Record<string, unknown>).form;
-  if (nested && typeof nested === 'object') return nested as Record<string, unknown>;
-  return data as Record<string, unknown>;
+  return normalizeFormData(block.data);
 }
 
 /**

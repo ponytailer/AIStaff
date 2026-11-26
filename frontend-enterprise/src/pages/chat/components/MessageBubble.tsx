@@ -87,6 +87,7 @@ import type { A2UIBlock, TraceLine } from '../chatTypes';
 import type { A2UIForm } from '../chatTypes';
 import {
   formPayloadOf,
+  normalizeFormData,
   sceneParamsOf,
   sceneIdOf,
   splitBlocksByMountSlot,
@@ -620,15 +621,36 @@ export default function MessageBubble({
    * （`parseA2UIForm`）与同一个提交入口（`chat.submitSlotForm`）。
    * 返回 `null` 表示「我不管这块」，`SceneBlockList` 会继续往下兜底
    * （`text`/`handoff` 走平台默认渲染器，其余走兜底文本）。
+   *
+   * ## 为什么必须带 `sceneIdOf(item)`
+   *
+   * 这里曾经漏传第三个参数，后果是**同一个表单因类型不同走了两条不一样的路**：
+   *
+   * | 场景类型 | 表单从哪出 | 提交时带 forced_scene_id |
+   * |---|---|---|
+   * | 行程规划（table_match） | `result` 块里的 `slot_form` → `onSubmitSlots` | 带了 ✅ |
+   * | 客房送物（tool_submit） | `form` 块 → **本函数** | **没带** ❌ |
+   *
+   * 表单提交轮发出的文本是「房间号：8302；需要送的物品：矿泉水」——**不含任何
+   * 触发关键词**。不带 `forced_scene_id`，后端 `resolve_scene_hit` 匹配不到场景，
+   * 于是落回通用问答：模型拿着这句话自由发挥，回一句「已记录，会尽快安排送达」，
+   * 既不调接口、也没有回执卡。用户看到的就是「填完表走了普通对话」。
+   *
+   * 这才是「表单提交类型的流程和行程规划明显不一样」的真正原因 —— 不在后端
+   * 通道里，而在前端表单提交这一个参数上。
    */
   const renderFormForScene = (data: Record<string, unknown>): ReactNode => {
-    const form = parseA2UIForm(data);
+    // 必须走 `normalizeFormData` 而不是直接 `parseA2UIForm(data)`：
+    // 表单描述可能平铺在 `data` 上（后端 `form` 块），也可能嵌在 `data.form`
+    // 里（前端合成的 `slot_form` 块）。曾经这里少了这一层剥壳，导致
+    // 「slot_form 块能填、form 块整块不渲染」—— 同一份数据两个入口两种表现。
+    const form = parseA2UIForm(normalizeFormData(data));
     if (!form) return null;
     return (
       <SlotFormCard
         form={form}
         disabled={Boolean(teamProgress)}
-        onSubmit={(values) => chat.submitSlotForm(form, values)}
+        onSubmit={(values) => chat.submitSlotForm(form, values, sceneIdOf(item))}
       />
     );
   };

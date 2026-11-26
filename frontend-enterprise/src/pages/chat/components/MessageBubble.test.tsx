@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/api/client';
+import { I18nProvider } from '@/i18n';
 import type { AgentProfileRead, ChatMessage, ChatSlashCommand } from '@/types';
 
 import type { UseChatSession } from '../useChatSession';
@@ -612,5 +613,248 @@ describe('MessageBubble greeting message', () => {
     // 对照组：同样结构但不带 greeting 标记的消息，点评按钮必须还在。
     const container = renderGreeting(undefined);
     expect(container.querySelector('button[aria-label="点赞"]')).toBeTruthy();
+  });
+});
+
+/**
+ * 场景表单提交必须带 `forcedSceneId`（回归：tool_submit 走通用问答）。
+ *
+ * ## 这个 bug 的表现与根因
+ *
+ * 表现：在「客房送物」场景里填完表单点提交 → 走了通用问答流程，模型自由发挥
+ * 回一句「已记录，会尽快安排送达」，既不调接口也没有回执卡；而「行程规划」
+ * 场景同样的表单点提交是正常的。
+ *
+ * 根因：**同一个表单有两条提交路径，只有一条带了 `forcedSceneId`**。
+ *
+ * | 场景类型 | 表单从哪个块出 | 渲染入口 | 提交时带 forced_scene_id |
+ * |---|---|---|---|
+ * | 行程规划 | `result` 块里的 `slot_form` | `onSubmitSlots` | 带了 |
+ * | 客房送物 | `form` 块 | `renderFormForScene` | **没带** |
+ *
+ * 提交文本是「房间号：8302；需要送的物品：矿泉水」——不含任何触发关键词。
+ * 不带 `forced_scene_id`，后端 `resolve_scene_hit` 按关键词匹配必然命中不到，
+ * 于是落回通用问答。**而且不报错**，用户只会觉得这张表白填了。
+ *
+ * 两条路径都要断言：只测一条的话，另一条再漏也不会被发现。
+ */
+describe('MessageBubble · 场景表单提交带 forcedSceneId', () => {
+  /**
+   * 必须是 `build_slot_form()` 的**完整**输出形状 —— 尤其 `kind`。
+   *
+   * `parseA2UIForm()` 第一行就收窄 `form.kind !== 'slot_form' → null`，缺了它
+   * 整张表直接不渲染（不是报错，是静默消失）。手写 fixture 最常漏这个键，
+   * 而漏了之后的症状是「测试里找不到输入框」，很容易被误判成渲染链断了。
+   */
+  const sceneForm = {
+    kind: 'slot_form',
+    title: '请填写下面的信息',
+    submit_label: '提交',
+    fields: [
+      { name: 'room_no', label: '房间号', type: 'text' as const, required: true },
+      { name: 'item', label: '物品', type: 'text' as const, required: true },
+    ],
+  };
+
+  function renderSceneMessage(blocks: unknown[], metadata: Record<string, unknown>) {
+    const item: ChatMessage = {
+      id: 'message-scene',
+      role: 'assistant',
+      content: '填写下面的信息，我马上帮你提交：',
+      created_at: '2026-11-26T00:00:00Z',
+      metadata,
+    };
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-scene',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: '填写下面的信息，我马上帮你提交：',
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [],
+      harnessArtifacts: [],
+      statusOnly: false,
+      blocks: blocks as MessageRender['blocks'],
+    };
+    const submitSlotForm = vi.fn();
+    const chat = {
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+      activeConversationId: 'session-1',
+      submitSlotForm,
+      sendQuickText: vi.fn(),
+    } as unknown as UseChatSession;
+    /**
+     * 必须包 `I18nProvider`：`SlotFormCard` 里的输入控件来自 `ui/*`，
+     * `Input` 会翻译 placeholder —— 没有 Provider 会抛
+     * `useI18n must be used inside I18nProvider`，而 React 的报错会让整棵子树
+     * 渲染成空，症状是「找不到输入框」而不是「i18n 缺失」。这个坑很绕，
+     * 所以 `SlotFormCard.test.tsx` 里也是同样的包法。
+     */
+    render(
+      <I18nProvider>
+        <MessageBubble chat={chat} item={item} render={messageRender} />
+      </I18nProvider>,
+    );
+    return { submitSlotForm };
+  }
+
+  /**
+   * `findBy*` 而不是 `getBy*`：带 `module_key` 的块走注册表那条路，而
+   * `sceneModuleView()` 返回的是 `lazy()` 组件、`SceneModuleSurface` 还要在
+   * `useEffect` 里 `loadSceneModule()` —— 首帧渲染的是 `null`。同步查询必然
+   * 查不到（这个时序不是 bug，是 chunk 懒加载的正常代价）。
+   *
+   * 顺带说一句：`slot_form` 块（不带 module_key 的那种）走的是 builtin 段，
+   * 同步就能查到，但两条路共用这个 helper，统一用 `findBy` 更稳。
+   */
+  async function fillAndSubmit() {
+    fireEvent.change(await screen.findByLabelText(/房间号/), { target: { value: '8302' } });
+    fireEvent.change(await screen.findByLabelText(/物品/), { target: { value: '矿泉水' } });
+    fireEvent.click(await screen.findByRole('button', { name: /提交/ }));
+  }
+
+  it('form 块（tool_submit 走这条）提交时带上 scene_id', async () => {
+    const { submitSlotForm } = renderSceneMessage(
+      [{ kind: 'form', module_key: 'generic.tool_submit', data: { form: sceneForm } }],
+      // 后端 `turn_run` 把本轮的场景 id 写在消息 metadata 顶层
+      { scene_id: 'scene_room_delivery' },
+    );
+
+    await fillAndSubmit();
+
+    await waitFor(() => expect(submitSlotForm).toHaveBeenCalled());
+    const call = submitSlotForm.mock.calls[0];
+    // 第三个参数就是 forcedSceneId。缺了它 → 后端落回通用问答。
+    expect(call[2]).toBe('scene_room_delivery');
+    expect(call[1]).toEqual({ room_no: '8302', item: '矿泉水' });
+  });
+
+  it('slot_form 块（table_match 走这条）提交时也带上 scene_id', async () => {
+    // 这条本来就是对的，一起断言：两条路径都漏过才叫「两处不一样」，
+    // 只保一条会在下一次改动里重新漂开。
+    const { submitSlotForm } = renderSceneMessage(
+      [{ kind: 'slot_form', data: { form: sceneForm } }],
+      { scene_id: 'scene_itinerary' },
+    );
+
+    await fillAndSubmit();
+
+    await waitFor(() => expect(submitSlotForm).toHaveBeenCalled());
+    expect(submitSlotForm.mock.calls[0][2]).toBe('scene_itinerary');
+  });
+
+  it('消息上没有 scene_id 时不强行塞空串', async () => {
+    // 非场景消息（普通问答里的表单）本来就没有场景可指定。传空串会让后端
+    // 收到 `forced_scene_id=""`，虽然 resolve 会当空处理，但语义上是「指定了
+    // 一个不存在的场景」，日志里会出现误导性的 forced_outside_binding。
+    const { submitSlotForm } = renderSceneMessage(
+      [{ kind: 'form', module_key: 'generic.tool_submit', data: { form: sceneForm } }],
+      {},
+    );
+
+    await fillAndSubmit();
+
+    await waitFor(() => expect(submitSlotForm).toHaveBeenCalled());
+    expect(submitSlotForm.mock.calls[0][2]).toBe('');
+  });
+});
+
+/**
+ * 「回复的样式和 demo 不一致，是纯文字的了。」
+ *
+ * 这是上一个 bug 的**下游后果**，但值得单独锁一条：用户看到纯文字时，第一反应
+ * 会怀疑「卡片组件坏了」，实际是那一轮压根没进场景，`ui_blocks` 里根本没有
+ * `result` 块 —— 模型拿着表单那行字自由发挥，输出一句普通 Markdown。
+ *
+ * 所以这条用例的断言分两层：
+ * 1. `result` 块**经过 MessageBubble 的分段/挂载逻辑之后**仍然是卡片
+ *    （模块层的卡片测试已经有了，但那是直接喂 `SceneBlockList`，绕过了
+ *    挂载位分段 —— 分段才是「块消失」最容易发生的地方）；
+ * 2. 同时给出 `text` 块，保证「卡片 + 一句话」能共存，且卡片不会因为正文
+ *    存在而被吞掉。
+ */
+describe('MessageBubble · 场景回执渲染成卡片而不是纯文字', () => {
+  it('result 块经挂载位分段后仍渲染为回执卡（含单号与中文标签）', async () => {
+    const item: ChatMessage = {
+      id: 'message-receipt',
+      role: 'assistant',
+      content: '已为 8306 房提交矿泉水，受理单号 RD20261126BB6，预计 20 分钟内送达。',
+      created_at: '2026-11-26T00:00:00Z',
+      metadata: { scene_id: 'scene_room_delivery' },
+    };
+    const messageRender: MessageRender = {
+      traceTurnId: 'turn-receipt',
+      summary: null,
+      details: [],
+      expanded: false,
+      showInlineTrace: false,
+      visibleContent: '已为 8306 房提交矿泉水，受理单号 RD20261126BB6，预计 20 分钟内送达。',
+      citations: [],
+      scheduledDraft: null,
+      scheduledTaskPrompt: false,
+      attachments: [],
+      harnessArtifacts: [],
+      statusOnly: false,
+      blocks: [
+        { kind: 'text', data: { content: '已经帮你提交了：' } },
+        {
+          kind: 'result',
+          module_key: 'generic.tool_submit',
+          module_version: 1,
+          fallback_text: '已为 8306 房提交矿泉水，受理单号 RD20261126BB6。',
+          data: {
+            total: 1,
+            max_items: 1,
+            labels: { room_no: '房间号', item: '物品' },
+            items: [
+              {
+                row_id: 'receipt',
+                source_table: '',
+                values: { order_no: 'RD20261126BB6', room_no: '8306', item: '矿泉水' },
+              },
+            ],
+          },
+        },
+      ],
+    } as MessageRender;
+
+    const chat = {
+      toggleTrace: vi.fn(),
+      rateMessage: vi.fn(),
+      setActiveCitation: vi.fn(),
+      confirmScheduledTask: vi.fn(),
+      dismissScheduledTaskDraft: vi.fn(),
+      removeQueuedTurn: vi.fn(),
+      tenantId: 'tenant_demo',
+      activeConversationId: 'session-1',
+      submitSlotForm: vi.fn(),
+      sendQuickText: vi.fn(),
+    } as unknown as UseChatSession;
+
+    render(
+      <I18nProvider>
+        <MessageBubble chat={chat} item={item} render={messageRender} />
+      </I18nProvider>,
+    );
+
+    // ① 卡片真的画出来了（`data-scene-module` 是 module 自己打的标记，
+    //    有它就说明走的是 module 渲染器而不是 `fallback_text` 纯文本）。
+    await waitFor(() => {
+      expect(document.querySelector('[data-scene-module="generic.tool_submit"]')).toBeTruthy();
+    });
+    // ② 单号与中文标签都在（纯文字降级时这些都不会出现）
+    expect(await screen.findByText('RD20261126BB6')).toBeTruthy();
+    expect(screen.getByText(/房间号/)).toBeTruthy();
+    // ③ 卡片上方那句话也还在 —— 共存，不是二选一
+    expect(screen.getByText('已经帮你提交了：')).toBeTruthy();
   });
 });
