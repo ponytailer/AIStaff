@@ -73,22 +73,12 @@ export const genericToolSubmitParams: SceneParamField[] = [
     placeholder: '受理单号',
     help: '单号前面那个标签。受理单号 / 运单号 / 工单编号，各业务叫法不同。',
   },
-  {
-    key: 'progress_text',
-    scope: 'reply',
-    label: '进度按钮文案',
-    type: 'text',
-    placeholder: '查看进度',
-    help: '回执卡右下角的按钮。留空则不显示这颗按钮（接口没有进度可查时该留空）。',
-  },
-  {
-    key: 'progress_query',
-    scope: 'reply',
-    label: '点进度按钮时发什么',
-    type: 'text',
-    placeholder: '帮我查一下刚才那单的进度',
-    help: '用户点按钮后实际发给助手的话。留空用默认问法。',
-  },
+  // ⚠️ 这里原先还有 `progress_text` / `progress_query` 两项，用来配回执卡右下角
+  // 那颗「查看进度」按钮。2026-11-26 连同按钮一起删除 —— 详见
+  // `index.tsx::GenericToolSubmitResultCard` 里的注释。简单说：那颗按钮只是
+  // `sendText('帮我查一下刚才那单的进度')`，而模型手上没有这张回执的上下文
+  // （单号只在卡片里、也没有查单工具），点了只能回「请提供单号」或者编一段
+  // 进度。**留着参数项比留着按钮更糟**：管理员改了完全没效果。
 ];
 
 /** 默认值集中在这里 —— 组件里不要散落同义字面量。 */
@@ -97,7 +87,4 @@ export const GENERIC_TOOL_SUBMIT_DEFAULTS = {
   receipt_subtitle: '',
   receipt_no_field: '',
   receipt_no_label: '',
-  /** 空 = 不显示进度按钮。默认显示（多数提交场景都想知道后续）。 */
-  progress_text: '查看进度',
-  progress_query: '帮我查一下刚才那单的进度',
 } as const;

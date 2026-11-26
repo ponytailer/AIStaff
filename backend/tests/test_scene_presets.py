@@ -138,32 +138,38 @@ def test_tool_submit_preset_covers_every_copy_param():
 
     ## 为什么逐项钉，而不是「有 params 就行」
 
-    这些键分两类，两类漏了都会坏，但坏法不同：
-
-    - **`receipt_title` / `receipt_subtitle` / `receipt_no_label`**：
-      「留空 = 吃兜底」。漏了表现为「超管在预设页改不到」，界面上没有那个框。
-    - **`progress_text`**：「显式留空 = 隐藏按钮」。它是**唯一**一个
-      「空串有意义」的键。漏了的话前端 `undefined` 会走「显示默认按钮」，
-      而超管想关掉它时无处可关。
+    这些键都是「留空 = 吃兜底」，漏了表现为「超管在预设页改不到」，界面上
+    没有那个框。
 
     期望值取自前端 `generic.tool_submit/params.ts` 的
     `GENERIC_TOOL_SUBMIT_DEFAULTS`。两边不一致的后果是「预设页显示的默认值」
     与「卡片实际兜底句」不同 —— 超管看到一串字，用户看到另一串。
+
+    ## `progress_text` / `progress_query` 为什么**不许**再出现在这里
+
+    2026-11-26 删掉了回执卡右下角那颗「查看进度」按钮（点了没用：它只是
+    `sendText` 一句话，模型手上没有这张回执的上下文）。前端渲染代码一并删除，
+    所以预设里**必须**同步删掉这两项 —— 留着的话超管在预设页仍能看到两个
+    输入框，填了完全没效果，正是「同一个东西两处行为不一致」。
     """
+
     params = builtin_preset("generic.tool_submit")["preset_json"]["ui_config"]["params"]
     expected = {
         "receipt_title": "已提交",
         "receipt_subtitle": "",
         "receipt_no_field": "",
         "receipt_no_label": "",
-        "progress_text": "查看进度",
-        "progress_query": "帮我查一下刚才那单的进度",
     }
     for key, want in expected.items():
         assert key in params, f"预设缺 {key}：超管在预设页看不到这一项"
         assert params[key] == want, (
             f"{key} 的预设值与前端 GENERIC_TOOL_SUBMIT_DEFAULTS 不一致："
             f"预设 {params[key]!r} vs 前端 {want!r}"
+        )
+    for gone in ("progress_text", "progress_query"):
+        assert gone not in params, (
+            f"预设里还有 {gone}：那颗「查看进度」按钮已经删了，"
+            "留着这一项等于给超管一个填了不生效的输入框"
         )
 
 

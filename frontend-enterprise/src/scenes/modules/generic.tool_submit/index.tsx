@@ -1,6 +1,5 @@
 import { defineSceneModule } from '../../define';
 import { SceneEmptyCard } from '../../shared/SceneEmptyCard';
-import { SCENE_SECONDARY_BUTTON_CLASS } from '../../shared/buttons';
 import { fieldText, resultHits, resultTotal } from '../../shared/rowData';
 import type { SceneBlockProps } from '../../types';
 import { GENERIC_TOOL_SUBMIT_DEFAULTS, genericToolSubmitParams } from './params';
@@ -180,8 +179,6 @@ function orderedEntries(values: Record<string, unknown>): [string, unknown][] {
 export function GenericToolSubmitResultCard({
   block,
   params,
-  sendText,
-  disabled = false,
 }: SceneBlockProps) {
   const data = block.data ?? {};
   const hits = resultHits(data, '');
@@ -259,45 +256,33 @@ export function GenericToolSubmitResultCard({
             ))}
           </div>
         )}
-        {/* 反馈出口：提交类场景最常见的追问是「到哪一步了」。
-            走 sendText 起新一轮（PRD §5.3 铁律：交互不改本地状态）。
+        {/*
+          这里原本有一颗「查看进度」按钮（`progress_text` / `progress_query` 可配）。
+          2026-11-26 移除，用户原话：「移除查看进度的按钮，因为点了也没啥实际的
+          作用。」
 
-            按钮文案可配（`progress_text`）：有的业务叫「查看进度」，
-            有的叫「查运单」「催一下」。**显式留空才隐藏**这颗按钮 ——
-            有些接口没有进度可查，摆一颗点了没用的按钮更糟。
-            点下去发给模型的那句话也可配（`progress_query`）。 */}
-        <div className="mt-[9px] flex items-center gap-[7px]">
-          <div className="ml-auto flex gap-[7px]">
-            {(() => {
-              // 三态：没配（undefined）→ 用默认；配空串 → 隐藏；配了 → 用配的。
-              //
-              // 必须区分「没配」和「配空」：前者是「用户没动过」，应该显示默认按钮；
-              // 后者是「用户主动清空」，意思是「我不要这颗按钮」。
-              // 都用 `?? ''` 合并会让用户永远删不掉它。
-              const raw = params?.progress_text;
-              const resolve = (): string | null => {
-                if (raw === undefined) return GENERIC_TOOL_SUBMIT_DEFAULTS.progress_text;
-                const text = typeof raw === 'string' ? raw.trim() : '';
-                return text || null;
-              };
-              const label = resolve();
-              if (!label) return null;
-              const query =
-                paramText(params, 'progress_query', '') ||
-                GENERIC_TOOL_SUBMIT_DEFAULTS.progress_query;
-              return (
-                <button
-                  type="button"
-                  className={SCENE_SECONDARY_BUTTON_CLASS}
-                  disabled={disabled}
-                  onClick={() => sendText(query)}
-                >
-                  {label}
-                </button>
-              );
-            })()}
-          </div>
-        </div>
+          ## 为什么是删掉，而不是把默认值改成空串
+
+          那颗按钮做的事是 `sendText('帮我查一下刚才那单的进度')` —— 起一轮**普通
+          对话**，让模型自己去理解「刚才那单」。但模型手上没有这张回执的上下文：
+          接口返回的 `order_no` 只在卡片里，不在会话槽位里，也没有对应的查单工具。
+          于是它只能回一句「请提供单号」或者编一段进度。**点了确实没有作用**，
+          而且比没有按钮更糟 —— 用户以为系统能查，试完才发现是空的。
+
+          真要支持查进度，得有「按单号查」的工具接口（`tool_api_json` 配第二个
+          工具），那是另一个功能，不是一颗按钮。在那之前，摆一颗假装能查的按钮
+          是在骗用户。
+
+          ## 为什么不保留成「可配置但默认关闭」
+
+          留着 `progress_text` / `progress_query` 两个参数项，定义器里就会多出
+          两个输入框，管理员改了**没有任何效果**（渲染它的代码没了）—— 正是
+          用户反复强调的「同一个东西出现在不同地方、行为却不一样」。所以两个
+          参数项一并删除，`GENERIC_TOOL_SUBMIT_DEFAULTS` 里也不留尾巴。
+
+          `sendText` 仍是本组件的入参（卡内的兜底路径会用到），不要因为它
+          在这里不再被引用就当成死参数删掉。
+        */}
       </div>
     </div>
   );

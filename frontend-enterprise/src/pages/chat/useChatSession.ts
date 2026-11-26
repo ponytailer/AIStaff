@@ -4020,6 +4020,28 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
   //
   // 提交文本是「人数：4；天数：5；预算：3000」，没有一个触发关键词。不指定
   // 场景后端必然落回普通对话 —— 用户填的表白填了。
+  // ## 正在跑一轮时：**入队**，不是弹个红条让用户等
+  //
+  // 原先这里是 `notify.warning('当前任务仍在执行，请稍后再提交'); return;` ——
+  // 用户点了「开始匹配」，表单填得好好的、值全对，只因为上一轮还在收尾就被
+  // 拒了，而且**没有任何东西告诉他什么时候能再点**。用户报的原话就是
+  // 「点击开始匹配报错」，附一张黄色警告条截图。
+  //
+  // 对照 `send()`（打字发送）早就做对了：同一个条件下它走
+  // `enqueuePreparedTurn(prepared)` —— 进队列、提示「已加入发送队列」、这一轮
+  // 结束后自动执行。两条路径对同一件事给出两种反应，就是「同一个东西在不同
+  // 地方行为不一样」的典型。
+  //
+  // ## 判定条件也必须与 `send()` 一致
+  //
+  // 原先这里只看 `stream.loading || currentSessionRunning` 两项，比 `send()`
+  // 少了两项：
+  //   - `sessionReportsRunning`：sessions 列表里该会话还是 running/executing
+  //     （后端状态，前端 ref 里可能已经是 false）；
+  //   - `hasQueuedTurnForConversation`：这个会话里已经有一条在排队。
+  //
+  // 少了后一项的后果更隐蔽：用户在表单上连点两次，两条提交都直接执行，
+  // 同一份槽位被提交两遍（接口被调两次）。
   const submitSlotForm = useCallback(async (
     form: A2UIForm,
     values: Record<string, unknown>,
@@ -4031,11 +4053,6 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
     const sessionAgentId = effectiveAgentId;
     if (!sessionAgentId) {
       notify.warning('该任务没有绑定数字员工，请新建任务后再发送');
-      return;
-    }
-    const stream = getStreamSlot(currentConversationId);
-    if (stream.loading || currentSessionRunning) {
-      notify.warning('当前任务仍在执行，请稍后再提交');
       return;
     }
     const prepared: PreparedChatTurn = {
@@ -4051,15 +4068,35 @@ export function useChatSession(options: UseChatSessionOptions = {}) {
       slotSubmission: values,
       forcedSceneId: forcedSceneId || undefined,
     };
+    const stream = getStreamSlot(currentConversationId);
+    const hasQueuedTurnForConversation = queuedTurnsRef.current.some(
+      (item) => item.conversationId === currentConversationId,
+    );
+    // 与 `send()` 同源：从 sessions 列表里找当前会话，看后端报的状态。
+    // 不能只看本地 ref —— `stream.loading` 在轮次收尾的那几百毫秒里可能已经
+    // 是 false，而后端还没把 session 置回 active，此时提交会与上一轮撞车。
+    const activeSessionRow = currentConversationId
+      ? sessions.find((item) => item.id === currentConversationId) || null
+      : null;
+    const sessionReportsRunning = Boolean(
+      activeSessionRow
+      && (activeSessionRow.status === 'running' || activeSessionRow.status === 'executing'),
+    );
+    if (stream.loading || currentSessionRunning || sessionReportsRunning || hasQueuedTurnForConversation) {
+      enqueuePreparedTurn(prepared);
+      return;
+    }
     await executePreparedTurn(prepared);
   }, [
     activeConversationId,
     currentSessionRunning,
     effectiveAgentId,
+    enqueuePreparedTurn,
     ensureModelAvailable,
     executePreparedTurn,
     getStreamSlot,
     selectedModelConfig?.id,
+    sessions,
   ]);
 
   const drainQueuedTurns = useCallback(() => {

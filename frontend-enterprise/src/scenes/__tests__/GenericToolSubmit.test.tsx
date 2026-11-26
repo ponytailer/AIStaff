@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import SceneBlockList from '../SceneBlockList';
@@ -202,22 +201,44 @@ describe('generic.tool_submit 回执卡', () => {
     expect(screen.queryByText(/已受理，客房部会在/)).toBeNull();
   });
 
-  it('「查看进度」走 sendText 起新一轮，不直接改本地状态（PRD §5.3）', async () => {
+  it('没有「查看进度」按钮（2026-11-26 移除：点了没有实际作用）', async () => {
+    /*
+      这颗按钮原先做的是 `sendText('帮我查一下刚才那单的进度')` —— 起一轮普通
+      对话，让模型自己理解「刚才那单」。但模型手上没有这张回执的上下文：单号
+      只在卡片里，不在会话槽位，也没有对应的查单工具。于是它只能回「请提供
+      单号」或者编一段进度。
+
+      用户原话：「移除查看进度的按钮，因为点了也没啥实际的作用。」
+
+      这条断言锁住「别顺手加回来」—— 真要加，得先有「按单号查」的工具接口。
+      `onSendText` 仍然传：它若被这颗按钮偷偷调用，`expect` 会 catch 到。
+    */
     const onSend = vi.fn();
     render(<SceneBlockList blocks={[receiptBlock()]} onSendText={onSend} />);
+    await screen.findByText('RD20261126BB6');
 
-    await userEvent.click(await screen.findByRole('button', { name: '查看进度' }));
-    expect(onSend).toHaveBeenCalledWith('帮我查一下刚才那单的进度');
+    expect(screen.queryByRole('button', { name: /进度/ })).toBeNull();
+    // 配置里塞旧的 `progress_text` 也不该复活它 —— 参数项已删除，
+    // 残留数据（老场景的 ui_config.params）不能把它带回来。
+    expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('disabled 时按钮不可点（分享页 / 历史回看）', async () => {
-    const onSend = vi.fn();
-    render(<SceneBlockList blocks={[receiptBlock()]} onSendText={onSend} disabled />);
+  it('老的 progress_text 配置不会让按钮复活（存量数据兜底）', async () => {
+    /*
+      已有场景的 `ui_config.params` 里可能还留着 `progress_text`。渲染代码
+      删了，所以它应该是**惰性数据**：既不渲染按钮，也不报错。
+      若将来有人「为了兼容」把它读回来，这条会红。
+    */
+    render(
+      <SceneBlockList
+        blocks={[receiptBlock()]}
+        params={{ progress_text: '查看进度', progress_query: '查一下' }}
+      />,
+    );
+    await screen.findByText('RD20261126BB6');
 
-    const button = await screen.findByRole('button', { name: '查看进度' });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
-    await userEvent.click(button);
-    expect(onSend).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: '查看进度' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '查运单' })).toBeNull();
   });
 
   it('没有「再来一单」这类按钮（提交类场景的终态是「办完了」）', async () => {
@@ -343,41 +364,6 @@ describe('generic.tool_submit 话术全部可配（样式固定、话术开放�
     expect(await screen.findByText('已处理 1 项')).toBeTruthy();
     // 数量仍然作为普通字段显示
     expect(screen.getByText('数量')).toBeTruthy();
-  });
-
-  it('进度按钮文案可改（不同业务叫「查运单」「催一下」）', async () => {
-    render(<SceneBlockList blocks={[receiptBlock()]} params={{ progress_text: '查运单' }} />);
-
-    expect(await screen.findByRole('button', { name: '查运单' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: '查看进度' })).toBeNull();
-  });
-
-  it('进度按钮文案**显式配空**时不显示（「没配」与「配空」语义不同）', async () => {
-    /*
-      三态里最容易写错的一处：`progress_text` 的 `undefined` 是「用户没动过」
-      → 显示默认按钮；空串是「用户主动清空」→ 我不要这颗按钮。
-
-      都用 `?? ''` 合并会让用户永远删不掉它 —— 配了空串仍然冒出「查看进度」。
-      有些接口没有进度可查，摆一颗点了没用的按钮更糟。
-    */
-    render(<SceneBlockList blocks={[receiptBlock()]} params={{ progress_text: '' }} />);
-    await screen.findByText('RD20261126BB6');
-
-    expect(screen.queryByRole('button', { name: '查看进度' })).toBeNull();
-  });
-
-  it('点进度按钮发的话也可配（progress_query）', async () => {
-    const onSend = vi.fn();
-    render(
-      <SceneBlockList
-        blocks={[receiptBlock()]}
-        params={{ progress_query: '催一下 8306 那单' }}
-        onSendText={onSend}
-      />,
-    );
-
-    await userEvent.click(await screen.findByRole('button', { name: '查看进度' }));
-    expect(onSend).toHaveBeenCalledWith('催一下 8306 那单');
   });
 });
 
