@@ -1711,11 +1711,22 @@ def _run_tool_submit(
         # `ToolExecutor.execute` 内部已经把 httpx 异常转成 `ToolResult`，
         # 走到这里的只可能是「连 ToolExecutor 都没构造起来」这类真 bug。
         # 显式写日志而不是静默返回 —— 否则线上只有一句「提交失败」无从排查。
+        #
+        # 与下面的 ``tool_result.success == False`` 分支同构：只发空卡，
+        # 正文给短句（非 UI 渠道靠正文，见 ``empty_summary_for`` 的说明）。
         return SceneRunResult(
             blocks=[
                 SceneUiBlock(
-                    kind="text",
-                    data={"content": "提交时出了点问题，请稍后再试或联系工作人员。"},
+                    kind="empty",
+                    data={
+                        # 同上：不给 ``title`` 会沿用「没有找到符合条件的结果」。
+                        "title": "提交没有成功",
+                        "reason": (
+                            "这不是填写内容的问题。稍后再试一次，持续失败请联系工作人员。"
+                        ),
+                        "suggestions": [],
+                        "on_empty": "none",
+                    },
                 )
             ],
             text="提交时出了点问题，请稍后再试或联系工作人员。",
@@ -1728,6 +1739,9 @@ def _run_tool_submit(
                 }
             ],
             status="error",
+            # 场景是好的、表也填对了，只是工具层炸了。这句话必须原样送达，
+            # 不能降级给模型自由发挥（详见 ``SceneRunResult.degradable``）。
+            degradable=False,
         )
 
     if not tool_result.success:
@@ -1740,20 +1754,54 @@ def _run_tool_submit(
         # - 无权限（`NOT_ALLOWED`）：**重试和改填写内容都没用**，要管理员去
         #   员工档案把这个工具勾上。归到第三类之前它一直落在 else 分支，
         #   于是用户看到「请检查填写内容后重试」，反复改房间号也永远提交不成功。
+        #
+        # ## 为什么每类拆成「卡片标题 + 卡片 reason + 正文」
+        #
+        # 与 ``table_match`` 的空结果同源（见 ``empty_summary_for`` 的注释）：
+        # 前端渲染顺序是「正文 → blocks」，同一句话两处都发就会接连出现两遍。
+        # 但正文又不能留空 —— ``result.text`` 就是 ``reply_fragment``，企微 /
+        # 微信 / 短信只吃 text、收不到 blocks，留空等于这些渠道彻底丢失原因。
+        #
+        # ## 为什么必须显式给 ``title``
+        #
+        # ``SceneEmptyCard`` 的兜底标题是「没有找到符合条件的结果」—— 那是给
+        # ``table_match``（筛不出行）写的。提交失败时沿用它会变成一张写着
+        # 「没有找到符合条件的结果」的卡，下面却是「提交超时了」：标题在说搜索，
+        # 正文在说提交，用户读不懂到底发生了什么。标题必须由知道语义的一方给。
+        #
+        # reason 里**不再重复标题那句话**，只说「为什么 + 下一步怎么办」。
         if code in {"TIMEOUT", "EXECUTION_ERROR"}:
-            content = "提交超时了，请再试一次。"
+            title = "提交没有成功"
+            content = "可能是接口一时没响应。再点一次提交试试，反复失败请联系工作人员。"
+            summary = "提交超时了，请再试一次。"
         elif code in {"HTTP_ERROR"}:
-            content = "接口暂时不可用，请稍后再试或联系工作人员。"
+            title = "接口暂时不可用"
+            content = "这不是填写内容的问题。稍后再试一次，或者联系工作人员处理。"
+            summary = "接口暂时不可用，请稍后再试或联系工作人员。"
         elif code == "NOT_ALLOWED":
-            content = "这个助手还没有开通提交权限，请联系管理员在员工档案里勾选对应工具。"
+            title = "还没有提交权限"
+            content = (
+                "请联系管理员，在员工档案里勾选这个场景要用的工具，"
+                "开通后就能提交了。"
+            )
+            summary = "这个助手还没有开通提交权限，请联系管理员在员工档案里勾选对应工具。"
         else:
-            content = "这条信息没能提交成功，请检查填写内容后重试。"
+            title = "提交没有成功"
+            content = "请检查填写内容后重试，还是不行就联系工作人员。"
+            summary = "这条信息没能提交成功，请检查填写内容后重试。"
         return SceneRunResult(
             blocks=[
-                SceneUiBlock(kind="text", data={"content": content}),
+                # **只发空卡，不发 text 块**。以前这里是 `[text, empty]` 两块，
+                # 因为整段结果被 `_run_scene_frame` 丢弃了，重复没人看得见。
+                # 现在它原样送达（`degradable=False`），text 块的 `content` 会和
+                # 正文、卡片的 `reason` 三处同文 —— 一句话说三遍。
+                #
+                # 空卡的 `reason` 已经承担了这句话（黄色卡片、贴在操作区旁边）。
                 SceneUiBlock(
                     kind="empty",
                     data={
+                        # 覆盖 `SceneEmptyCard` 的「没有找到符合条件的结果」。
+                        "title": title,
                         "reason": content,
                         # 失败态不给「放宽条件」那类建议：这里的失败与
                         # table_match 的「筛选太窄」完全不同，是外部接口问题。
@@ -1762,7 +1810,7 @@ def _run_tool_submit(
                     },
                 ),
             ],
-            text=content,
+            text=summary,
             trace=[
                 {
                     "key": "tool_submit",
@@ -1772,6 +1820,9 @@ def _run_tool_submit(
                 }
             ],
             status="error",
+            # 同上：超时 / 无权限 / 接口 5xx，用户拿到的是这句话术的场景化版本。
+            # 降级会让模型编一个「已记录」的假回执 —— 用户就不重试了。
+            degradable=False,
         )
 
     # ④ 成功 → 结构化回执 + 一句人话

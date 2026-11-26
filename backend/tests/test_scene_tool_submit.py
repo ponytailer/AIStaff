@@ -412,6 +412,146 @@ def test_tool_not_found_does_not_crash(db, monkeypatch):
 
 
 # ============================================================
+# 第 3.5 层：业务失败**不许被降级**（线上假回执故障）
+# ============================================================
+
+
+def test_business_failure_is_not_degradable(db, monkeypatch):
+    """工具超时 / 无权限 / 5xx 的结果必须标 `degradable=False`。
+
+    ## 锁的是一个线上故障：用户拿到了**假成功回执**
+
+    分享页填表提交时，接口 `Connection refused`（demo 环境那个接口没起），
+    通道正确产出了「提交超时了，请再试一次」。但 `_run_scene_frame` 当时按
+    `status == "error"` 一刀切降级回普通对话，把这句话**整段丢掉**，改让模型
+    自由发挥 —— 模型编出了：
+
+        「已记录，会尽快送到您的房间，请留意。」
+
+    接口根本没通，用户看完就不重试了。**假成功比报错严重得多**。
+
+    所以 `degradable` 存在的唯一理由就是把两种 ``error`` 分开：
+      - 「这条场景不该被进入」（场景已删 / 类型不支持）→ 降级，让用户继续问别的；
+      - 「场景对、表填对了、业务失败」→ **不降级**，那句话原样送达。
+    """
+
+    def _timeout(request: httpx.Request) -> httpx.Response:
+        raise httpx.TimeoutException("boom", request=request)
+
+    _patch_http(monkeypatch, _timeout)
+    scene = _make_scene(db)
+
+    result = _run(db, scene, {"room_no": "8306", "item": "矿泉水"})
+
+    assert result.status == "error"
+    assert result.degradable is False, (
+        "业务失败被标成可降级，聊天层会丢掉这句话去让模型自由发挥 —— "
+        "用户会拿到一句编造的假回执"
+    )
+
+
+def test_scene_not_found_is_degradable(db):
+    """场景不存在 → 必须可降级。
+
+    这是另一种 ``error``：用户问的这句话本来就不该进这条场景（场景被删了），
+    给他看「这个场景已不存在」不如落回普通对话，让他能继续问别的。
+    """
+
+    result = run_scene_instance(
+        db,
+        tenant_id=TENANT,
+        scene_id="scene_不存在",
+        slots={},
+        message="客房送物",
+    )
+
+    assert result.status == "error"
+    assert result.degradable is True
+
+
+def test_failure_sends_no_duplicate_text_block(db, monkeypatch):
+    """失败时只发**一个** `empty` 块，不再额外发 `text` 块。
+
+    前端渲染顺序是「正文 → blocks」：`result.text` 就是消息正文，空卡的
+    `reason` 又是同一件事。原先还有第三个 `text` 块装着一模一样的话 ——
+    只因为整段结果被丢弃过，这个重复一直没被看见。现在它原样送达，
+    三处同文会连着出现三遍。与 ``table_match`` 空结果同源（见
+    ``empty_summary_for`` 的注释）：正文与卡片各说一半，不许重复。
+    """
+
+    def _server_error(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"error": "maintenance"})
+
+    _patch_http(monkeypatch, _server_error)
+    scene = _make_scene(db)
+
+    result = _run(db, scene, {"room_no": "8306", "item": "矿泉水"})
+
+    assert [b.kind for b in result.blocks] == ["empty"]
+    empty = result.blocks[0]
+    # 正文是短句，卡片是详细版 —— 两者不能逐字相同，否则又是同一句话说两遍
+    assert result.text and result.text != empty.data["reason"]
+    # 但正文必须独立可读：非 UI 渠道（企微/微信/短信）收不到 blocks
+    assert "接口" in result.text
+
+
+def test_failure_card_title_matches_submit_semantics(db, monkeypatch):
+    """失败卡的 `title` 必须是提交语义，不能沿用「没有找到符合条件的结果」。
+
+    ## 锁的是修完降级后暴露出来的语义错配
+
+    `SceneEmptyCard` 的兜底标题是「没有找到符合条件的结果」—— 那是给
+    `table_match`（筛不出行）写的。提交失败时若不给 `title`，界面会变成：
+
+        没有找到符合条件的结果          ← 标题在说「搜索」
+        提交超时了，可能是接口一时没响应…  ← 正文在说「提交」
+
+    用户读不懂到底发生了什么。以前看不出来，是因为整段结果被降级丢弃了。
+    标题语义必须由知道「这次是提交不是搜索」的一方给。
+    """
+
+    def _timeout(request: httpx.Request) -> httpx.Response:
+        raise httpx.TimeoutException("boom", request=request)
+
+    _patch_http(monkeypatch, _timeout)
+    scene = _make_scene(db)
+
+    result = _run(db, scene, {"room_no": "8306", "item": "矿泉水"})
+    empty = next(b for b in result.blocks if b.kind == "empty")
+
+    title = empty.data["title"]
+    assert title, "失败卡没给 title，前端会兜底成「没有找到符合条件的结果」"
+    assert "没有找到" not in title
+    assert "提交" in title
+    # reason 里不许再重复标题那句话（否则又是同一句话说两遍）
+    assert title not in empty.data["reason"]
+
+
+def test_not_allowed_failure_points_at_admin_not_at_the_user(db, monkeypatch):
+    """无权限时，文案必须指向管理员，而不是让用户反复改填写内容。
+
+    `NOT_ALLOWED` 是员工没勾工具 —— 用户改一万次房间号都不会成功。
+    归到这个分支之前它落在 else，用户看到「请检查填写内容后重试」。
+    """
+    _patch_http(monkeypatch, _ok_response)
+    scene = _make_scene(db)
+
+    # 员工存在但一个工具都没绑：`ToolExecutor` 会拿 `visible_tool_rows` 比对，
+    # 未绑 → NOT_ALLOWED。这是那个权限漏洞的回归护栏。
+    agent = make_agent("agent_without_any_tool", name="无工具员工")
+    db.add(agent)
+    db.commit()
+    result = _run(db, scene, {"room_no": "8306", "item": "矿泉水"}, agent_id=agent.id)
+    empty = next(b for b in result.blocks if b.kind == "empty")
+
+    assert result.status == "error"
+    assert "管理员" in empty.data["reason"]
+    assert "检查填写内容" not in empty.data["reason"]
+    # 无权限是可预期的配置状态，不是「提交出问题」——标题要说清是权限
+    assert "权限" in empty.data["title"]
+
+
+# ============================================================
 # 第 4 层：参数映射与文案拼装的纯函数
 # ============================================================
 
