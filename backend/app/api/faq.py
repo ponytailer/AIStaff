@@ -13,10 +13,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -37,10 +39,14 @@ from app.core.plan.planner_fastpath import (
     is_bot_handoff_script,
     is_handoff_trigger_only,
 )
-from app.faq.service import FaqService, suggest_keywords
+from app.faq.import_jobs import create_job, get_job, run_import_job
+from app.faq.import_service import MAX_FILE_BYTES, MAX_KEYWORDS, MIN_KEYWORDS
+from app.faq.service import FaqService, normalize_text, suggest_keywords
 from app.security.auth import get_current_user
 from app.security.permissions import ensure_agent_scope_manager, ensure_agent_scope_viewer
 from app.security.tenant import ensure_tenant
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/enterprise", tags=["enterprise:faq"])
 
@@ -94,6 +100,26 @@ class FaqUpdateRequest(BaseModel):
     answer_markdown: Optional[str] = None
     keywords: Optional[list[str]] = None
     status: Optional[Literal["active", "disabled"]] = None
+
+
+class FaqImportItem(BaseModel):
+    """用户在预览弹窗里勾选/改过的一条候选。"""
+
+    question: str = Field(max_length=500)
+    answer: str = Field(default="", max_length=20000)
+    keywords: list[str] = Field(default_factory=list)
+
+
+class FaqImportCommitRequest(BaseModel):
+    tenant_id: str
+    items: list[FaqImportItem] = Field(default_factory=list)
+
+
+class FaqImportCommitResult(BaseModel):
+    created: int
+    skipped: int
+    items: list[AgentFaqItemRead]
+    errors: list[str] = Field(default_factory=list)
 
 
 def _item_read(row: Any) -> AgentFaqItemRead:
@@ -420,3 +446,173 @@ def faq_overview_count(
         "faq_active": int(active or 0),
         "unanswered": int(unanswered or 0),
     }
+
+
+# --------------------------------------------------------------------------
+# 批量导入（Excel）
+#
+# 两步：`import:parse` 上传表格 → 后台跑「模型归并 QA + 生成关键词」→ 前端轮询
+# 拿预览；用户勾选/改完后再调 `import:items` 落库。
+#
+# 为什么解析要异步：160 行分成 4 批发给模型，慢模型单批十几秒；同步跑会让
+# 反代先超时，用户看到「上传失败」而任务其实成功了。轮询能显示真实阶段。
+# --------------------------------------------------------------------------
+
+
+_IMPORT_EXTENSIONS = (".xlsx", ".xlsm")
+_IMPORT_STAGE_TEXT = {
+    "queued": "排队中",
+    "reading": "读取表格",
+    "matching": "模型匹配问答对",
+    "done": "解析完成",
+    "failed": "解析失败",
+}
+
+
+@router.post("/agents/{agent_id}/faq/import:parse")
+def parse_faq_import(
+    agent_id: str,
+    tenant_id: str = Query(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+) -> dict[str, Any]:
+    """上传 Excel 并启动解析任务，立即返回 job_id（前端轮询 import:jobs/{id}）。
+
+    ``tenant_id`` 走 query 而不是表单字段：前端统一用 ``uploadWithProgress``
+    （XHR + FormData 只塞文件）上传，其余 FAQ 接口也都是 query 传租户。
+    写成 Form 会稳定 422。
+    """
+
+    ensure_tenant(db, tenant_id)
+    ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
+
+    filename = file.filename or "faq.xlsx"
+    lower = filename.lower()
+    if not lower.endswith(_IMPORT_EXTENSIONS):
+        raise HTTPException(
+            status_code=400,
+            detail="目前只支持 .xlsx / .xlsm 表格（老的 .xls 请先用 Excel 另存为 .xlsx）",
+        )
+    raw = file.file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="上传的文件为空")
+    if len(raw) > MAX_FILE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"文件超过 {MAX_FILE_BYTES // (1024 * 1024)}MB，请拆分后再导入",
+        )
+
+    job = create_job(
+        tenant_id=tenant_id,
+        user_id=current_user.id,
+        agent_id=agent_id,
+        filename=filename,
+        file_bytes=raw,
+    )
+    try:
+        from app.async_jobs import enqueue_async_job
+
+        enqueue_async_job(
+            "faq.import_parse",
+            run_import_job,
+            job.id,
+            metadata={"tenant_id": tenant_id, "agent_id": agent_id},
+        )
+    except Exception as exc:  # noqa: BLE001 - 队列不可用时同步跑完，别让功能直接挂
+        logger.warning("FAQ 导入任务入队失败，改为同步执行 job=%s", job.id, exc_info=True)
+        try:
+            run_import_job(job.id)
+        except Exception:  # noqa: BLE001
+            logger.exception("FAQ 导入同步执行失败 job=%s", job.id)
+            raise HTTPException(status_code=500, detail="解析任务启动失败，请稍后重试") from exc
+
+    return {"job_id": job.id, "filename": filename, "status": job.status}
+
+
+@router.get("/agents/{agent_id}/faq/import:jobs/{job_id}")
+def read_faq_import_job(
+    agent_id: str,
+    job_id: str,
+    tenant_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_tenant(db, tenant_id)
+    ensure_agent_scope_manager(db, tenant_id, agent_id, current_user)
+    job = get_job(job_id, tenant_id=tenant_id, user_id=current_user.id)
+    if job is None or job.agent_id != agent_id:
+        raise HTTPException(status_code=404, detail="解析任务不存在或已过期，请重新上传")
+    payload = job.as_dict()
+    payload["stage_text"] = _IMPORT_STAGE_TEXT.get(job.stage, job.stage)
+    return payload
+
+
+@router.post(
+    "/agents/{agent_id}/faq/import:items", response_model=FaqImportCommitResult
+)
+def commit_faq_import(
+    agent_id: str,
+    request: FaqImportCommitRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+) -> FaqImportCommitResult:
+    """把预览里勾选的条目落库。
+
+    逐条校验（问题/答案非空、关键词 ≥1）；任何一条不合法就整批 422 —— 部分
+    成功最难排查：用户以为全存进去了，列表里却少几条。
+    """
+
+    ensure_tenant(db, request.tenant_id)
+    ensure_agent_scope_manager(db, request.tenant_id, agent_id, current_user)
+
+    if not request.items:
+        raise HTTPException(status_code=422, detail="没有选中任何条目")
+    if len(request.items) > 200:
+        raise HTTPException(status_code=422, detail="单次最多导入 200 条")
+
+    normalized: list[tuple[str, str, list[str]]] = []
+    for index, item in enumerate(request.items, start=1):
+        question = str(item.question or "").strip()
+        answer = str(item.answer or "").strip()
+        if not question:
+            raise HTTPException(status_code=422, detail=f"第 {index} 条缺少问题")
+        if not answer:
+            raise HTTPException(status_code=422, detail=f"第 {index} 条「{question[:20]}」缺少答案")
+        keywords = [str(k).strip() for k in item.keywords if str(k or "").strip()]
+        if len(keywords) < MIN_KEYWORDS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"第 {index} 条「{question[:20]}」至少需要 {MIN_KEYWORDS} 个触发关键词",
+            )
+        normalized.append((question, answer, keywords[:MAX_KEYWORDS]))
+
+    service = FaqService(db)
+    existing = {
+        normalize_text(row.question)
+        for row in service.list_items(request.tenant_id, agent_id)
+    }
+    to_create: list[tuple[str, str, list[str]]] = []
+    skipped = 0
+    for question, answer, keywords in normalized:
+        digest = normalize_text(question)
+        if not digest or digest in existing:
+            skipped += 1
+            continue
+        existing.add(digest)
+        to_create.append((question, answer, keywords))
+
+    if not to_create and skipped:
+        raise HTTPException(
+            status_code=409,
+            detail="选中的条目都已存在（问题完全相同），没有新增任何 FAQ",
+        )
+
+    rows = service.create_items(
+        request.tenant_id,
+        agent_id,
+        items=to_create,
+        created_by_user_id=current_user.id,
+    )
+    created = [_item_read(row) for row in rows]
+    return FaqImportCommitResult(created=len(created), skipped=skipped, items=created)

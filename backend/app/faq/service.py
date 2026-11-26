@@ -363,6 +363,47 @@ class FaqService:
         self.db.refresh(row)
         return row
 
+    def create_items(
+        self,
+        tenant_id: str,
+        agent_id: str,
+        *,
+        items: list[tuple[str, str, list[str]]],
+        created_by_user_id: str,
+        source: str = "import",
+    ) -> list[AgentFaqItem]:
+        """批量落库（一次 commit）。
+
+        批量导入是「用户勾了 30 条点保存」，逐条 commit 在远程 PG 上就是
+        30 次往返；这里统一 add + 一次 commit，失败则整批回滚。
+        """
+
+        now = utc_now()
+        rows: list[AgentFaqItem] = []
+        for question, answer, keywords in items:
+            rows.append(
+                AgentFaqItem(
+                    tenant_id=tenant_id,
+                    agent_id=agent_id,
+                    question=str(question or "").strip()[:500],
+                    answer_markdown=str(answer or ""),
+                    keywords_json=[
+                        str(k).strip() for k in (keywords or []) if str(k or "").strip()
+                    ],
+                    source=source,
+                    source_id=None,
+                    status="active",
+                    created_by_user_id=created_by_user_id,
+                    adopted_at=now,
+                )
+            )
+        for row in rows:
+            self.db.add(row)
+        self.db.commit()
+        for row in rows:
+            self.db.refresh(row)
+        return rows
+
     def update_item(
         self,
         row: AgentFaqItem,

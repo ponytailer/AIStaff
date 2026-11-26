@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { StatusBadge } from './scheduled-tasks/StatusBadge';
+import { FaqImportDialog } from './faq/FaqImportDialog';
 import type { AgentProfileRead } from '../types';
 
 interface FaqItem {
@@ -104,6 +105,7 @@ export default function FaqPage({
   const [confirmTarget, setConfirmTarget] = useState<CandidateRow | FaqItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [newKw, setNewKw] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
 
   const canManage = useMemo(() => {
     if (!currentUser) return false;
@@ -491,12 +493,20 @@ export default function FaqPage({
           <span className="text-[14px] leading-none">FAQ 库</span>
           <span className="text-[12px] text-[#9a9a9f]">命中规则：命中任意 1 个关键词即短路回答</span>
           {canManage && (
-            <button
-              onClick={openDrawerForNew}
-              className="ml-auto flex items-center gap-[5px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12.5px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
-            >
-              ＋ 手动新建
-            </button>
+            <div className="ml-auto flex items-center gap-[8px]">
+              <button
+                onClick={() => setImportOpen(true)}
+                className="flex items-center gap-[5px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12.5px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
+              >
+                批量导入
+              </button>
+              <button
+                onClick={openDrawerForNew}
+                className="flex items-center gap-[5px] rounded-[8px] border border-[rgba(24,24,26,0.14)] bg-white px-[10px] py-[5px] text-[12.5px] text-[#18181a] transition-colors hover:border-[rgba(24,24,26,0.3)]"
+              >
+                ＋ 手动新建
+              </button>
+            </div>
           )}
         </div>
         <DataTable
@@ -608,6 +618,15 @@ export default function FaqPage({
           </aside>
         </>
       )}
+
+      <FaqImportDialog
+        open={importOpen}
+        agentId={agentId}
+        onClose={() => setImportOpen(false)}
+        onSaved={() => {
+          void load();
+        }}
+      />
 
       <ConfirmDialog
         open={Boolean(confirmTarget)}
