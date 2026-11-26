@@ -28,8 +28,12 @@ export const genericTableMatchParams: SceneParamField[] = [
   {
     key: 'show_source_table',
     label: '显示来源表名',
+    // 与 `travel.itinerary` 同口径：默认关。单表场景里表名是内部文件名，
+    // 对用户没有价值；多表合并查时才有「这行来自哪张表」的意义。
+    // 两个模块的默认值必须一致 —— 否则同一份数据换个 module 渲染，
+    // 一个显示来源一个不显示，用户会以为数据来源不同。
     type: 'boolean',
-    default: true,
+    default: false,
   },
 ];
 
@@ -37,5 +41,5 @@ export const genericTableMatchParams: SceneParamField[] = [
 export const GENERIC_TABLE_MATCH_DEFAULTS = {
   primary_action_label: '选这个',
   secondary_action_label: '看详情',
-  show_source_table: true,
+  show_source_table: false,
 } as const;

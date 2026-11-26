@@ -27,6 +27,12 @@ from app.scene_modules.types import SceneRunResult, SceneUiBlock
 # 就报错，而不是等到某次场景触发才 500。
 from app.scenes.presets import effective_ui_config
 
+# 展示用数字格式化：去掉无意义的小数尾巴，`None` → 「—」。
+# 空结果文案里要把用户填的原始槽位值嵌进句子，直接用 f-string 会打出
+# 「没有 None 人的方案」或「4000.0 元」。复用 normalize 的同一份实现，
+# 保证「卡片里的 4000」和「试跑面板里的 4000」是同一个字符串。
+from app.scenes.normalize import format_number
+
 if TYPE_CHECKING:  # 只用于类型标注，运行期不 import（避免 api → runtime 的循环链）
     from app.db.models import Scene
 
@@ -321,41 +327,125 @@ def hit_payload(match_row: Any) -> dict[str, Any]:
     }
 
 
+def _visible_funnel(trace: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """空卡上要展示的漏斗：**截到第一层归零为止**。
+
+    没有行能穿过某一层时，后面的层只会继续 `0 → 0`。这些 0 不是信息，
+    是噪音 —— 用户会以为被连续拒绝了三次。
+
+    规则：
+      - 保留第 1 步（「读表 5」是基数，没有它后面的数字没有参照）；
+      - 逐层往下，**包含**第一个 `to == 0` 的层（它就是答案：卡在这一层）；
+      - 遇到归零层就停，后面的全丢掉。
+
+    例（本轮用户截图里的真实情况，3 人 / 4 天 / 4000 元）：
+
+        完整 5 步                        空卡上显示
+        ─────────────────────────────    ─────────────────
+        5 → 读表                          5 → 读表
+        5 → 人数对上   ← 归零             5 → 人数对上   ← 归零
+        0 → 天数对上                      （丢掉）
+        0 → 预算接近                      （丢掉）
+        0 → 最终给出                      （丢掉）
+
+    ⚠️ 这是**纯展示裁剪**，不参与任何计算。`detail.steps` 与
+    `SceneRun.trace_json` 仍然保存完整版 —— 排障时要看得到流程跑完了。
+    """
+    if not trace:
+        return []
+    visible: list[dict[str, Any]] = []
+    for index, step in enumerate(trace):
+        visible.append(step)
+        if index == 0:
+            continue  # 第一步永远保留（它是基数，哪怕表本来就是 0 行）
+        if int(step.get("to") or 0) == 0:
+            break  # 归零层已交代清楚，后面的 0 都是必然的
+    return visible
+
+
+def _as_number(value: Any) -> float | None:
+    """把槽位原始值转成数字，转不出来就 `None`。
+
+    只用于**文案拼装**（`format_number(_as_number(...))`）。为什么不直接
+    `format_number(slots.get("people"))`：表单提交的是数字，但历史数据里
+    可能是字符串（``"4"``），而 `format_number` 内部有
+    ``float(value) == int(value)`` —— 传字符串会抛 TypeError，把「渲染空结果卡」
+    变成 500。这个函数把脏值收敛成 `None`，`format_number` 再显示成「—」，
+    最坏情况是文案里出现一个破折号，不会整轮消息失败。
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number == number else None  # 排除 NaN
+
+
 def empty_reason_for(result: Any, slots: dict[str, Any]) -> str:
-    """空结果必须量化说明差在哪，不能只说「没找到」。
+    """空结果卡里的完整解释（``data.reason``）。
 
-    用户刚填完表单，一句「没有符合条件的方案，换个条件试试」
-    等于把问题丢回给他。要告诉他到底卡在哪一层。
+    ## 文案要能被「没看过配置的用户」读懂
 
-    **这段文案逐字照抄自 ``api/scenes.py:_empty_reason``**——`SceneRunRead`
-    的 ``empty_reason`` 被前端试跑面板与 11 个后端用例同时读，措辞里有
-    断言依赖（``"99"`` / ``"人"`` / ``"天数"`` / ``"±"`` / ``"没有数据"``）。
+    旧版写的是一串内部术语：
+
+        表里没有 3 人的方案（5 行都在人数这层被排除）。
+
+    三个问题：① 「人数这层」是什么层，用户没见过；② 「被排除」像被系统拒了，
+    语气生硬；③ 用户真正想知道的是「那我怎么办」，全句一个出路都没给。
+
+    现在每句都写成「时间 + 原因 + 出路」：
+
+        表里这 5 个方案没有 3 人的，最少的是 2 人、最多 6 人。
+        → 换个接近的人数，或者看看下面最接近的几个。
+
+    **必须保留 `empty_summary_for` 的分层一致**：两处若漂移，就会出现
+    「正文说卡人数、卡片说卡天数」的矛盾。改这里要同步改那边。
+
+    ``slots`` 里的值是**用户填的原始值**（可能是 0），不是归一化后的数字 ——
+    所以这里统一走 ``format_number`` 兜一下，避免出现 ``None 人``。
     """
     if result.total == 0:
-        return "这张表里没有数据行，请先上传数据。"
+        return "这张表里还没有数据，先把方案表传上来我再帮你筛。"
     if result.unconvertible and result.unconvertible >= result.total:
-        return "表里的数值全都无法解析（可能是列映射错了或整列是文本），请检查数据表。"
+        # 这是数据侧故障，不是用户填错。要明确指出去修表，别让用户反复试条件。
+        return (
+            "表里的数字读不出来（可能是列映射错了，或者整列是文本）。"
+            "需要先在数据表里把人数、天数、预算指到正确的列。"
+        )
     if result.invalid_budget:
-        return "预算填的不是正数，无法计算偏差。填一个大于 0 的金额再试。"
+        return "预算要填大于 0 的金额。改好之后我再按预算帮你排一次。"
 
     norm_step = next((s for s in result.steps if s.key == "normalize"), None)
     people_step = next((s for s in result.steps if s.key == "people"), None)
     days_step = next((s for s in result.steps if s.key == "days"), None)
     score_step = next((s for s in result.steps if s.key == "score"), None)
 
+    people_text = format_number(_as_number(slots.get("people")))
+    days_text = format_number(_as_number(slots.get("days")))
+
     if people_step and people_step.to == 0 and people_step.from_ > 0:
-        return f"表里没有 {slots.get('people')} 人的方案（{people_step.from_} 行都在人数这层被排除）。"
+        return (
+            f"表里这 {people_step.from_} 个方案里没有 {people_text} 人的。"
+            "换个接近的人数，或者看看下面最接近的几个。"
+        )
     if days_step and days_step.to == 0 and days_step.from_ > 0:
-        tol = 1
-        return f"人数对上了，但表里没有 {(slots.get('days') or 0)}±{tol} 天的方案。"
+        # 容差从 detail 里读不出来，但**不能写死 ±1** —— 那会在管理员
+        # 把 days_tolerance 调成 2 之后变成假话。这里改为描述「前后都算过」，
+        # 具体天数由 detail 承担（展开可见）。
+        return (
+            f"人数对上了，但没有 {days_text} 天左右的方案"
+            f"（前后各放宽了一点也没找到）。"
+            "把天数改一下，或者看看下面最接近的几个。"
+        )
     if score_step and score_step.to == 0 and score_step.from_ > 0:
         return (
-            "人数天数都对上了，但这些方案的预算和你给的目标差距太大（超过闸门阈值），"
-            "已全部排除。可以放宽预算或看看下面的近似结果。"
+            "人数和天数都对上了，但预算差得太远，已经全部排除。"
+            "把预算调高一些，或者看看下面最接近的几个。"
         )
     if norm_step and norm_step.to == 0:
-        return "表里的数值无法解析，请检查数据表的数字列。"
-    return "按这组条件没有能对上的行。下面是差距最小的一批，供你参考。"
+        return "表里的数字读不出来，需要检查数据表的列映射。"
+    return "这组条件没对上。下面是最接近的几个，可以拿来参考。"
 
 
 def empty_summary_for(result: Any, slots: dict[str, Any]) -> str:
@@ -375,12 +465,15 @@ def empty_summary_for(result: Any, slots: dict[str, Any]) -> str:
     「先看卡片」这种废话 —— 那样非 UI 渠道的用户就永远不知道为什么没匹配上。
 
     所以这里的分工是「各说一半，都不许省略关键信息」：
-      - 卡片内 ``data.reason``：完整的量化原因，紧挨着 ``steps`` 漏斗，
-        「5 行都在人数这层被排除」与下面「5 → 人数硬约束」相互解释；
+      - 卡片内 ``data.reason``：完整的量化原因，紧挨着 ``steps`` 漏斗；
       - 正文（本函数）：一句更短的同义话，独立可读，非 UI 渠道靠它。
 
     分支判断与 :func:`empty_reason_for` **刻意保持一致**，两处若漂移，
     就会出现「正文说卡在天数、卡片说卡在人数」的矛盾。
+
+    ⚠️ 正文里**不许出现 `±1` 这类写死的容差**：容差是可配的
+    （`days_tolerance` / `people_tolerance`），写死之后管理员一改配置，
+    这句话就变成假话。要提容差就描述成「前后各放宽了一点」。
     """
     if result.total == 0:
         return "这张表还没有数据，先上传一份再试。"
@@ -394,15 +487,18 @@ def empty_summary_for(result: Any, slots: dict[str, Any]) -> str:
     days_step = next((s for s in result.steps if s.key == "days"), None)
     score_step = next((s for s in result.steps if s.key == "score"), None)
 
+    people_text = format_number(_as_number(slots.get("people")))
+    days_text = format_number(_as_number(slots.get("days")))
+
     if people_step and people_step.to == 0 and people_step.from_ > 0:
-        return f"按这组条件没找到，先卡在人数（{slots.get('people')} 人没有对应的方案）。"
+        return f"没找到 {people_text} 人的方案，表里的人数都对不上。"
     if days_step and days_step.to == 0 and days_step.from_ > 0:
-        return f"人数对上了，卡在天数（没有 {(slots.get('days') or 0)}±1 天的方案）。"
+        return f"人数对上了，但没有 {days_text} 天左右的方案。"
     if score_step and score_step.to == 0 and score_step.from_ > 0:
-        return "人天数都对上了，卡在预算 —— 差距超过阈值，已全部排除。"
+        return "人数和天数都对上了，但预算差得太远，全被排除了。"
     if norm_step and norm_step.to == 0:
         return "表里的数值解析不了，卡在数据表的数字列。"
-    return "按这组条件没对上，下面是差距最小的一批。"
+    return "这组条件没对上，下面是最接近的几个。"
 
 
 def _empty_suggestions(
@@ -838,15 +934,28 @@ def _run_table_match(
         # （`core/engine/turn_frames.py: reply = result.text`），而企微 / 微信 /
         # 短信只吃 text、收不到 blocks。留空或写成「看卡片」会让这些渠道
         # 彻底丢失「为什么没匹配上」这个信息。
+        # 空卡上的漏斗只留「有信息量」的那几层。
+        #
+        # 传完整 `trace` 的话，卡上会出现截图里那三行连着的 `0 →`：
+        #     0 → 天数对上
+        #     0 → 预算接近
+        #     0 → 最终给出
+        # 它们是**必然的 0**（上一层已经归零，后面不可能再进新行），
+        # 用户读起来像被连拒三次，还占掉卡片一半高度。
+        #
+        # ⚠️ 只裁**空卡**用的这一份。`detail.steps` / `trace` / 试跑面板
+        # 仍然拿完整的 5 步 —— 管理员需要看到「流程跑完了、没崩」，
+        # 排障也需要每一层的真实数字。两处用不同的数据是**有意的**。
+        visible_trace = _visible_funnel(trace)
         empty_data: dict[str, Any] = {
             "reason": empty_reason,
             # `steps` 与 `funnel` 同时给：视觉契约（v3 §2）读 `data.steps`
-            # 拿完整漏斗，arch §2.2 冻的是精简的 `funnel`。两个都发是
+            # 拿漏斗，arch §2.2 冻的是精简的 `funnel`。两个都发是
             # 加法，不破坏任何一侧的读法。
-            "steps": trace,
+            "steps": visible_trace,
             "funnel": [
                 {"label": s["label"], "from": s["from"], "to": s["to"]}
-                for s in trace
+                for s in visible_trace
             ],
         }
 

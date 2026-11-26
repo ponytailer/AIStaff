@@ -69,8 +69,11 @@ export const travelItineraryParams: SceneParamField[] = [
   {
     key: 'show_source_table',
     label: '副标题里显示来源表名',
+    // 默认 **关**（2026-11-26）。单表场景里「来自「滑雪套餐价目表 副本」」
+    // 是内部文件名，对用户判断哪个方案更合适没有帮助，反而占掉副标题一半。
+    // 多表合并查时才需要它作为「这行来自哪张表」的证据 —— 那种场景手动打开。
     type: 'boolean',
-    default: true,
+    default: false,
   },
 ];
 
@@ -86,7 +89,9 @@ export const travelItineraryParams: SceneParamField[] = [
  */
 export const TRAVEL_ITINERARY_PARAM_DEFAULTS = {
   price_note: '/人 · 含住宿、雪票、教练、接送',
-  show_source_table: true,
+  // 与后端 `presets.py` 的出厂预设、`params.ts` 的 params_schema 三处一致。
+  // 三处任一为 true 都会让单表场景冒出内部文件名，所以改这个值要一起改。
+  show_source_table: false,
 } as const;
 
 /** 标题列的兜底候选（按顺序找第一个命中的列）。 */

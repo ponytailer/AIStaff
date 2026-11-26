@@ -312,7 +312,19 @@ def run_match(
     steps.append(
         MatchStep(
             key="normalize",
-            label="归一化",
+            # 标签是**给用户看的**，不是给开发者看的。
+            #
+            # 原先是「归一化」—— 工程内部词，用户读不懂。漏斗出现在
+            # 聊天里的空结果卡上（`SceneEmptyCard`），看到「归一化 / 人数硬约束 /
+            # 相对偏差打分 / 取 top-3」的普通用户只会觉得「这是在给我看日志吗」。
+            #
+            # 改成语义直白的「读表里的数据」，与下面各层的「筛选行数」形成
+            # 一条可读的链：读进来 5 行 → 人数对上 0 行。
+            #
+            # ⚠️ 试跑面板（`SceneEditor` 的 RunPanel）读的是同一个 `label`，
+            # 所以管理员看到的也一起变了。这是有意的 —— 管理员也需要看懂
+            # 自己在调什么，而不是背「归一化」这个词。
+            label="读表",
             detail=f"{converted} 行单位换算（8千→8000）" if converted else "数值 + 单位解析",
             from_=total,
             to=len(normalized),
@@ -351,7 +363,7 @@ def run_match(
     dropped = len(normalized) - len(after_people)
     if slot_people is None:
         people_detail = "未填人数，跳过该层"
-        people_label = "人数约束"
+        people_label = "人数"
     elif people_tol:
         people_detail = (
             f"{format_number(slot_people.num)} 人可接受 "
@@ -365,7 +377,10 @@ def run_match(
             f"必须等于 {format_number(slot_people.num)} 人，"
             f"4 人团不能给 6 人方案"
         )
-        people_label = "人数硬约束"
+        # 「人数硬约束」是配置术语，用户看到会以为在做技术校验。
+        # 直接说「人数对上」—— 与下一层「天数对上」句式一致，读起来是一条链：
+        #   读表 5 → 人数对上 0
+        people_label = "人数对上"
     steps.append(
         MatchStep(
             key="people",
@@ -403,7 +418,12 @@ def run_match(
     steps.append(
         MatchStep(
             key="days",
-            label=f"天数 ±{action.days_tolerance}",
+            # 原先是「天数 ±1」。±N 是**配置的样子**，不是用户关心的东西：
+            # 用户只想知道「我要 5 天，表里有几行能满足」。所以标签改成
+            # 「天数对上」，容差多少留给 `detail`（展开可见，不占主视觉）。
+            #
+            # 这也让三层标签成为一句话：读表 → 人数对上 → 天数对上。
+            label="天数对上",
             detail=day_detail,
             from_=len(after_people),
             to=len(after_days),
@@ -469,11 +489,14 @@ def run_match(
     steps.append(
         MatchStep(
             key="score",
-            label="相对偏差打分",
+            # 「相对偏差打分」是在描述算法，用户读不出「所以呢」。
+            # 这一层实际做的是：按预算接近程度排序，并把差太多的整行剔除。
+            # 标签说「预算接近」，detail 里保留权重/阈值的完整口径。
+            label="预算接近",
             detail=score_detail,
             from_=len(after_days),
             to=len(gated),
-            drop_text=f"闸门淘汰 {gate_out} 行" if gate_out else "",
+            drop_text=f"淘汰 {gate_out} 行" if gate_out else "",
             ratio=(len(gated) / total) if total else 0.0,
         )
     )
@@ -495,8 +518,10 @@ def run_match(
     steps.append(
         MatchStep(
             key="topk",
-            label=f"取 top-{action.top_k}",
-            detail="同分时预算更低者优先",
+            # 「取 top-3」是 SQL 语言的写法。这一层对用户的意思是
+            # 「最多给你看几条」，所以标签说「最终给出」。
+            label="最终给出",
+            detail=f"最多 {action.top_k} 条，同分时预算更低者优先",
             from_=len(ranked),
             to=min(action.top_k, len(ranked)),
             drop_text="",
@@ -506,7 +531,25 @@ def run_match(
 
     hits = ranked[: action.top_k]
 
-    # ⑥ 空结果策略：`on_empty` 决定给不给近似项。
+    # ⑥ 漏斗截断：某一层归零后，后面的层不可能再有行进来（只会继续 0 → 0）。
+    #
+    # 这是「用户看不懂」的第二大来源。截图里三行连着的
+    #     0 → 天数 ±1
+    #     0 → 相对偏差打分
+    #     0 → 取 top-3
+    # 全部是**必然的 0**，读起来像「系统又拒了我三次」，实际只有第一行
+    # （人数 5→0）有信息量。这几行还占了卡片一半高度。
+    #
+    # 所以：第一层归零之后，**只保留它自己**，后续步骤整段丢掉。
+    # 为什么不在前端裁：试跑面板（`SceneEditor` 的 RunPanel）读的是同一份
+    # steps，管理员看「归零之后的步骤还在跑」是**有意义的**（能看出流程
+    # 走完了、没崩）。把裁剪放在产出侧会让两边都少信息。
+    #
+    # 所以裁剪放在 `channels.py` 组装 `empty` 块时做（见 `_visible_funnel`），
+    # matcher 原样返回完整 steps。此处只留注释，不改数据结构 ——
+    # `detail.steps` 与 `trace` 都还要完整版给排障用。
+
+    # ⑦ 空结果策略：`on_empty` 决定给不给近似项。
     #
     # 注意这里的 `nearest` **不是命中**：它不进 `hits`、`status` 仍是 no_match、
     # 文案也必须说清「这些不是符合的，是最接近的」。把它当命中返回会让

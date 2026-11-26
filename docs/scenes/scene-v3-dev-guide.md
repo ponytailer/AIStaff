@@ -226,6 +226,8 @@ BUILTIN_PRESETS: list[dict[str, Any]] = [
 | **表单引导语 / 副标题可配** | ✅ 三级兜底（`ask_prompt` / `form_subtitle`） | ✅ 定义器两个输入框 | ✅ `/enterprise/scenes` 基础信息区块 | ✅ `test_scene_channels.py`（3 条：顺序 / 覆盖 / 默认句） |
 | **匹配策略 `on_empty` 三态** | ✅ `matcher.MatchAction` + `channels._empty_suggestions` | ✅ 定义器下拉 + `SceneEmptyCard` 按 `data.on_empty` 收建议区 | ✅ | ✅ `test_xianlin_ski_scene_e2e.py`（3 条：三档互不相同 / clarify 是问句 / 老值 `nothing` 归一） |
 | **人数容差 `people_tolerance`** | ✅ 默认 `0` 严格，放宽后 `people_widened` 计数并在正文声明 | ✅ 定义器输入框 + `MatchGrid` 显示（仅 `>0` 时） | ✅ | ✅ `test_xianlin_ski_scene_e2e.py` |
+| **空结果可读性**：漏斗标签改业务语言 + 只展示到首个归零层 + 文案给出路 | ✅ `MatchStep.label` / `channels._visible_funnel` / `empty_reason_for` | ✅ `SceneEmptyCard` 按后端 `steps` 逐字渲染 | ✅ | ✅ `test_xianlin_ski_scene_e2e.py` / `SceneBlockList.test.tsx` |
+| **来源表名默认不显示**（`show_source_table`） | ✅ 预设默认 `False` + 存量清理脚本 | ✅ 两个 module 的 `params_schema` 与 `DEFAULTS` 全 `false` | ✅ | ✅ `SceneBlockList.test.tsx`（默认不显示 + 显式打开才显示，各一条） |
 | `execution_mode="scene_module"` 直通 | ✅ 四处白名单齐 | — | ✅ | ✅ |
 
 **定义器已从 8 区块精简到 5 区块**（基础信息 / 数据表 / 槽位 / 匹配策略 / 命中后回答）。删掉的三个是「场景界面」「触发条件」「绑定员工」：界面对普通用户不可配（归 L2），触发固定为按钮（归 L2），绑定改在员工侧做。**「命中后回答」现在是只读的卡片预览**，不再是模板输入框 —— 用户改不了模板，所以 `publishBlockers` 里「模板为空」那条阻断也随之删除（否则谁都发不出去）。
@@ -550,7 +552,7 @@ export default defineSceneModule({
     summary: '把发票按「编号 + 金额 + 开票方」紧凑列出。',
     required_slots: [],
     params_schema: [
-      { key: 'show_source_table', label: '显示数据来源', type: 'boolean', default: true },
+      { key: 'show_source_table', label: '显示数据来源', type: 'boolean', default: false },
     ],
     entry_behavior: 'open_form',
     display_name: '发票列表',
@@ -604,7 +606,7 @@ required_slots: [
 // params_schema —— 管理员可调的 module 行为
 params_schema: [
   { key: 'people_column', label: '人数列', type: 'column', help: '留空则依次尝试 人数 / 成团人数' },
-  { key: 'show_source_table', label: '显示来源表名', type: 'boolean', default: true },
+  { key: 'show_source_table', label: '显示来源表名', type: 'boolean', default: false },
 ],
 ```
 
@@ -626,11 +628,18 @@ export const COLUMN_CANDIDATES: Record<string, string[]> = {
 ```ts
 export const TRAVEL_ITINERARY_PARAM_DEFAULTS = {
   primary_action_label: '选这个',
-  show_source_table: true,
+  show_source_table: false,
 } as const;
 ```
 
 组件统一 `params.xxx ?? DEFAULTS.xxx`。散写字面量的后果是「默认值」变成三处不同的字符串，改一次要全文搜索，且**漏改的那处不会报错**。
+
+**③ `show_source_table` 默认是 `false`（2026-11-26 改）。**
+
+原先默认 `true`，理由是「多表合并时这是可见证据」。但绝大多数场景只有一张表，卡头上那行 `来自「滑雪套餐价目表 副本」` 纯粹是内部文件名 —— 连「副本」两个字都带上来了，对用户判断哪个方案更合适毫无帮助。用户明确要求不显示。
+
+- **两个模块的默认值必须一致**：`travel.itinerary/params.ts` 与 `generic.table_match/params.ts` 各有 `params_schema.default` 和 `DEFAULTS` 两处，共四处，全部为 `false`。不一致的后果是「同一份数据换个 module 渲染，一个显示一个不显示」，而且没人会怀疑到默认值头上。
+- **存量场景不受改默认值影响。** 场景建的时候会把预设值抄进自己的 `ui_config_json.params`，而 `effective_ui_config()`（`presets.py:341`）是**按键合并、场景自己的值优先**。所以线上场景里那份显式 `"show_source_table": true` 会一直生效。存量要让默认值生效，只能**删掉那个键**（不是写成 `false` —— `false` 是「显式关」，语义上不同）：跑 `backend/scripts/fix_show_source_table.py --apply`，先不带 `--apply` 跑一次看清单，幂等。
 
 ### 3.5 视觉规格
 
@@ -872,6 +881,56 @@ row_id / values{纯表格列} / score / days_dev / budget_dev / fused / source_t
 
 同理，`invalid_budget`（预算填了 0 或负数）也会追加一句「本次没有按预算筛选」—— 否则用户会以为预算是有效输入、结果被筛过。
 
+#### 空结果卡：标签是给用户看的，文案要能被「没配过的人」读懂
+
+空结果卡是整条链路里**唯一没有内容可看的一屏** —— 用户只看到「没找到」和下面这排漏斗数字。所以这排数字和那句原因，质量比命中卡还关键。踩过两类问题：
+
+**① 漏斗标签原先写的是内部术语，用户读不懂。**
+
+| 原标签 | 现标签 | 为什么改 |
+|---|---|---|
+| 归一化 | **读表** | 「归一化」是工程词，用户不知道在归一化什么 |
+| 人数硬约束 | **人数对上** | 「硬约束」像数据库术语；「对上」是用户自己的说法 |
+| 天数 ±1 | **天数对上** | `±1` 把容差写死在标签里，管理员改成 ±2 就变假话 |
+| 相对偏差打分 | **预算接近** | 用户不关心怎么打分，只关心预算差多少 |
+| 取 top-3 | **最终给出** | `top-3` 是配置项名，不是用户要的信息 |
+
+> ⚠️ **`MatchStep.label` 是跨界面共用的**：用户侧空卡（`SceneEmptyCard`）和管理员侧试跑面板（`SceneEditor` 的 RunPanel）读的是同一份 `steps`。改标签两处同时变 —— 这是有意的，管理员在试跑里看到的就是用户看到的词。改之前先确认两边都读得懂。
+
+**② 漏斗会连着好几行 `0 → 0`，纯噪音。**
+
+3 人 / 4 天 / 4000 元的真实场景，完整 5 步是这样的：
+
+```
+完整 5 步                            空卡上显示
+─────────────────────────────────    ────────────────
+5 → 读表                             5 → 读表
+5 → 人数对上   ← 归零                5 → 人数对上   ← 归零
+0 → 天数对上                         （丢掉）
+0 → 预算接近                         （丢掉）
+0 → 最终给出                         （丢掉）
+```
+
+后面每一层都是 `0 → 0`，因为上一层已经归零了，它们归零是必然的。`channels._visible_funnel()` 因此**截到第一层归零为止**（第一步永远保留，它是基数）。
+
+> **裁剪只发生在 `channels.py`，不在 `matcher.py`。** matcher 产出的 `MatchResult.trace` 必须完整 —— 试跑面板要看全流程，管理员靠它定位到底是哪一层筛空的。裁剪是「展示给用户的视图」，属于通道职责。
+
+`empty_reason_for()`（卡片上那句）与 `empty_summary_for()`（消息正文）分工：
+
+| 位置 | 句式 | 硬约束 |
+|---|---|---|
+| `data.reason`（卡片） | 「时间/约束是什么 + 为什么没找到 + **你还可以怎么办**」 | 必须给至少一条出路；不给出路的空卡等于死路 |
+| `result.text`（正文/企微微信短信） | 一句话说清结果 | **不许出现 `±1` 这类写死的容差** —— 容差可配，写死了管理员一改配置这句话就是假话；要提就说「前后各放宽了一点」 |
+
+实例：
+
+```
+正文: 没找到 3 人的方案，表里的人数都对不上。
+卡片: 表里这 5 个方案里没有 3 人的。换个接近的人数，或者看看下面最接近的几个。
+```
+
+> **槽位值要做脏数据处理再拼文案。** `channels._as_number()` 存在的理由：历史数据里 `people` 可能是字符串 `"4"`，而 `format_number()` 内部有 `float(value) == int(value)` —— 直接传字符串会抛 `TypeError`，把「渲染空结果卡」变成 500。空结果卡是错误路径，**在错误路径上再崩一次是最糟的体验**。
+
 ### 4.6 加新 `kind`（慎做）
 
 `kind` 是**跨前后端枚举**。加一个要动：`types.py` 的 `BlockKind`、`types.ts` 的 `BlockKind` + `BLOCK_KINDS`、`registry.ts` 的 `componentForKind`、`SceneModule` 的组件位。
@@ -1023,6 +1082,8 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 | 点了胶囊，等很久，得到一段泛泛的回答 | 同 §4.7 —— 帧被归一化回 `standard` | `session_schema` / `planner` / `turn_run` 三处白名单 |
 | 微信/企微用户收到空白消息 | 通道没填 `text` | 通道函数的 `SceneRunResult.text` |
 | **空结果时同一句话说两遍**（气泡一句、卡片一句） | `empty_reason` 同时进了 `text` 块、`data.reason`、`result.text` | `_run_table_match` 的空结果分支：只留 `data.reason` + `empty_summary_for()` 的短句，**text 块删掉** |
+| **空结果卡里的词用户看不懂**（「归一化」「硬约束」「相对偏差打分」） | 漏斗标签写成了工程术语 | `matcher.py` 的 `MatchStep.label` —— 这排标签是给用户看的，不是日志。改一处两边同时变（用户卡 + 试跑面板），这是有意的 |
+| **空结果的文案说「没有结果」，用户不知道下一步做什么** | `empty_reason_for()` 只写了原因没给出路 | 卡片文案必须是「约束 + 原因 + 出路」三段；正文只负责一句话说清结果 |
 | **表单引导语跑到卡片下面 / 上面多出一句没配过的** | `ask_prompt` 塞进了 text 块而不是当正文 | 同前一条的病：`text = ask_prompt`，`blocks` 里不放 text 块 |
 | **「我选了某个选项，但没变化」** | 配置项一端有值、另一端不认（枚举方言不一致） | 对一遍后端 `_as_choice` 白名单与前端 TS 联合类型；`on_empty` 就踩过（`nothing` vs `none`） |
 | **空结果卡里「只说明没有结果」却出现放宽按钮** | 前端有「无 suggestions 就给两颗兜底」的降级，后端 `none` 不发 `suggestions` | `SceneEmptyCard` 判 `data.on_empty === 'none'` 收掉整个建议区 |
@@ -1031,6 +1092,9 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 | 管理员改了表，保存后没生效 | `tables` 没发（`tablesDirty` 为假） | `SceneEditor.toPayload()` |
 | 新类型刚加完，前端测试就红 | `constants.test.ts` 的手抄快照没同步 | §4.1 第 9 处 |
 | **超管改了预设文案，聊天里没变** | 该场景的 `ui_config_json` 里有这一项（老场景建时抄进去了），按键合并时场景自己那份优先 | `effective_ui_config`；清掉 scene 的该项即可 |
+| **改了模块的 `params` 默认值，存量场景完全没变** | 同上一条的同一个病根：`effective_ui_config` 按键合并、场景自己显式存过的键优先。改代码默认值只影响**新建**的场景 | `scene.ui_config_json.params` 里有没有这个键；有就要写清理脚本删掉它（参考 `scripts/fix_show_source_table.py`） |
+| **场景卡头上多出「来自「xxx 副本」」** | `show_source_table` 还是老默认（`true`） | 三处：两个 module 的 `params.ts`（`params_schema.default` + `DEFAULTS`）+ `presets.py` 的 `BUILTIN_PRESETS`；存量跑 `scripts/fix_show_source_table.py` |
+| **空结果卡的漏斗连着好几行 `0 → 0`** | 没走 `channels._visible_funnel()`，把完整 5 步全画了 | 空块的 `steps` / `funnel` 必须用裁剪后的 `visible_trace`；`matcher` 里的 `trace` 保持完整给试跑面板 |
 | **超管页改完，用户看到的按钮文案还是旧的** | `scene_params` 没写进 `assistant_metadata` → 前端 `sceneParamsOf()` 读到空 | `turn_run.py` 的 `scene_params` 汇总；`messageBlockSlots.ts:sceneParamsOf` |
 | **按钮文案配了，但卡片上是空白** | `params` 里存了空串（`""`）→ 前端 `?? 默认值` 不触发（空串不是 null） | `scene_render_params` 已过滤空值；别在预设里填 `""` |
 | **去超管页只看到「还没有可配置的场景类型」** | 新 module 没在 `BUILTIN_PRESETS` 登记 | §0.2.1；这是「开发者漏了一步」而非故障 |
@@ -1078,6 +1142,8 @@ export function effectiveNeedsTable(type, moduleNeeds?) {
 | 新增 `kind` | §2.1 映射表、§4.4、§6 挂载位 |
 | 某通道改了 `data` 的键 | §4.4 表格对应行 |
 | **`match_action` 字段增删 / 改语义** | **§4.5 全字段语义表**（含 `on_empty` 三态、`people_tolerance`） |
+| **漏斗标签 / 空结果文案改动** | **§4.5 末尾「空结果卡」小节**（标签是给用户看的；裁剪只在 channels） |
+| **module 的 `params` 默认值改动** | **§3.4 约定③ + §7「改了默认值存量没变」**（存量必须写数据清理脚本） |
 | 消息分发挂载位变化 | §6 |
 | `execution_mode` 白名单增删 | §4.7 |
 | 新增 `publishedBlockers` 类校验 | §5、§7 |

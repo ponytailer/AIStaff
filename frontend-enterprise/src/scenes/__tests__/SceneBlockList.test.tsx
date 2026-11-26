@@ -173,18 +173,33 @@ describe('SceneBlockList：分发与降级', () => {
 });
 
 describe('generic.table_match', () => {
-  it('result 块渲染出每条的标题、来源表名与两颗按钮', async () => {
+  it('result 块渲染出每条的标题与两颗按钮，默认不显示来源表名', async () => {
     const onSend = vi.fn();
     render(<SceneBlockList blocks={[resultBlock()]} onSendText={onSend} />);
 
     expect(await screen.findByText('经典雪山五日')).toBeTruthy();
     expect(screen.getByText('深度滑雪五日')).toBeTruthy();
-    // 多表能力的可见证据：来源表名要显示（契约 §1.2 对行程卡的要求，同理适用）。
-    expect(screen.getAllByText(/滑雪产品价目\.xlsx/).length).toBeGreaterThan(0);
+    // 来源表名默认**不显示**（2026-11-26 改默认值）：
+    // 单表场景里它是内部文件名（截图里就是「滑雪套餐价目表 副本」），
+    // 对用户判断方案没有帮助。多表场景才需要，由 ui_config 显式打开。
+    expect(screen.queryByText(/滑雪产品价目\.xlsx/)).toBeNull();
     // total 用后端给的 2，不是 items.length 之外的猜测。
     expect(screen.getByText(/共 2 条符合条件/)).toBeTruthy();
     expect(screen.getAllByRole('button', { name: '选这个' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: '看详情' })).toHaveLength(2);
+  });
+
+  it('显式打开 show_source_table 时来源表名要出现（多表场景的可见证据）', async () => {
+    // 反向护栏：默认关不等于能力没了。多表合并查时，
+    // 「这行来自哪张表」是判断数据可信度的关键，必须还能打开。
+    //
+    // ⚠️ `params` 是 **SceneBlockList 的 prop**（整轮消息共用一份），
+    // 不是 `block.params` —— block 上没有这个字段。写到 block 上测试
+    // 永远传不到 module，看起来「开关不生效」，实际是测试写错了位置。
+    render(<SceneBlockList blocks={[resultBlock()]} params={{ show_source_table: true }} />);
+    // 两条命中卡都会带来源，所以是 findAll（此前用 findByText 会因
+    // 「匹配到多个元素」报错，看起来像功能坏了，其实是查询方式错了）。
+    expect((await screen.findAllByText(/滑雪产品价目\.xlsx/)).length).toBeGreaterThan(0);
   });
 
   it('「选这个」走 sendText 起新一轮，不直接改状态（PRD §5.3 铁律）', async () => {
@@ -302,8 +317,17 @@ describe('travel.itinerary', () => {
     expect(screen.queryByText('¥3000')).toBeNull();
   });
 
-  it('卡头显示「目的地 · N 天 N-1 晚 · 来自「表名」」', async () => {
+  it('卡头显示「目的地 · N 天 N-1 晚」，默认不带来源表名', async () => {
     render(<SceneBlockList blocks={[itineraryBlock()]} />);
+    expect(await screen.findByText('亚布力 · 5 天 4 晚')).toBeTruthy();
+    // 来源默认不显示（见 generic 分组那条的说明），所以副标题只到「晚」为止。
+    expect(screen.queryByText(/来自「/)).toBeNull();
+  });
+
+  it('显式打开 show_source_table 时卡头补上「来自「表名」」', async () => {
+    render(
+      <SceneBlockList blocks={[itineraryBlock()]} params={{ show_source_table: true }} />,
+    );
     expect(await screen.findByText('亚布力 · 5 天 4 晚 · 来自「滑雪产品价目.xlsx」')).toBeTruthy();
   });
 

@@ -72,7 +72,16 @@ _ITINERARY_PARAMS: dict[str, Any] = {
             # （行程推荐是终态，点下去只是复述一句话再转一圈）。
             # 与前端 `itineraryData.ts` 的 TRAVEL_ITINERARY_PARAM_DEFAULTS 对齐。
             "price_note": "/人 · 含住宿、雪票、教练、接送",
-            "show_source_table": True,
+            # 副标题里是否显示「来自「某表」」。
+            #
+            # 默认 **False**（2026-11-26 改）。原先默认 True，理由是「多表合并
+            # 时这是可见证据」；但绝大多数场景只有一张表，用户看到的
+            # 「来自「滑雪套餐价目表 副本」」纯粹是内部文件名，对他判断哪个方案
+            # 更合适毫无帮助 —— 用户明确要求不要显示。
+            #
+            # 多表场景仍可打开这个开关（超管在 /enterprise/scene-presets 改，
+            # 或者在场景的 ui_config 里设 true）。开关本身**保留**，只是默认值反了。
+            "show_source_table": False,
             # 列映射留空 = 按表头同名兜底（`COLUMN_CANDIDATES`）。
             # 超管在这里填死某一列，就锁住了「标题取哪列」，用户改不了。
             "title_column": "",
