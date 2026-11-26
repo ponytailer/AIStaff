@@ -12,12 +12,12 @@ import type { SceneBlockProps, SceneUiBlock } from '../types';
 afterEach(cleanup);
 
 /**
- * 这三个断言锁的是**与 `docs/scenes/scene-demo.html` 对齐的行为**。
+ * 这些断言锁的是**这个场景表单必须成立的行为**。
  *
- * 用户明确要求「胶囊点开后交互以 demo 为准」，而 demo 的关键差异就在于：
- * 人数/天数是分段按钮、预算有快选、提交出去的数字是 number。这些都是
- * 「看起来像」和「真的对」之间的差别 —— 比如数字变成字符串时后端 matcher
- * 会把这个值判成不可转换然后静默丢掉，界面上一模一样。
+ * 2026-11-26 之前人数/天数是分段按钮（1-8、3-7 平铺），测试按「8 颗 button」
+ * 断言。用户要求「改成下拉选项，不要平铺，文字和选项在一行」之后，那两条
+ * 断言随实现一起作废 —— 但**提交口径那一条（数字必须是 number）不能动**，
+ * 它管的是后端 matcher 能不能认这个值，与控件长什么样无关。
  */
 
 function makeProps(overrides: Partial<SceneBlockProps> = {}): SceneBlockProps {
@@ -45,29 +45,42 @@ function makeProps(overrides: Partial<SceneBlockProps> = {}): SceneBlockProps {
   };
 }
 
-describe('travel.itinerary 条件表单（对齐 scene-demo.html）', () => {
-  it('人数/天数是分段按钮，不是数字输入框', () => {
+describe('travel.itinerary 条件表单', () => {
+  it('人数/天数是下拉，不再是平铺的分段按钮', () => {
     render(<TravelItinerarySlotForm {...makeProps()} />);
 
-    // 1-8 的人数是 8 颗按钮；它们不是 input[type=number]
-    const peopleGroup = screen.getByRole('group', { name: '人数' });
-    expect(peopleGroup.querySelectorAll('button')).toHaveLength(8);
-    expect(peopleGroup.querySelector('input')).toBeNull();
+    const people = screen.getByLabelText(/人数/) as HTMLSelectElement;
+    expect(people.tagName).toBe('SELECT');
+    // 1-8：八项候选 + 一项占位
+    expect(people.querySelectorAll('option')).toHaveLength(9);
 
-    const daysGroup = screen.getByRole('group', { name: '天数' });
-    expect(daysGroup.querySelectorAll('button')).toHaveLength(5);
-    expect(daysGroup.textContent).toContain('5 天');
+    const days = screen.getByLabelText(/天数/) as HTMLSelectElement;
+    expect(days.tagName).toBe('SELECT');
+    // 3-7：五项候选 + 一项占位
+    expect(days.querySelectorAll('option')).toHaveLength(6);
+    expect(days.textContent).toContain('5 天');
+
+    // 原先那两颗「分段按钮组」必须彻底消失，否则同一个字段会出现两种控件
+    expect(screen.queryByRole('group', { name: '人数' })).toBeNull();
+    expect(screen.queryByRole('group', { name: '天数' })).toBeNull();
   });
 
-  it('点分段按钮后 aria-pressed 反白，且选中值进提交载荷', async () => {
+  it('下拉默认不预选任何值（占位项 disabled），避免看起来像已选 1 人', () => {
+    render(<TravelItinerarySlotForm {...makeProps()} />);
+
+    const people = screen.getByLabelText(/人数/) as HTMLSelectElement;
+    expect(people.value).toBe('');
+
+    const placeholder = people.querySelector('option[value=""]') as HTMLOptionElement;
+    expect(placeholder.disabled).toBe(true);
+  });
+
+  it('选下拉后值进提交载荷，且是 number 不是字符串', async () => {
     const submitSlots = vi.fn();
     render(<TravelItinerarySlotForm {...makeProps({ submitSlots })} />);
 
-    await userEvent.click(screen.getByRole('button', { name: '4' }));
-    // 用原生属性断言而不是 `toHaveAttribute`：本仓库没有装 jest-dom 匹配器
-    expect(screen.getByRole('button', { name: '4' }).getAttribute('aria-pressed')).toBe('true');
-
-    await userEvent.click(screen.getByRole('button', { name: '5 天' }));
+    await userEvent.selectOptions(screen.getByLabelText(/人数/), '4');
+    await userEvent.selectOptions(screen.getByLabelText(/天数/), '5');
     await userEvent.click(screen.getByRole('button', { name: '3k' }));
     await userEvent.click(screen.getByRole('button', { name: '开始匹配' }));
 
