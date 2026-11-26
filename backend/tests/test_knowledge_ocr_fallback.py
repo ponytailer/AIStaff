@@ -83,6 +83,26 @@ def test_pages_to_markdown_empty_returns_zero() -> None:
     assert markdown == "" and used == 0
 
 
+def test_pages_to_markdown_heading_uses_filename() -> None:
+    """一级标题必须是真实文件名。
+
+    这段标题会成为 chunk 的 ``bucket_title`` 并与页号组成 ``section_path``，
+    引用卡片上的来源文字就是它。写死「PDF 文档（OCR 识别）」的话，所有扫描件
+    在卡片上长得一模一样，用户分不清引的是哪份文件。
+    """
+
+    markdown, used = _pages_to_markdown(
+        [{"index": 0, "markdown": "闭门器安装要求"}], "防火门闭门器"
+    )
+    assert used == 1
+    assert markdown.startswith("# 防火门闭门器（OCR 识别）\n\n")
+
+
+def test_pages_to_markdown_heading_falls_back_when_unnamed() -> None:
+    markdown, _ = _pages_to_markdown([{"index": 0, "markdown": "正文"}])
+    assert markdown.startswith("# PDF 文档（OCR 识别）\n\n")
+
+
 def test_extract_pdf_via_ocr_builds_markdown(
     settings: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:

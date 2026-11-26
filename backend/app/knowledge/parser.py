@@ -90,7 +90,9 @@ def extract_document(filename: str, content: bytes) -> ParsedDocument:
     if suffix in {".html", ".htm"}:
         return ParsedDocument(text=_extract_html(content), file_type="html")
     if suffix == ".pdf":
-        return ParsedDocument(text=_extract_pdf(content), file_type="pdf")
+        return ParsedDocument(
+            text=_extract_pdf(content, Path(filename).stem), file_type="pdf"
+        )
     if suffix == ".docx":
         return _extract_docx(content)
     raise KnowledgeParseError(f"暂不支持 {suffix} 文件格式。")
@@ -120,7 +122,7 @@ def _extract_html(content: bytes) -> str:
         return parser.text
 
 
-def _extract_pdf(content: bytes) -> str:
+def _extract_pdf(content: bytes, display_name: str = "") -> str:
     try:
         from pypdf import PdfReader
     except Exception as exc:  # pragma: no cover - dependency availability differs by env.
@@ -133,7 +135,12 @@ def _extract_pdf(content: bytes) -> str:
             pages.append(f"## 第 {index + 1} 页\n\n{page_text}")
     if not pages:
         return ""
-    return "# PDF 文档\n\n" + "\n\n".join(pages)
+    # 一级标题会成为 bucket_title 与 section_path 的首段（`<标题> / 第 6 页`），
+    # 而引用卡片就是靠 section_path 展示来源。固定写「PDF 文档」的话，用户只看到
+    # 「PDF 文档 / 第 6 页」，既不知道是哪份文件也没法判断要不要点开。
+    # 用真实文件名当标题；拿不到时才退回通用叫法。
+    heading = display_name.strip() or "PDF 文档"
+    return f"# {heading}\n\n" + "\n\n".join(pages)
 
 
 def _extract_docx(content: bytes) -> ParsedDocument:

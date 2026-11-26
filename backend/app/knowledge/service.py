@@ -1393,6 +1393,7 @@ class KnowledgeService:
                     query,
                     ranked_chunks,
                     direct_hit_ids={chunk.id for chunk in ranked_hits},
+                    document_titles=_document_title_map(documents),
                 )
                 if request.need_evidence_pack
                 else []
@@ -3304,13 +3305,34 @@ def _related_chunk_window(
     return [chunks[index] for index in sorted(selected)]
 
 
+def _document_title_map(documents: list[KnowledgeDocument]) -> dict[str, str]:
+    """document_id → 可展示的文档名，供引用卡片用。
+
+    引用卡片原来只能拿到 ``section_path``（``PDF 文档 / 第 6 页``），因为
+    chunk 的 metadata 里没有文件名。用户看到的「PDF 文档 / 第 6 页」既不知道是
+    哪份文件、也没法据此判断该不该点开。文档名在 ``KnowledgeDocument`` 上是齐全
+    的，检索时也查出来了，这里建一张映射表带到 evidence 里。
+
+    优先 ``filename``：它是用户自己上传时的文件名，比 ``title``（可能是模型
+    归纳或旧数据里的占位标题）更可辨认。
+    """
+    titles: dict[str, str] = {}
+    for row in documents:
+        name = (row.filename or row.title or "").strip()
+        if row.id and name:
+            titles[row.id] = name
+    return titles
+
+
 def _build_evidence_pack(
     query: str,
     chunks: list[KnowledgeChunk],
     direct_hit_ids: set[str] | None = None,
+    document_titles: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
     direct_hit_ids = direct_hit_ids or set()
+    titles = document_titles or {}
     for chunk in chunks:
         metadata = chunk.metadata_json or {}
         score = _score_text(query, f"{chunk.summary or ''} {chunk.content}")
@@ -3321,6 +3343,9 @@ def _build_evidence_pack(
         evidence.append(
             {
                 "chunk_id": chunk.id,
+                # 文档名在这里带出去，引用卡片才能显示「哪份文件的第几页」
+                # 而不是笼统的「PDF 文档」。
+                "title": titles.get(chunk.document_id, ""),
                 "related_group_id": related_group_id or None,
                 "related_chunk_ids": metadata.get("related_chunk_ids") or [],
                 "related_chunk_index": metadata.get("related_chunk_index"),

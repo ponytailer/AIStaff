@@ -34,11 +34,13 @@ function buildChat({
   trace = null as TurnTrace | null,
   webSearchEnabled = true,
   agent = buildAgent() as AgentProfileRead | null,
+  uiConfig = UI_CONFIG,
 }: {
   messages?: ChatMessage[];
   trace?: TurnTrace | null;
   webSearchEnabled?: boolean;
   agent?: AgentProfileRead | null;
+  uiConfig?: UIConfigRead;
 } = {}): UseChatSession {
   const store = new Map<string, TurnTrace>();
   if (trace && messages[0]) store.set(messages[0].turnId || messages[0].id, trace);
@@ -48,7 +50,7 @@ function buildChat({
     displayedAgentIsDispatcher: false,
     displayedMessages: messages,
     turnTraceRef: { current: store },
-    uiConfig: UI_CONFIG,
+    uiConfig,
     selectedModelConfig: { name: 'deepseek-v4-flash' },
     webSearchEnabled,
     currentSessionRunning: false,
@@ -119,6 +121,45 @@ describe('ChatContextRail', () => {
     expect(screen.getByText('已关闭')).toBeTruthy();
   });
 
+  // ---- 明细被配置隐藏 ≠ 没有执行（2026-11-26 反馈「本轮执行一直没有信息显示」）----
+
+  it('租户关闭执行明细时，说清「已执行但明细已关闭」，而不是谎称没有执行记录', () => {
+    // tenant_demo 线上就是这个配置：三档 trace 全关。此时右上角显示耗时，
+    // 卡片里却写「这一轮还没有执行记录」，同一张卡片自相矛盾。
+    const messages: ChatMessage[] = [
+      { id: 'm1', role: 'assistant', content: '好的', created_at: '2026-11-26T00:00:00Z', turnId: 'turn-1' },
+    ];
+    const trace: TurnTrace = {
+      startedAt: 1000,
+      completedAt: 11000,
+      durationMs: 10000,
+      lines: [
+        line({ id: 'l1', kind: 'skill', text: '命中 SOP', durationMs: 800 }),
+        line({ id: 'l2', kind: 'tool', text: '调用工具 kb_search', durationMs: 4200 }),
+      ],
+    };
+    const hiddenConfig = {
+      show_thinking_trace: false,
+      show_skill_trace: false,
+      show_tool_trace: false,
+    } as unknown as UIConfigRead;
+
+    render(<ChatContextRail chat={buildChat({ messages, trace, uiConfig: hiddenConfig })} />);
+
+    expect(screen.getByText(/本轮已执行，耗时 10\.0s/)).toBeTruthy();
+    expect(screen.getByText(/调用明细已在「界面配置」里关闭/)).toBeTruthy();
+    // 关键反向断言：不能再声称「没有执行记录」
+    expect(screen.queryByText('这一轮还没有执行记录。')).toBeNull();
+    // 明细本身仍然不该泄漏出来
+    expect(screen.queryByText('命中 SOP')).toBeNull();
+  });
+
+  it('真的一轮都没跑过时才说「还没有执行记录」', () => {
+    render(<ChatContextRail chat={buildChat()} />);
+    expect(screen.getByText('这一轮还没有执行记录。')).toBeTruthy();
+    expect(screen.queryByText(/本轮已执行/)).toBeNull();
+  });
+
   it('点「打开员工档案」在新标签页打开档案页，并把作用域先落盘', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     window.localStorage.clear();
@@ -183,5 +224,36 @@ describe('ChatContextRail', () => {
   it('没有引用时给一句空态而不是空白段', () => {
     render(<ChatContextRail chat={buildChat()} />);
     expect(screen.getByText('本次会话还没有引用资料。')).toBeTruthy();
+  });
+
+  it('引用资料拆成文档名与页码，页码不被长文件名挤掉', () => {
+    // 右栏一行只有 200 多 px，长文件名会整行 truncate —— 以前连「第 6 页」
+    // 一起截掉，用户看不到最关键的页码。
+    const messages = [
+      {
+        id: 'm1',
+        role: 'assistant',
+        content: 'a',
+        created_at: '2026-11-16T00:00:00Z',
+        metadata: {
+          knowledge_citations: [
+            {
+              id: 'c1',
+              document_id: 'doc-1',
+              title: '《防火门闭门器》XF 93-2004（GA 93-2004）.pdf / 第 6 页',
+            },
+            { id: 'c2', document_id: 'doc-2', title: '账号权限矩阵' },
+          ],
+        },
+      },
+    ] as unknown as ChatMessage[];
+
+    render(<ChatContextRail chat={buildChat({ messages })} />);
+
+    // 文件名和页码是两个独立节点：页码有 shrink-0，不参与省略
+    expect(screen.getByText('《防火门闭门器》XF 93-2004（GA 93-2004）.pdf')).toBeTruthy();
+    expect(screen.getByText('第6页')).toBeTruthy();
+    // 没有页码的标题整段照常显示，不会被拆坏
+    expect(screen.getByText('账号权限矩阵')).toBeTruthy();
   });
 });

@@ -345,9 +345,11 @@ def test_pdf_pages_receive_stable_section_labels(monkeypatch) -> None:
     sections = _build_section_nodes(text)
 
     assert file_type == "pdf"
-    assert text.startswith("# PDF 文档\n\n## 第 1 页")
-    assert [section["title"] for section in sections] == ["PDF 文档", "第 1 页", "第 3 页"]
-    assert sections[-1]["path"] == "PDF 文档 / 第 3 页"
+    # 一级标题取文件名 stem：它就是引用卡上 section_path 的首段，
+    # 固定「PDF 文档」会让所有 PDF 的引用长得一样。
+    assert text.startswith("# policy\n\n## 第 1 页")
+    assert [section["title"] for section in sections] == ["policy", "第 1 页", "第 3 页"]
+    assert sections[-1]["path"] == "policy / 第 3 页"
 
 
 def test_long_section_continuations_share_one_related_section() -> None:

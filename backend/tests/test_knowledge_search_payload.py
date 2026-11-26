@@ -61,6 +61,8 @@ def _evidence(index: int, *, content: str | None = None) -> dict:
     text = content if content is not None else f"第 {index} 页正文" * 40
     return {
         "chunk_id": f"kchunk_{index:04d}",
+        # 检索层按 document_id 补出来的真实文档名，引用卡片靠它显示「哪份文件」
+        "title": "Hi Sphere 手册",
         "related_group_id": None,
         "related_chunk_ids": [],
         "related_chunk_index": 0,
@@ -420,3 +422,35 @@ def test_inline_result_budget_keeps_evidence_text_complete() -> None:
     assert _evidence_chars(with_inline_budget) > _evidence_chars(with_transcript_budget)
     assert serialized_chars(with_inline_budget) <= KNOWLEDGE_PAYLOAD_HARD_MAX_CHARS
     assert len(with_inline_budget["evidence_pack"]) == 12
+
+
+def test_evidence_entry_carries_document_title() -> None:
+    """evidence 必须带上真实文档名，否则引用卡只能显示笼统的「PDF 文档」。
+
+    ``selected_documents`` 里本来就有文件名，精简投影时按 ``document_id``
+    补到 evidence 上，引用层才能拼出「文档名 / 第 N 页」。
+    """
+
+    compacted = compact_knowledge_search_payload(_payload())
+    first = compacted["evidence_pack"][0]
+
+    assert first["title"] == "Hi Sphere 手册"
+    # section_path 保持原样，定位信息不能被改写
+    assert first["section_path"] == "PDF 文档 / 第 1 页"
+
+
+def test_evidence_entry_title_omitted_without_document() -> None:
+    """查不到文档映射时不要留空串键。
+
+    引用层的「有 title 就用 title」判断依赖键的存在与否；写个 ``""`` 进去会
+    让 ``_normalize_source_items`` 拿到空标题再退回 section_path 的路径变脏。
+    """
+
+    payload = _payload()
+    payload["selected_documents"] = []
+    for item in payload["evidence_pack"]:
+        item.pop("title", None)
+
+    compacted = compact_knowledge_search_payload(payload)
+
+    assert all("title" not in item for item in compacted["evidence_pack"])

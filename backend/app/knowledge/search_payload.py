@@ -269,7 +269,7 @@ def _project(
             entry
             for item in evidence
             for entry in [
-                _evidence_entry(item, content_limit=content_limit, image_index=index)
+                _evidence_entry(item, content_limit=content_limit, image_index=index, document_titles=titles)
             ]
             if entry
         ],
@@ -357,13 +357,26 @@ def _evidence_entry(
     *,
     content_limit: int,
     image_index: dict[str, int] | None = None,
+    document_titles: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    # 引用标题的取法：evidence 自带的 title（检索层按 document_id 补的真实文档名）
+    # → 文档名映射 → 空（交给引用层按 section_path 兜底）。
+    # 以前这里根本不带 title，引用卡只能显示 section_path，于是满屏「PDF 文档 / 第 6 页」。
+    document_id = str(item.get("document_id") or "").strip()
+    title = _clip(
+        str(item.get("title") or "").strip()
+        or (document_titles or {}).get(document_id, ""),
+        KNOWLEDGE_SUMMARY_CHAR_LIMIT,
+    )
     entry: dict[str, Any] = {
         "chunk_id": str(item.get("chunk_id") or item.get("id") or "").strip(),
         "document_id": item.get("document_id"),
         "bucket_id": item.get("bucket_id"),
         "source_path": item.get("source_path"),
         "section_path": item.get("section_path"),
+        # 仅在有真实文档名时写入，空串会被 _drop_empty 去掉，
+        # 保证引用层的「无 title」判断仍然成立。
+        "title": title,
         "summary": _clip(item.get("summary"), KNOWLEDGE_SUMMARY_CHAR_LIMIT),
         "content": rewrite_image_refs(
             _clip_keeping_images(item.get("content") or item.get("excerpt"), content_limit),

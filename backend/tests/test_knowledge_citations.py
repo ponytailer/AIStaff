@@ -3,6 +3,7 @@ from app.knowledge.citations import (
     citation_display_key,
     citation_identity,
     compact_knowledge_citation_labels,
+    compose_citation_title,
     knowledge_citations_from_results,
     renumber_citations,
     restore_truncated_atomic_references,
@@ -657,3 +658,60 @@ def test_web_and_local_payloads_share_one_numbering() -> None:
     # 回答上下文必须看全部：两条来源都在编号表里
     assert len(all_citations) == 2
     assert {item["source_type"] for item in all_citations if item.get("source_type")} == {"web"}
+
+
+def test_compose_citation_title_keeps_document_name_and_page() -> None:
+    """引用标题必须同时有「哪份文件」和「第几页」。
+
+    线上观感：卡片上清一色「PDF 文档」，用户既不知道是哪份文件、也判断不了
+    要不要点开。只有页码不够，只有文件名也不够。
+    """
+
+    assert (
+        compose_citation_title(
+            "《防火门闭门器》XF 93-2004（GA 93-2004）.pdf", "PDF 文档 / 第 6 页"
+        )
+        == "《防火门闭门器》XF 93-2004（GA 93-2004）.pdf / 第 6 页"
+    )
+
+
+def test_compose_citation_title_drops_duplicated_document_head() -> None:
+    """新入库 PDF 的一级标题就是文件名 stem，不能拼成「a.pdf / a / 第 3 页」。"""
+
+    assert compose_citation_title("某文件.pdf", "某文件 / 第 3 页") == "某文件.pdf / 第 3 页"
+    # 表格 / 幻灯片走同一套逻辑，后缀白名单不能只认 pdf
+    assert compose_citation_title("报表.xlsx", "报表 / 第 5 页") == "报表.xlsx / 第 5 页"
+    assert compose_citation_title("讲解.pptx", "讲解 / 第 12 页") == "讲解.pptx / 第 12 页"
+
+
+def test_compose_citation_title_keeps_real_section_names() -> None:
+    assert compose_citation_title("doc.md", "第二章 消防设施") == "doc.md / 第二章 消防设施"
+
+
+def test_compose_citation_title_falls_back_to_page_or_document() -> None:
+    # 拿不到文档名时至少留页码：老数据 / 网页来源没有 document 映射
+    assert compose_citation_title("", "PDF 文档 / 第 2 页") == "第 2 页"
+    assert compose_citation_title("文件.pdf", "") == "文件.pdf"
+    assert compose_citation_title("", "") == ""
+
+
+def test_citation_title_prefers_evidence_document_name() -> None:
+    """evidence 带 title 时，引用卡片直接用「文档名 / 第 N 页」而不是 section_path。"""
+
+    citations = knowledge_citations_from_results(
+        [
+            {
+                "evidence_pack": [
+                    {
+                        "chunk_id": "kchunk_1",
+                        "document_id": "kdoc_1",
+                        "title": "防火门闭门器.pdf",
+                        "section_path": "PDF 文档 / 第 6 页",
+                        "content": "闭门器安装间距不应大于 750mm。",
+                    }
+                ]
+            }
+        ]
+    )
+
+    assert citations[0]["title"] == "防火门闭门器.pdf / 第 6 页"

@@ -135,6 +135,19 @@ function railTime(iso: string | undefined | null): string {
 }
 
 /**
+ * 把「文档名 / 第 6 页」拆成主体和尾缀。
+ *
+ * 右栏一行只有 200px 出头，长文件名一定会被 `truncate` 截掉尾部的页码 —— 而页码
+ * 恰恰是用户最想知道的「引用了哪一段」。所以尾缀单独占一格、不参与省略：
+ * 文件名按需截断，`第 6 页` 永远完整可见。
+ */
+function splitCitationTitle(title: string): { lead: string; page: string } {
+  const match = title.match(/^(.*?)\s*\/\s*(第\s*\d+\s*页(?:\s*[-–~]\s*\d+\s*页)?)$/);
+  if (!match) return { lead: title, page: '' };
+  return { lead: match[1].trim(), page: match[2].replace(/\s+/g, '') };
+}
+
+/**
  * 取最近一条带 trace 的助手消息。
  *
  * 直接读 `turnTraceRef` 而不是另存一份 state：流式过程中父级每次收到事件都会
@@ -195,6 +208,18 @@ export default function ChatContextRail({ chat }: { chat: UseChatSession }) {
   const totalDuration = trace
     ? (trace.durationMs ?? (trace.completedAt ? trace.completedAt - trace.startedAt : 0))
     : 0;
+
+  /**
+   * 有执行记录、但明细被租户配置全部过滤掉了。
+   *
+   * `traceLineAllowed` 按 `show_skill_trace / show_tool_trace / show_thinking_trace`
+   * 过滤，三档都关时（tenant_demo 就是这样）steps 必然为空。此时右上角明明显示
+   * 了耗时、卡片里却说「这一轮还没有执行记录」——同一张卡片自相矛盾，用户会当成
+   * 功能坏了（2026-11-26 反馈「本轮执行一直没有信息显示」）。
+   *
+   * 这两种情况必须分开说：没执行 != 执行了但不给你看明细。
+   */
+  const stepsFiltered = Boolean(trace) && steps.length === 0;
 
   // FAQ 不是资源绑定（agent_resource_bindings），单独按员工数：命中即短路回答，
   // 用户要知道这个员工到底沉淀了多少条标准答案。
@@ -276,8 +301,22 @@ export default function ChatContextRail({ chat }: { chat: UseChatSession }) {
       >
         {steps.length === 0 ? (
           <div className={CHAT_RAIL_EMPTY_CLASS}>
-            <p>这一轮还没有执行记录。</p>
-            <p className="mt-[3px] text-[#a3a3a8]">答复开始后会列出调用的技能与资料。</p>
+            {stepsFiltered ? (
+              <>
+                <p>
+                  本轮已执行
+                  {totalDuration > 0 ? `，耗时 ${formatTraceDuration(totalDuration)}` : ''}。
+                </p>
+                <p className="mt-[3px] text-[#a3a3a8]">
+                  调用明细已在「界面配置」里关闭，开启后可查看每一步。
+                </p>
+              </>
+            ) : (
+              <>
+                <p>这一轮还没有执行记录。</p>
+                <p className="mt-[3px] text-[#a3a3a8]">答复开始后会列出调用的技能与资料。</p>
+              </>
+            )}
           </div>
         ) : (
           steps.map((line) => {
@@ -334,15 +373,20 @@ export default function ChatContextRail({ chat }: { chat: UseChatSession }) {
         {shownCitations.length === 0 ? (
           <p className={CHAT_RAIL_EMPTY_CLASS}>本次会话还没有引用资料。</p>
         ) : (
-          shownCitations.map((item) => (
-            <div className={CHAT_RAIL_ROW_CLASS} key={item.key} title={item.title}>
-              {/* 与消息里的引用标签同色：企业知识青绿、互联网靛蓝，右栏和正文对得上号 */}
-              <span className={cn(CHAT_RAIL_ICON_CLASS, item.web ? 'text-[#4453c4]' : 'text-[#0f766e]')}>
-                <StaffdeckIcon name={item.web ? 'globe' : 'file'} size={12} />
-              </span>
-              <span className={CHAT_RAIL_ROW_TEXT_CLASS}>{item.title}</span>
-            </div>
-          ))
+          shownCitations.map((item) => {
+            const { lead, page } = splitCitationTitle(item.title);
+            return (
+              <div className={CHAT_RAIL_ROW_CLASS} key={item.key} title={item.title}>
+                {/* 与消息里的引用标签同色：企业知识青绿、互联网靛蓝，右栏和正文对得上号 */}
+                <span className={cn(CHAT_RAIL_ICON_CLASS, item.web ? 'text-[#4453c4]' : 'text-[#0f766e]')}>
+                  <StaffdeckIcon name={item.web ? 'globe' : 'file'} size={12} />
+                </span>
+                <span className={CHAT_RAIL_ROW_TEXT_CLASS}>{lead}</span>
+                {/* 页码不参与省略：文件名再长也要让人看见「第几页」 */}
+                {page ? <span className="shrink-0 tabular-nums text-[#9a9a9f]">{page}</span> : null}
+              </div>
+            );
+          })
         )}
         {citations.length > CITATION_LIMIT ? (
           <p className={CHAT_RAIL_EMPTY_CLASS}>另有 {citations.length - CITATION_LIMIT} 份未展示</p>

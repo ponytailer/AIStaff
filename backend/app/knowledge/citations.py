@@ -336,6 +336,70 @@ def _display_title(value: str) -> str:
     return _compact(value, 72)
 
 
+#: `section_path` 首段的历史占位名。老数据里分节路径是 `PDF 文档 / 第 6 页`，
+#: 拼标题时要把这段噪音丢掉，否则会拼成「真实文件名 / PDF 文档 / 第 6 页」。
+GENERIC_SECTION_HEADS = {"pdf 文档", "文档", "pdf", "word 文档", "文档正文"}
+SECTION_SEPARATOR = " / "
+
+
+def _same_document_label(left: str, right: str) -> bool:
+    """两段文本是不是同一份文档的名字（容忍有无扩展名）。
+
+    新入库的 PDF 里，一级标题取的是文件名 **stem**（``某文件``），而文档表上的
+    ``filename`` 带后缀（``某文件.pdf``）。不做这层归一就会拼成
+    「某文件.pdf / 某文件 / 第 3 页」。
+    """
+    def normalize(value: str) -> str:
+        text = (value or "").strip().lower()
+        for suffix in (
+            ".pdf",
+            ".docx",
+            ".doc",
+            ".md",
+            ".markdown",
+            ".txt",
+            ".html",
+            ".htm",
+            ".xlsx",
+            ".xls",
+            ".csv",
+            ".pptx",
+            ".ppt",
+        ):
+            if text.endswith(suffix):
+                return text[: -len(suffix)].strip()
+        return text
+
+    a, b = normalize(left), normalize(right)
+    return bool(a) and a == b
+
+
+def compose_citation_title(document_title: str, section_path: str) -> str:
+    """把「文档名」和「第 N 页 / 小节名」拼成一行可读的引用标题。
+
+    期望结果形如 ``《防火门闭门器》XF 93-2004.pdf / 第 6 页``。只显示文档名看不出
+    具体引用了哪一段；只显示 ``第 6 页`` 又不知道是哪份文件，两者都要。
+
+    去重与降噪：
+    - ``section_path`` 首段与文档名相同（新入库的 PDF 就是这样，一级标题即文件名）
+      时只保留后半段，避免「文件名 / 文件名 / 第 6 页」；
+    - 首段是 ``PDF 文档`` 这类历史占位名时整段丢掉。
+    """
+    doc = (document_title or "").strip()
+    parts = [
+        part.strip()
+        for part in (section_path or "").split("/")
+        if part.strip()
+    ]
+    if doc and parts and _same_document_label(parts[0], doc):
+        parts = parts[1:]
+    parts = [part for part in parts if part.lower() not in GENERIC_SECTION_HEADS]
+    label = SECTION_SEPARATOR.join(parts)
+    if doc and label:
+        return f"{doc}{SECTION_SEPARATOR}{label}"
+    return doc or label
+
+
 def knowledge_source_candidates(result: dict[str, Any]) -> list[dict[str, Any]]:
     """Return one normalized source stream for both answer context and citations."""
     tiers = (
@@ -416,8 +480,12 @@ def _normalize_source_items(
         source_id = str(
             item.get("chunk_id") or item.get("concept_id") or item.get("id") or ""
         ).strip()
+        # 标题优先拼成「文档名 / 第 N 页」：只有文档名看不出引用了哪一段，
+        # 只有 `第 6 页` 又不知道是哪份文件。两者都拿不到才退回通用兜底。
+        raw_title = str(item.get("title") or item.get("name") or "").strip()
+        composed = compose_citation_title(raw_title, section_path)
         title = _display_title(
-            str(item.get("title") or item.get("name") or "").strip()
+            composed
             or section_path
             or source_path
             or source_id

@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from app.config import get_settings
@@ -55,7 +56,7 @@ def should_attempt_ocr(filename: str, text: str) -> bool:
     return len(body) < max(0, int(settings.knowledge_ocr_min_text_chars or 0))
 
 
-def _pages_to_markdown(pages: list[dict[str, Any]]) -> tuple[str, int]:
+def _pages_to_markdown(pages: list[dict[str, Any]], display_name: str = "") -> tuple[str, int]:
     """把 OCR 回包的逐页结果拼成 markdown 正文，返回 (正文, 有效页数)。"""
 
     blocks: list[str] = []
@@ -75,7 +76,11 @@ def _pages_to_markdown(pages: list[dict[str, Any]]) -> tuple[str, int]:
         used += 1
     if not blocks:
         return "", 0
-    return "# PDF 文档（OCR 识别）\n\n" + "\n\n".join(blocks), used
+    # 与 _extract_pdf 同一口径：一级标题用真实文件名，它就是引用卡片上
+    # `section_path` 的首段。固定「PDF 文档（OCR 识别）」会让所有扫描件的引用
+    # 长得一模一样，用户没法分辨是哪份文件。
+    heading = display_name.strip() or "PDF 文档"
+    return f"# {heading}（OCR 识别）\n\n" + "\n\n".join(blocks), used
 
 
 def extract_pdf_via_ocr(filename: str, content: bytes) -> str:
@@ -129,7 +134,7 @@ def extract_pdf_via_ocr(filename: str, content: bytes) -> str:
     first = results[0] if isinstance(results[0], dict) else {}
     upstream_error = first.get("error")
     pages = first.get("pages") if isinstance(first.get("pages"), list) else []
-    markdown, used_pages = _pages_to_markdown(pages)
+    markdown, used_pages = _pages_to_markdown(pages, Path(filename).stem)
     if not markdown:
         detail = f"（上游错误：{upstream_error}）" if upstream_error else ""
         raise KnowledgeParseError(f"OCR 未能识别出任何文字{detail}。")
