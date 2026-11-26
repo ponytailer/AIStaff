@@ -231,6 +231,7 @@ COLUMNS_TO_ADD: tuple[ColumnFix, ...] = (
     ColumnFix("scenes", "flow_json", "sop_flow 的流程定义"),
     ColumnFix("scenes", "handoff_json", "handoff 的转人工参数"),
     ColumnFix("scenes", "scripts_json", "script 的话术表"),
+    ColumnFix("scenes", "tool_api_json", "tool_submit 的接口调用配置（与 module_config 分工不同）"),
 )
 
 

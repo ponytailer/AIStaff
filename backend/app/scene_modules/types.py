@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-SceneType = Literal["table_match", "sop_flow", "handoff", "script"]
+SceneType = Literal["table_match", "sop_flow", "handoff", "script", "tool_submit"]
 
 #: block 的语义类型。注意：**不是 UI 形态**，而是「这块说的是什么事」。
 #: 渲染成什么样由前端 module 的代码决定（PRD §7.5）。

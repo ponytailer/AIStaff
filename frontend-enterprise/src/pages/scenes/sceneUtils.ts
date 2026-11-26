@@ -1,4 +1,4 @@
-import type { SceneQualityIssue, SceneRead, SceneRunResult, SceneSlot, SceneStatus } from '@/api/scenes';
+import type { SceneQualityIssue, SceneRead, SceneRunResult, SceneSlot, SceneStatus, SceneToolApi } from '@/api/scenes';
 import type { NeedsTable } from '@/scenes/types';
 import { tableCountIssues } from '@/scenes/types';
 
@@ -36,6 +36,29 @@ export type SlotMappingIssue = {
  *    （比如只按人数推荐），但缺了预算就没法排序，得让用户知道损失了什么。
  * 3. 多个槽位指向**同一列** → error。人数和天数都指向「人数」列时，
  *    匹配会拿同一个值当两个维度用，结果荒谬但不会报错。
+ *
+ * ## ⚠️ `semanticKeys` 必须由调用方按场景类型给，不能无条件传 `SEMANTIC_SLOTS`
+ *
+ * 语义槽位（`people` / `days` / `budget`）是**查表匹配**的三层维度：
+ * 人数硬约束、天数 ±1、预算排序。它们只对 `table_match` 成立。
+ *
+ * 曾经调用点无条件传 `SEMANTIC_SLOTS.map(...)`，于是建一个「客房送物」场景
+ * （槽位是 `room_no` / `item`）时，界面上会挂着三条：
+ *
+ *     没配「people」槽位
+ *     没配「days」槽位
+ *     没配预算槽位，结果只能按天数排序
+ *
+ * 这个场景既不查表也不排序，三条全是噪音 —— 用户会以为漏配了什么，
+ * 然后去加三个跟自己业务毫无关系的槽位。
+ *
+ * 传空数组 = 这个类型不做语义维度校验（`sop_flow` / `handoff` / `script` /
+ * `tool_submit` 都属于这一类）。
+ *
+ * ## `columnKeys` 同理
+ *
+ * 非查表类型的 `columnKeys` 必然是空的。传空数组时「指向不存在的列」这条
+ * 自动不触发（`columnKeys.length > 0` 是前置条件），所以调用方不必特殊处理。
  */
 export function checkSlotMappings(
   slots: SceneSlot[],
@@ -134,7 +157,10 @@ export function qualityLevelText(level: SceneQualityIssue['level']): string {
  * 请传 `effectiveNeedsTable(scene.scene_type, meta.needs_table)`。
  */
 export function publishBlockers(
-  scene: Pick<SceneRead, 'table_ids' | 'scene_type' | 'slots' | 'respond_action'>,
+  scene: Pick<SceneRead, 'table_ids' | 'scene_type' | 'slots' | 'respond_action'> & {
+    /** `tool_submit` 专用。其余类型传不传都一样。 */
+    tool_api?: Partial<SceneToolApi>;
+  },
   columnKeys: string[],
   moduleNeeds?: NeedsTable,
 ): string[] {
@@ -145,8 +171,34 @@ export function publishBlockers(
     ...tableCountIssues(scene.scene_type, (scene.table_ids ?? []).length, moduleNeeds),
   );
   if (!scene.slots || scene.slots.length === 0) blockers.push('还没配置要问用户的字段（槽位）');
+  /*
+   * 表单提交类型必须选好接口。
+   *
+   * 没有这条时，用户可以发布一个「表单能出、一提交就说没配接口」的场景 ——
+   * 而界面上有「接口」下拉，只是他没选。发布是「我做完了」的声明，
+   * 此时放行一个已知不会工作的配置，等于把问题推到员工第一次真用的时候。
+   *
+   * 判 `scene_type` 而不是「有没有 tool_api 字段」：其余类型保存时根本不发
+   * `tool_api`，用「有没有」判会把它们全部拦下。
+   */
+  if (scene.scene_type === 'tool_submit') {
+    const toolName = String(scene.tool_api?.tool_name ?? '').trim();
+    if (!toolName) blockers.push('还没选要调用的接口');
+  }
   const issues = checkSlotMappings(scene.slots ?? [], columnKeys, []);
-  if (issues.some((issue) => issue.level === 'error')) {
+  /*
+   * 只在**真的有列可映射**时才拦「槽位指向不存在的列」。
+   *
+   * 不查表的类型（`sop_flow` / `handoff` / `script` / `tool_submit`）
+   * `columnKeys` 恒为空，而它们的槽位 `target` 也恒为空 —— `checkSlotMappings`
+   * 会把「target 为空」判成 error，于是这些场景**永远发布不了**，
+   * 且提示是「有槽位指向了表里不存在的列」，而它根本没有表。
+   *
+   * 加 `columnKeys.length > 0` 这个前置条件后，语义变成：
+   * 「你配了表要做列映射，那就必须映射对」。这比按 `scene_type` 分支更稳 ——
+   * 将来加新的查表类类型不用回来改这里。
+   */
+  if (columnKeys.length > 0 && issues.some((issue) => issue.level === 'error')) {
     blockers.push('有槽位指向了表里不存在的列');
   }
   // const respond = scene.respond_action ?? {};

@@ -153,6 +153,21 @@ class MockFulfillmentReroutePlanRequest(BaseModel):
     member_level: str | None = None
 
 
+class MockRoomDeliverySubmitRequest(BaseModel):
+    """客房送物提交。
+
+    线下服务类场景的典型形状：**只填必要信息，返回一个受理单号**。
+    刻意不做「库存校验 / 时段限制」这类业务规则 —— mock 的职责是让链路
+    跑通，把业务规则写进 mock 会让人误以为线上也是这样。
+    """
+
+    room_no: str
+    item: str
+    quantity: int = Field(default=1, ge=1, le=20)
+    guest_name: str | None = None
+    note: str | None = None
+
+
 @router.post("/order/query")
 def mock_order_query(
     request: MockOrderQueryRequest, db: Session = Depends(get_session)
@@ -538,6 +553,57 @@ def _upsert_dynamic_order(
     row.updated_at = now
     db.add(row)
     db.commit()
+
+
+@router.post("/room/delivery-submit")
+def mock_room_delivery_submit(request: MockRoomDeliverySubmitRequest) -> dict[str, Any]:
+    """客房送物受理（mock）。
+
+    **接口契约**（``tool_submit`` 场景调它，前端与工具都按下面的字段读）：
+
+    请求：
+    ```json
+    { "room_no": "8306", "item": "矿泉水", "quantity": 2,
+      "guest_name": "张先生", "note": "两瓶常温水" }
+    ```
+
+    响应（**所有列都是标量**，回执卡直接摊开显示）：
+    ```json
+    { "accepted": true,
+      "order_no": "RD20261126001",
+      "room_no": "8306",
+      "item": "矿泉水",
+      "quantity": 2,
+      "eta_minutes": 15,
+      "status": "accepted",
+      "message": "已受理，客房部会在 15 分钟内送达 8306 房。",
+      "created_at": "2026-11-26T15:20:00" }
+    ```
+
+    为什么返回 `message`：场景的 `reply_template` 留空时，通道会拿它当正文
+    （见 ``channels._tool_reply_text``）。让接口自己说一句完整的人话，
+    比强制每个场景都配模板更容易跑通第一条链路。
+
+    为什么 `eta_minutes` 随件数变：固定值会让「要 10 瓶水也说 15 分钟」
+    显得假。这只是 mock 的合理性，不是业务规则。
+    """
+    room_no = request.room_no.strip()
+    item = request.item.strip()
+    # 件数越多越慢，但封顶 40 分钟 —— 让 demo 看起来有个像样的估算，
+    # 又不至于因为用户手滑填 20 变成一个荒谬的数字。
+    eta = min(40, 10 + 5 * request.quantity)
+    order_no = f"RD{datetime.now(UTC).strftime('%Y%m%d')}{uuid4().hex[:3].upper()}"
+    return {
+        "accepted": True,
+        "order_no": order_no,
+        "room_no": room_no,
+        "item": item,
+        "quantity": request.quantity,
+        "eta_minutes": eta,
+        "status": "accepted",
+        "message": f"已受理，客房部会在 {eta} 分钟内送达 {room_no} 房。",
+        "created_at": _now_iso(),
+    }
 
 
 def _now_iso() -> str:

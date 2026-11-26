@@ -43,7 +43,12 @@ from app.db.models import ScenePreset, utc_now
 REALTIME_KEYS: tuple[str, ...] = ("ui_config", "trigger")
 
 #: 只在建场景时抄一份、之后归用户的键。
-SNAPSHOT_KEYS: tuple[str, ...] = ("slots", "match_action")
+#:
+#: ``tool_api`` 属于这一类：里面是「调哪个接口 + 参数怎么映射」，而映射的源
+#: 是用户自己的槽位 key —— 各租户的槽位名不一样（``room_no`` / ``roomNumber``），
+#: 实时回读会把用户映射好的那份冲掉。预设只负责给一份**能跑通的骨架**
+#: （超时、回复模板的句式），接口名一定由用户自己选。
+SNAPSHOT_KEYS: tuple[str, ...] = ("slots", "match_action", "tool_api")
 
 
 # ============================================================
@@ -155,10 +160,147 @@ _ITINERARY_PARAMS: dict[str, Any] = {
     },
 }
 
+#: `generic.tool_submit` 的出厂预设 —— 「表单（可选）+ 调外部系统」。
+#:
+#: ## 为什么这一条必须存在（不是「顺手补一个」）
+#:
+#: 场景类型的下拉**只列预设**（`api/scene_presets.py::list_scene_preset_options`）。
+#: 在这条之前，`BUILTIN_PRESETS` 里只有 `travel.itinerary`，于是用户建场景时
+#: 能选的类型只有「行程规划」——「收表单 → 调接口 → 出回执」这条路在界面上
+#: **根本不存在**。客房送物这类场景只能靠脚本落库，普通用户无路可走。
+#:
+#: ## 预设要收拾到什么程度
+#:
+#: 目标是「用户只改三件事：场景名、图标、选哪个接口」。所以这里预填的是
+#: **除了接口名以外的一切**：
+#:
+#: - `description` / `icons` / `ui_config`：让定义器一打开就是填好的样子
+#: - `respond_action.ask_prompt`：卡上方那句话（用户可改）
+#: - `trigger`：按钮触发 + 跳过意图路由（用户改不了，也不该改）
+#: - `tool_api`：**只给骨架**（超时 + 回复模板句式），`tool_name` 留空 ——
+#:   工具是租户自己建的，出厂值不可能知道叫什么
+#:
+#: ## `slots` 为什么预填两个而不是留空
+#:
+#: 「房间号 + 物品」不是通用业务，硬塞进通用预设会让做「报修」「预约」的用户
+#: 先删两行才能开始。所以预填的是**最小可用的一组**（两个字段，一个必填一个
+#: 可选），并配好 `prompt`（要问什么）与 `type`。用户按自己的业务改 label 即可
+#: ——这比「从零加两个槽位」省事，也比「预填五个不相干的字段」少删。
+_TOOL_SUBMIT_PARAMS: dict[str, Any] = {
+    "schema_version": 1,
+    "description": "收齐几个字段，提交给外部系统，把返回的结果回复给用户",
+    # 新建场景时图标下拉可选的项（第一个是默认值）
+    "icons": ["📮", "🛎️", "🔧", "📝", "📦", "🎫"],
+    "ui_config": {
+        # 非 UI 渠道（微信 / 纯文本）只吃这句。必填，但用户不填（来自预设）。
+        "fallback_text": "已提交，结果如下",
+        "params": {
+            # ---- 回执卡的话术（员工可改，改完不用发版）----
+            #
+            # 这一组与 `frontend-enterprise/src/scenes/modules/generic.tool_submit/
+            # params.ts` 的 `GENERIC_TOOL_SUBMIT_DEFAULTS` 逐字一致。两边不一致的
+            # 后果是「预设页默认值」和「卡片兜底句」不同 —— 超管看到 a，用户看到 b。
+            #
+            # 回执卡头上的结论句。不同业务叫法不同：客房送物「已提交」，
+            # 报修「已派单」，预约「已预约成功」。
+            "receipt_title": "已提交",
+            # 结论句下面那行小字。留空 = 按有无单号自动兜底。
+            "receipt_subtitle": "",
+            # 接口返回里哪个字段是单号。留空 = 按 no / id / code / 单号 等特征识别。
+            # 它**不是**标签（那是 `receipt_no_label`），而是技术映射。
+            "receipt_no_field": "",
+            # 单号那一行的标签。受理单号 / 运单号 / 工单编号，各业务叫法不同。
+            "receipt_no_label": "",
+            # 回执卡右下角的按钮文案。**显式留空 = 不显示这颗按钮**
+            # （接口没有进度可查时该留空）。与上面几项「留空=兜底」语义相反，
+            # 因为「有没有这颗按钮」本身是业务决定。
+            "progress_text": "查看进度",
+            # 点按钮后实际发给助手的话。
+            "progress_query": "帮我查一下刚才那单的进度",
+        },
+        "form_title": "请填写下面的信息",
+        # 卡头副标题。与 `channels.py` 的兜底句一致：留空时走兜底，
+        # 两边文案不同会让用户看到「清空一下文案就变了」。
+        "form_subtitle": "填好这几项，我提交给对应部门",
+    },
+    # 卡**上方**那句引导语（与卡内副标题分工不同，见 ui_config 注释）。
+    "respond_action": {
+        "ask_prompt": "填好下面的信息，我马上帮你提交：",
+    },
+    "trigger": {
+        # 用户不配触发条件：默认按钮触发 + 跳过意图路由（最稳的一条路）。
+        "shortcut": True,
+        "shortcut_label": "",
+        "examples": [],
+        "keywords": [],
+        "require_slots": True,
+        "bypass_llm_router": True,
+    },
+    # 两个最小可用字段。`target` 留空 —— 这个类型不查表，没有列可映射。
+    "slots": [
+        {
+            "key": "subject",
+            "label": "要办的事",
+            "target": "",
+            "type": "text",
+            "unit": "",
+            "required": True,
+            "prompt": "你需要办什么事？",
+        },
+        {
+            "key": "note",
+            "label": "备注",
+            "target": "",
+            "type": "text",
+            "unit": "",
+            "required": False,
+            "prompt": "还有什么要补充的？",
+        },
+    ],
+    # 匹配策略：这个类型不查表，但 `initial_scene_fields` 会原样透传。
+    # 给一份合法值（而不是空 dict），定义器里「匹配策略」区块就不至于读到
+    # `undefined` 再各自兜底 —— 那是四份分散的兜底，迟早不一致。
+    "match_action": {
+        "days_weight": 1.0,
+        "budget_weight": 1.0,
+        "days_tolerance": 1,
+        "people_tolerance": 0,
+        "max_score": 2.0,
+        "top_k": 3,
+        "rule_weight": 0.5,
+        "use_decision_model": False,
+        "on_empty": "none",
+    },
+    # ---- 调接口的配置（骨架）----
+    #
+    # `tool_name` **故意留空**：工具是租户自己建的（客房送物的
+    # `room.delivery_submit` 只存在于 demo 租户），出厂值写死任何一个名字，
+    # 别的租户选中这条预设后都会立刻报「工具不存在」。
+    # 留空时通道会给一句可行动的原因（「这个场景还没有配置要调用的接口」），
+    # 比调一个不存在的工具、拿到 404 再猜好。
+    "tool_api": {
+        "tool_name": "",
+        # 回复模板。占位符两处都能取：返回值字段 + 槽位值（见 `_tool_reply_text`）。
+        # 这句是**句式建议**，用户按自己的回执字段改名即可。
+        "reply_template": "已提交，受理单号 {{order_no}}。",
+        # 参数映射留空 = 槽位 key 与接口参数同名直传（最常见）。
+        "param_map": {},
+        "timeout_seconds": 8,
+        # 回执卡里「纯响应字段」的中文名（只出现在返回值里的那些）。
+        # 槽位字段的中文名通道会自动从槽位 `label` 取，不用在这里重复写。
+        "field_labels": {},
+    },
+}
+
 #: 出厂预设清单。新增定制 module 时在这里加一项，超管页面就会出现它。
 #:
 #: 只登记**定制 module**（有真 UI 代码的那种）。四个 `generic.*` 不进这里：
 #: 它们没有可配参数，登记了只会在超管页面里挂四个空表单。
+#:
+#: ⚠️ 但 `generic.tool_submit` 是**例外，必须登记**，原因不是「它有参数」而是
+#: 「它是新建场景的类型下拉的数据源」——见 `_TOOL_SUBMIT_PARAMS` 的注释。
+#: 另外四个 `generic.*` 仍然不进：它们连可调的文案都没有，登记只会让下拉里
+#: 多出四个选了不知道干什么的选项。
 BUILTIN_PRESETS: list[dict[str, Any]] = [
     {
         "module_key": "travel.itinerary",
@@ -168,6 +310,16 @@ BUILTIN_PRESETS: list[dict[str, Any]] = [
         "enabled": True,
         "order_index": 0,
         "preset_json": _ITINERARY_PARAMS,
+    },
+    {
+        "module_key": "generic.tool_submit",
+        "display_name": "表单提交",
+        "scene_type": "tool_submit",
+        "icon": "📮",
+        "enabled": True,
+        # 排在行程规划之后：行程是当前主推场景，新建时默认选中的是第一个。
+        "order_index": 10,
+        "preset_json": _TOOL_SUBMIT_PARAMS,
     },
 ]
 
@@ -407,13 +559,18 @@ def initial_scene_fields(db: Session, module_key: str) -> dict[str, Any]:
     """用预设初始化一份「新建场景」的字段默认值。
 
     返回 ``{scene_type, icon, ui_config, trigger, slots, match_action,
-    respond_action, name_hint}``。
+    respond_action, tool_api, name_hint}``。
     定义器拉到它就能直接铺好表单，用户只需要改名称/图标/描述。
 
-    ## 为什么 ``slots`` / ``match_action`` 也一起给
+    ## 为什么 ``slots`` / ``match_action`` / ``tool_api`` 也一起给
 
     它们是**初始值**（用户建完之后归用户），但「初始值来自预设」这件事必须成立
     ——否则「超管把默认容差从 1 天改成 2 天」对新建场景不生效。
+
+    ``tool_api`` 同属这一类，但语义更弱一层：它给的是**骨架**（超时 + 回复
+    模板句式），``tool_name`` 恒为空 —— 工具是租户自己建的，出厂值不可能
+    知道叫什么。定义器仍然需要拿到这份骨架，否则「新建表单场景」时用户得
+    自己从零想清楚 reply_template 的写法。
     """
     preset = get_preset(db, module_key)
     payload = dict(preset.get("preset_json") or {}) if preset else {}
@@ -438,6 +595,11 @@ def initial_scene_fields(db: Session, module_key: str) -> dict[str, Any]:
         # 定义器拿到的结构和它最终保存的结构才是一致的（少一层映射就少一处漂移）。
         "respond_action": _deepcopy_dict(payload.get("respond_action"))
         if isinstance(payload.get("respond_action"), dict)
+        else {},
+        # 调接口的骨架（只对 `tool_submit` 有内容，其余类型是空 dict）。
+        # 路径与场景上的 `tool_api_json` 对齐，定义器不用再做一次字段改名。
+        "tool_api": _deepcopy_dict(payload.get("tool_api"))
+        if isinstance(payload.get("tool_api"), dict)
         else {},
     }
 

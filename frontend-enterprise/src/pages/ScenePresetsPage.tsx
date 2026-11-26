@@ -18,7 +18,8 @@ import {
   type ScenePresetRead,
 } from '../api/scenes';
 import { loadSceneModule, metaForModule, useSceneModuleCatalog } from '@/scenes/registry';
-import type { SceneModule, SceneUiBlock } from '@/scenes/types';
+import type { SceneModule } from '@/scenes/types';
+import { previewBlockFor } from './scenes/ScenePreviewCard';
 import type { EnterpriseAuthUser } from '../auth';
 
 /**
@@ -201,6 +202,22 @@ export default function ScenePresetsPage({ currentUser: _currentUser }: { curren
     (metaForModule(moduleMetas, active?.module_key)?.params_schema ?? []).map((field) => field.key),
   );
 
+  /**
+   * module 声明的**话术/技术**文本参数（`type` 为 text / textarea）。
+   *
+   * 标签、说明、占位符全部取自 `params_schema` —— 与定义器「回复用户」
+   * 区块同一份来源。两处各写一遍的后果已经在「单号字段名」上发生过一次：
+   * 同一个 `receipt_no_label`，这边叫「单号字段名」、那边叫「单号叫什么」，
+   * 超管和员工互相以为对方改了另一个东西。
+   *
+   * `column` / `boolean` 不在这里：它们各自有专门的控件（列下拉 / 开关），
+   * 摆在文本框里改不了。
+   */
+  const textParams = (metaForModule(moduleMetas, active?.module_key)?.params_schema ?? []).filter(
+    (field): field is Extract<typeof field, { type: 'text' | 'textarea' }> =>
+      field.type === 'text' || field.type === 'textarea',
+  );
+
   return (
     <>
       <div className="page-title" style={{ paddingRight: 0 }}>
@@ -378,31 +395,66 @@ export default function ScenePresetsPage({ currentUser: _currentUser }: { curren
                         />
                       </LabeledField>
                     )}
-                    <LabeledField label="价格说明" hint="跟在金额后面的小字">
-                      <Input
-                        value={String(params.price_note ?? '')}
-                        onChange={(event) =>
+                    {/*
+                      「价格说明 / 显示来源表名」是查表类 module 的专有参数。
+                      无条件渲染会让选「表单提交」的超管看到两个填了也不生效的
+                      输入框 —— 用户改完保存，然后在预览里找不到任何变化。
+                      判据同样取 `params_schema`：声明了才渲染。
+                    */}
+                    {paramFieldKeys.has('price_note') && (
+                      <LabeledField label="价格说明" hint="跟在金额后面的小字">
+                        <Input
+                          value={String(params.price_note ?? '')}
+                          onChange={(event) =>
+                            patchJson((payload) => {
+                              payload.ui_config = payload.ui_config ?? {};
+                              payload.ui_config.params = payload.ui_config.params ?? {};
+                              payload.ui_config.params.price_note = event.target.value;
+                            })
+                          }
+                          placeholder="/人 · 含住宿、雪票、教练、接送"
+                        />
+                      </LabeledField>
+                    )}
+                    {paramFieldKeys.has('show_source_table') && (
+                      <SwitchRow
+                        label="副标题显示来源表名"
+                        hint="多表合并查的时候，显示这一行来自哪张表"
+                        checked={params.show_source_table !== false}
+                        onChange={(next) =>
                           patchJson((payload) => {
                             payload.ui_config = payload.ui_config ?? {};
                             payload.ui_config.params = payload.ui_config.params ?? {};
-                            payload.ui_config.params.price_note = event.target.value;
+                            payload.ui_config.params.show_source_table = next;
                           })
                         }
-                        placeholder="/人 · 含住宿、雪票、教练、接送"
                       />
-                    </LabeledField>
-                    <SwitchRow
-                      label="副标题显示来源表名"
-                      hint="多表合并查的时候，显示这一行来自哪张表"
-                      checked={params.show_source_table !== false}
-                      onChange={(next) =>
-                        patchJson((payload) => {
-                          payload.ui_config = payload.ui_config ?? {};
-                          payload.ui_config.params = payload.ui_config.params ?? {};
-                          payload.ui_config.params.show_source_table = next;
-                        })
-                      }
-                    />
+                    )}
+                    {/*
+                      话术参数：按 module 的 `params_schema` 逐项渲染。
+
+                      这三项（结论句 / 补充说明 / 单号叫什么 / 进度按钮文案 …）
+                      改的是**回执卡上说什么话**。它们在这里作为**新建场景的
+                      预填值**，员工建场景时还能再改（定义器的「回复用户」区块）。
+
+                      标签文案取自 `params_schema`，与定义器逐字一致 ——
+                      同一件事在两页叫不同名字，用户会以为要配两遍。
+                    */}
+                    {textParams.map((field) => (
+                      <LabeledField key={field.key} label={field.label} hint={field.help}>
+                        <Input
+                          value={String(params[field.key] ?? '')}
+                          onChange={(event) =>
+                            patchJson((payload) => {
+                              payload.ui_config = payload.ui_config ?? {};
+                              payload.ui_config.params = payload.ui_config.params ?? {};
+                              payload.ui_config.params[field.key] = event.target.value;
+                            })
+                          }
+                          placeholder={field.placeholder}
+                        />
+                      </LabeledField>
+                    ))}
                     <LabeledField label="兜底文本" hint="卡片渲染不出来时，用户看到的纯文本">
                       <Textarea
                         rows={2}
@@ -540,6 +592,20 @@ function PresetPreview({
   const [module, setModule] = useState<SceneModule | null>(null);
   const [failed, setFailed] = useState(false);
 
+  /**
+   * 样例数据与定义器里那份**同一个来源**（`previewBlockFor`）。
+   *
+   * 曾经这里另抄了一份 `PREVIEW_BLOCK`，注释还写着「与定义器里那份同源」——
+   * 事实上是两份副本：定义器那边加了「表单提交」的分派之后，这页仍然只出行程样例，
+   * 超管改回执话术时看到的是亚布力五日游。同一件东西出现在两个地方、长得不一样，
+   * 正是本项目要杜绝的那类分裂。
+   */
+  const previewBlock = useMemo(() => {
+    const raw = params.receipt_no_field;
+    const noField = typeof raw === 'string' ? raw.trim() : '';
+    return previewBlockFor(moduleKey, { noField });
+  }, [moduleKey, params]);
+
   useEffect(() => {
     let alive = true;
     setModule(null);
@@ -579,8 +645,8 @@ function PresetPreview({
       <p className="m-0 text-[10.5px] text-muted-foreground">样例数据 · 改上面参数会同步反映</p>
       <div className="rounded-[12px] border border-dashed border-[#cfc5b7] bg-[#fbfaf6] p-[10px]">
         <Card0
-          block={PREVIEW_BLOCK}
-          siblings={[PREVIEW_BLOCK]}
+          block={previewBlock}
+          siblings={[previewBlock]}
           params={params}
           sendText={() => {}}
           submitSlots={() => {}}
@@ -591,39 +657,6 @@ function PresetPreview({
     </div>
   );
 }
-
-/** 预览样例数据（与定义器里那份同源，见 `SceneEditor.tsx` 的说明）。 */
-const PREVIEW_BLOCK: SceneUiBlock = {
-  kind: 'result',
-  module_key: '',
-  module_version: 0,
-  fallback_text: '',
-  data: {
-    total: 1,
-    max_items: 1,
-    items: [
-      {
-        row_id: 'preview-1',
-        score: 0,
-        source_table: '滑雪套餐价目表',
-        values: {
-          计划内容: '经典雪山五日',
-          目的地: '亚布力',
-          人数: 4,
-          天数: 5,
-          预算: 3000,
-          日程: [
-            { title: '抵达亚布力', description: '哈尔滨接站，入住雪场酒店。', tags: ['含接站', '含晚餐'], phase: '抵达' },
-            { title: '初级道练习', description: '上午教练带练，下午自由滑。', tags: ['含雪票', '含教练'], phase: '初级' },
-            { title: '进阶训练', description: '中级道压弯与回转技巧。', tags: ['含教练'], phase: '进阶' },
-            { title: '自由滑行', description: '全天自由安排，可选雪地摩托。', tags: ['自由活动'], phase: '自由' },
-            { title: '返程', description: '早餐后送站。', tags: ['含送站'], phase: '返程' },
-          ],
-        },
-      },
-    ],
-  },
-};
 
 /** 带标签 + 说明的字段（与 `RuntimeSettingsPage` 的 `LabeledField` 视觉一致）。 */
 function LabeledField({

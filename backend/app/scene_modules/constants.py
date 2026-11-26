@@ -45,10 +45,17 @@ SCENE_TYPE_META: dict[str, dict[str, Any]] = {
     "sop_flow": {"label": "流程办理", "icon": "🧭", "needs_table": "none"},
     "handoff": {"label": "转人工", "icon": "🙋", "needs_table": "none"},
     "script": {"label": "固定话术", "icon": "💬", "needs_table": "none"},
+    "tool_submit": {"label": "表单提交", "icon": "📮", "needs_table": "none"},
 }
 
 #: 场景类型全集（``SceneType`` 的运行时形态，用于校验与穷尽性断言）
-SCENE_TYPES: tuple[SceneType, ...] = ("table_match", "sop_flow", "handoff", "script")
+SCENE_TYPES: tuple[SceneType, ...] = (
+    "table_match",
+    "sop_flow",
+    "handoff",
+    "script",
+    "tool_submit",
+)
 
 #: 新建场景时按类型预填的 module_key。
 #:
@@ -60,6 +67,7 @@ DEFAULT_MODULE_BY_SCENE_TYPE: dict[str, str] = {
     "sop_flow": "generic.sop_flow",
     "handoff": "generic.handoff",
     "script": "generic.script",
+    "tool_submit": "generic.tool_submit",
 }
 
 #: module_key 的格式约束：``<域>.<场景>``，点号命名，全局唯一。

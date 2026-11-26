@@ -22,7 +22,7 @@ SceneStatus = Literal["draft", "published", "archived"]
 #: 场景类型（与 ``scene_modules.types.SceneType`` 同构）。
 #: 刻意在这里再写一遍而不是 import：schema 层是纯 pydantic 契约，
 #: 不依赖运行期包，这样前端从 OpenAPI 生成的类型不会牵出内部模块。
-SceneTypeLiteral = Literal["table_match", "sop_flow", "handoff", "script"]
+SceneTypeLiteral = Literal["table_match", "sop_flow", "handoff", "script", "tool_submit"]
 
 
 # ============================================================
@@ -149,6 +149,8 @@ class SceneCreateRequest(BaseModel):
     flow: dict[str, Any] = Field(default_factory=dict)
     handoff: dict[str, Any] = Field(default_factory=dict)
     scripts: list[dict[str, Any]] = Field(default_factory=list)
+    #: ``tool_submit`` 的接口调用配置（``tool_name`` / 参数映射 / 回复模板）。
+    tool_api: dict[str, Any] = Field(default_factory=dict)
 
 
 class SceneUpdateRequest(BaseModel):
@@ -178,6 +180,7 @@ class SceneUpdateRequest(BaseModel):
     flow: dict[str, Any] | None = None
     handoff: dict[str, Any] | None = None
     scripts: list[dict[str, Any]] | None = None
+    tool_api: dict[str, Any] | None = None
 
 
 class SceneRead(BaseModel):
@@ -205,6 +208,8 @@ class SceneRead(BaseModel):
     flow: dict[str, Any] = Field(default_factory=dict)
     handoff: dict[str, Any] = Field(default_factory=dict)
     scripts: list[dict[str, Any]] = Field(default_factory=list)
+    #: ``tool_submit`` 的接口调用配置
+    tool_api: dict[str, Any] = Field(default_factory=dict)
     # 「这个场景挂在哪些员工上」——由 AgentResourceBinding 反查得出
     agent_ids: list[str] = Field(default_factory=list)
     #: 定义器侧的提示（表数量档位不满足等）。**只提示不放行**，
@@ -219,6 +224,20 @@ class SceneRead(BaseModel):
 # ============================================================
 # 试跑
 # ============================================================
+
+
+class SceneToolOptionRead(BaseModel):
+    """定义器「接口」下拉的一项。
+
+    **只有三项**：下拉里要展示的就这些。``url`` / 鉴权 / schema 一律不给 ——
+    普通用户配场景时不需要看到接口地址和密钥位，而这类字段一旦下发到浏览器，
+    「谁能看什么」就得再发明一套视图权限来管。
+    """
+
+    name: str
+    description: str = ""
+    #: 工具所属分组（下拉里按它分段，几百个工具时不至于一条长龙）
+    bucket: str = ""
 
 
 class SceneRunRequest(BaseModel):

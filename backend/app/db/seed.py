@@ -697,6 +697,49 @@ ORDER_ADD_TOOL = {
     "enabled": True,
 }
 
+ROOM_DELIVERY_SUBMIT_TOOL = {
+    "name": "room.delivery_submit",
+    "display_name": "客房送物受理",
+    "description": (
+        "为住客提交客房送物申请（矿泉水、毛巾、拖鞋、牙刷等），"
+        "返回受理单号与预计送达时间。"
+    ),
+    "bucket": "客房服务",
+    "method": "POST",
+    "url": "/api/mock/room/delivery-submit",
+    "headers_json": {},
+    "auth_json": {},
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "room_no": {"type": "string", "description": "房间号，如 8306"},
+            "item": {"type": "string", "description": "送物品名，如 矿泉水、毛巾"},
+            "quantity": {"type": "integer", "description": "数量，默认 1"},
+            "guest_name": {"type": "string", "description": "住客姓名（可选）"},
+            "note": {"type": "string", "description": "备注（可选）"},
+        },
+        "required": ["room_no", "item"],
+    },
+    "output_schema": {
+        "type": "object",
+        "properties": {
+            "accepted": {"type": "boolean"},
+            "order_no": {"type": "string"},
+            "room_no": {"type": "string"},
+            "item": {"type": "string"},
+            "quantity": {"type": "integer"},
+            "eta_minutes": {"type": "integer"},
+            "status": {"type": "string"},
+            "message": {"type": "string"},
+            "created_at": {"type": "string"},
+        },
+    },
+    # 空列表 = 不限技能：这个工具只被场景调用（场景不走技能白名单），
+    # 列上任何技能都只是噪音，还会让「技能里能看到它」误导运营。
+    "allowed_skills_json": [],
+    "enabled": True,
+}
+
 PRODUCT_PRICE_QUERY_TOOL = {
     "name": "product.price_query",
     "display_name": "商品价格查询",
@@ -848,6 +891,7 @@ DEMO_TOOLS = (
     PRODUCT_PURCHASE_TOOL,
     ORDER_ADD_TOOL,
     PRODUCT_PRICE_QUERY_TOOL,
+    ROOM_DELIVERY_SUBMIT_TOOL,
 )
 DEFAULT_PERSONA_PROMPT = (
     "你是面壁智能的智能客服，语气专业、清晰、友好。"

@@ -1528,17 +1528,403 @@ def _run_script(
     )
 
 
+# ============================================================
+# 通道 5：tool_submit
+# ============================================================
+
+
+#: 调用工具时能用的默认超时。工具的 `execution_policy` 优先，这里只是兜底。
+#: 与 `settings.tool_timeout_seconds` 的默认值同量级 —— 场景是**同步**链路
+#: （用户等着看提交结果），不能像异步任务那样给几十秒。
+_TOOL_SUBMIT_TIMEOUT = 8.0
+
+
+def _submission_params(
+    config: dict[str, Any],
+    slots: dict[str, Any],
+) -> dict[str, Any]:
+    """把槽位值映射成工具参数。
+
+    两种映射方式，**显式优先**：
+
+    1. `config.param_map`：`{工具参数名: 槽位 key}`，适合「表单字段叫 `guest_name`
+       而接口要 `guestName`」这类改名；
+    2. 缺省直传：槽位 key 与接口参数同名时不用配任何东西（最常见）。
+
+    `param_map` 里指向不存在的槽位**不填 None**：少传一个 key 会让接口按
+    「未提供」处理，传 None 可能被拼成字符串 `"None"` 落进对方的库。
+    """
+    raw_map = config.get("param_map")
+    if not isinstance(raw_map, dict) or not raw_map:
+        return {str(k): v for k, v in slots.items() if v not in (None, "", [], {})}
+
+    params: dict[str, Any] = {}
+    for target, source in raw_map.items():
+        target_key = str(target or "").strip()
+        source_key = str(source or "").strip()
+        if not target_key or not source_key:
+            continue
+        value = slots.get(source_key)
+        if value in (None, "", [], {}):
+            continue
+        params[target_key] = value
+    return params
+
+
+def _tool_reply_text(
+    config: dict[str, Any],
+    *,
+    payload: Any,
+    slots: dict[str, Any],
+) -> str:
+    """把工具返回值拼成一句给用户的话。
+
+    `config.reply_template` 用 `{{某字段}}` 占位（复用 `_render_template`，
+    与 script 通道同一套口径）。占位符**既能取返回值里的字段，也能取槽位值** ——
+    真实场景里这句话常常两边都要（「已为 {{room_no}} 房送出 {{item}}，
+    预计 {{eta_minutes}} 分钟送达」）。
+
+    模板里没写到的坑：返回值可能是 `{"data": {...}}` 这类包了一层的形状。
+    这里先展开一层 `data`，再合并槽位，**槽位优先**（用户自己填的东西比接口
+    回显的更可信）。展开只做一层：多层嵌套要让管理员自己写 `a.b`，
+    那是另一个特性，不做「猜路径」。
+    """
+    values: dict[str, Any] = {}
+    if isinstance(payload, dict):
+        inner = payload.get("data")
+        if isinstance(inner, dict):
+            values.update(inner)
+        values.update(payload)
+    values.update({str(k): v for k, v in (slots or {}).items()})
+
+    template = str(config.get("reply_template") or "").strip()
+    if template:
+        text = _render_template(template, values)
+        if text:
+            return text
+
+    # 没配模板：用返回值里最常见的几个「人话字段」拼一句。
+    #
+    # 为什么要有这个兜底：管理员常常先建场景看效果，模板留空。此时返回一句
+    # 「提交成功」也比抛异常或空白好 —— 空卡的教训是**错误路径上再崩一次
+    # 是最糟的体验**。
+    for key in ("message", "msg", "summary", "result_text"):
+        candidate = str(values.get(key) or "").strip()
+        if candidate:
+            return candidate
+    return "已提交，请稍候。"
+
+
+def _run_tool_submit(
+    db: Session,
+    *,
+    scene: "Scene",
+    slots: dict[str, Any] | None = None,
+    message: str = "",
+    session_id: str = "",
+    user_id: str | None = None,
+    persist: bool = False,
+    action_overrides: dict[str, Any] | None = None,
+    agent_id: str | None = None,
+) -> SceneRunResult:
+    """表单提交通道：收槽位 → 调一个已配置的工具 → 把返回值回复给用户。
+
+    这是四步通用模板的第 3、4 步落地（1 意图触发、2 发表单由框架与 `form`
+    块负责）：**场景本身不含任何业务逻辑，业务全部在被调用的工具里**。
+    换一个业务只换 `tool_api_json`，不写代码。
+
+    ## 三种状态，与 `table_match` 同构
+
+    - **缺必填槽位** → 只发 `form` 块，不问不调。绝不能「边问边提交」：
+      槽位不全时调出去的就是一条脏单（`room_no` 为空也照样送到客房部），
+      而用户此刻还没确认。
+    - **调用成功** → `result` 块（结构化返回值，前端画成回执）+ `text`。
+    - **调用失败** → `empty` 块 + `text`，**必须说清下一步**。失败不能只报
+      「调用失败」：用户不知道是该重试、该找人、还是自己填错了。
+
+    ## 为什么 `persist` 不参与判断
+
+    `table_match` 的 `persist` 只影响落库；这里的工具调用**有副作用**
+    （真的下单/送物），但试跑面板也应该真的调用 —— 否则「试跑通过、线上失败」
+    这类问题永远发现不了。所以 `persist` 在这里不解耦调用，只由调用方在
+    试跑时自己决定用哪个场景（`/run` 路由本来就不落 `SceneRun`）。
+    """
+    from app.tools.tool_executor import ToolExecutor
+    from app.tools.tool_schema import ToolCall
+
+    slots = dict(slots or {})
+    config = dict(scene.tool_api_json or {})
+    tool_name = str(config.get("tool_name") or "").strip()
+
+    # ① 配置缺失 → 可行动的原因，不是「暂无数据」
+    if not tool_name:
+        reason = "这个场景还没有配置要调用的接口。"
+        return SceneRunResult(
+            blocks=[SceneUiBlock(kind="text", data={"content": reason})],
+            text=reason,
+            trace=[{"key": "tool_submit", "detail": "tool_api_json.tool_name 为空"}],
+            status="no_match",
+        )
+
+    # ② 缺必填槽位 → 只发表单。顺序在调用之前，这是硬要求（见 docstring）。
+    form_block = _slot_form_block(scene, slots, db)
+    if form_block is not None:
+        respond = dict(scene.respond_action_json or {})
+        ask_prompt = str(respond.get("ask_prompt") or "").strip() or (
+            "填写下面的信息，我马上帮你提交："
+        )
+        return SceneRunResult(
+            blocks=[form_block],
+            text=ask_prompt,
+            trace=[{"key": "tool_submit", "detail": "缺必填槽位，先发表单"}],
+            status="ok",
+        )
+
+    # ③ 调工具
+    params = _submission_params(config, slots)
+    timeout = config.get("timeout_seconds")
+    try:
+        executor = ToolExecutor(db)
+        tool_result = executor.execute(
+            scene.tenant_id,
+            ToolCall(name=tool_name, arguments=params),
+            # **必须传 `agent_id`**，这是本通道唯一的越权拦截点。
+            #
+            # 上一版这里故意不传，理由是「场景本身已经过了员工绑定校验」——
+            # 那个理由不成立：`resolve_scene_hit` 校验的是**场景**绑没绑在这个
+            # 员工身上，而不是场景要调的**工具**绑没绑。两者完全独立：员工可以
+            # 只绑场景、一个工具都不绑，此时场景能正常命中、表单能正常发出，
+            # 点提交却把请求发到了他没权限的接口上。这就是那个权限漏洞。
+            #
+            # 传进去之后 `ToolExecutor.execute` 会拿 `visible_tool_rows` 比对：
+            # 未绑 / 已停用 → `NOT_ALLOWED`，走下面的失败分支给用户一句话。
+            #
+            # 试跑面板仍然传 `None`（它没有员工语境，是管理员在验配置），
+            # 所以「刚建好还没绑员工」的场景照样能试跑 —— 见
+            # `run_scene_instance` 的 docstring。
+            agent_id=agent_id or None,
+            timeout_seconds_override=(
+                float(timeout) if isinstance(timeout, (int, float)) and timeout > 0 else _TOOL_SUBMIT_TIMEOUT
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 - 工具层异常不该让整轮消息失败
+        # `ToolExecutor.execute` 内部已经把 httpx 异常转成 `ToolResult`，
+        # 走到这里的只可能是「连 ToolExecutor 都没构造起来」这类真 bug。
+        # 显式写日志而不是静默返回 —— 否则线上只有一句「提交失败」无从排查。
+        return SceneRunResult(
+            blocks=[
+                SceneUiBlock(
+                    kind="text",
+                    data={"content": "提交时出了点问题，请稍后再试或联系工作人员。"},
+                )
+            ],
+            text="提交时出了点问题，请稍后再试或联系工作人员。",
+            trace=[
+                {
+                    "key": "tool_submit",
+                    "tool_name": tool_name,
+                    "error": "executor_raised",
+                    "detail": str(exc)[:500],
+                }
+            ],
+            status="error",
+        )
+
+    if not tool_result.success:
+        error = tool_result.error
+        code = str(getattr(error, "code", "") or "")
+        detail = str(getattr(error, "message", "") or "")
+        # 失败文案分三类，因为**用户的下一步动作不同**：
+        # - 超时 / 网络 / 5xx：可以重试 → 告诉他重试；
+        # - 参数错 / 业务拒绝：重试没用 → 让他检查信息或找人；
+        # - 无权限（`NOT_ALLOWED`）：**重试和改填写内容都没用**，要管理员去
+        #   员工档案把这个工具勾上。归到第三类之前它一直落在 else 分支，
+        #   于是用户看到「请检查填写内容后重试」，反复改房间号也永远提交不成功。
+        if code in {"TIMEOUT", "EXECUTION_ERROR"}:
+            content = "提交超时了，请再试一次。"
+        elif code in {"HTTP_ERROR"}:
+            content = "接口暂时不可用，请稍后再试或联系工作人员。"
+        elif code == "NOT_ALLOWED":
+            content = "这个助手还没有开通提交权限，请联系管理员在员工档案里勾选对应工具。"
+        else:
+            content = "这条信息没能提交成功，请检查填写内容后重试。"
+        return SceneRunResult(
+            blocks=[
+                SceneUiBlock(kind="text", data={"content": content}),
+                SceneUiBlock(
+                    kind="empty",
+                    data={
+                        "reason": content,
+                        # 失败态不给「放宽条件」那类建议：这里的失败与
+                        # table_match 的「筛选太窄」完全不同，是外部接口问题。
+                        "suggestions": [],
+                        "on_empty": "none",
+                    },
+                ),
+            ],
+            text=content,
+            trace=[
+                {
+                    "key": "tool_submit",
+                    "tool_name": tool_name,
+                    "error": code,
+                    "detail": detail[:500],
+                }
+            ],
+            status="error",
+        )
+
+    # ④ 成功 → 结构化回执 + 一句人话
+    content = _tool_reply_text(config, payload=tool_result.data, slots=slots)
+    blocks = [
+        SceneUiBlock(
+            kind="result",
+            data={
+                # `result` 块的 `items` 是列表口径（table_match 的命中行）。
+                # 这里只有一条「提交回执」，用单元素列表保持形状一致 ——
+                # 让前端 module 可以用同一套 `resultHits()` 读。
+                "total": 1,
+                "items": [
+                    {
+                        "row_id": str(config.get("receipt_id_key") or "receipt"),
+                        "values": _receipt_values(tool_result.data, params),
+                        "source_table": "",
+                    }
+                ],
+                # 字段中文名。放在**块级**而不是塞进 `values`，因为 `values`
+                # 是「字段 → 值」的业务数据，混进显示名会让前端无法区分
+                # 「这个 key 是字段」还是「这个 key 是别人的名字」。
+                "labels": _receipt_labels(scene),
+                "max_items": 1,
+            },
+        )
+    ]
+    return SceneRunResult(
+        blocks=blocks,
+        text=content,
+        trace=[
+            {
+                "key": "tool_submit",
+                "tool_name": tool_name,
+                "params": params,
+                "success": True,
+            }
+        ],
+        status="ok",
+    )
+
+
+#: 回执里**不该出现**的键：接口协议层的自检字段，不是给用户看的信息。
+#:
+#: 这些字段回答了「这次调用成功了吗」—— 那是程序的问题，而回执能画出来本身
+#: 就说明成功了。把它们画进卡片的结果是用户看到 `accepted 是`、
+#: `status accepted`、`created_at 2026-11-26T07:29:09` 三行噪音，
+#: 真正有用的「单号」「预计送达」被挤到后面。
+_RECEIPT_SKIP_KEYS = frozenset(
+    {
+        "success",
+        "ok",
+        "accepted",
+        "status",
+        "code",
+        "error",
+        "error_code",
+        "message",
+        "msg",
+        "created_at",
+        "created_time",
+        "updated_at",
+        "timestamp",
+        "request_id",
+        "trace_id",
+    }
+)
+
+
+def _receipt_values(payload: Any, params: dict[str, Any]) -> dict[str, Any]:
+    """把返回值摊成「字段 → 值」的扁平字典，供前端画回执。
+
+    ## 两条取舍，都是为了「这不是一坨 JSON」
+
+    1. **只收标量**：嵌套的 dict / list 塞进回执卡只会显示成 `[object Object]`，
+       不如不显示 —— 要展示明细应该由业务接口给一个已格式化的字符串字段。
+    2. **剔掉协议字段**（`_RECEIPT_SKIP_KEYS`）：`accepted` / `status` /
+       `created_at` 是接口自检用的，画进卡片只是噪音。尤其 `message` ——
+       它已经被 `reply_template` 说成了正文（`text`），卡片里再来一遍就是
+       同一句话说两次。
+
+    请求参数一并带上（`总计 3 件` 这类回执里，用户填的东西就是最好的证明），
+    用 `setdefault`：走到这里说明接口已经受理了，它回显的才是它真正记下的。
+    """
+    values: dict[str, Any] = {}
+    if isinstance(payload, dict):
+        source = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+        for key, value in source.items():
+            name = str(key)
+            if name in _RECEIPT_SKIP_KEYS:
+                continue
+            if isinstance(value, (str, int, float, bool)) and value != "":
+                values[name] = value
+    for key, value in (params or {}).items():
+        name = str(key)
+        if name in _RECEIPT_SKIP_KEYS:
+            continue
+        if isinstance(value, (str, int, float, bool)) and value != "":
+            values.setdefault(name, value)
+    return values
+
+
+def _receipt_labels(scene: "Scene") -> dict[str, str]:
+    """``{字段 key: 中文名}`` —— 回执卡的字段显示名。
+
+    ## 三级来源，从「管理员已经填过」到「手写」
+
+    1. **场景槽位的 `label`**（主力）：`room_no → 房间号` 这种映射管理员在
+       定义器里已经填过了。槽位的 `label` 与接口 key 对得上，是因为
+       `param_map` 缺省时槽位 key 就是参数名 —— 最常见的配置方式。
+    2. **`tool_api_json.field_labels`**（补位）：只出现在**响应**里、场景没有
+       对应槽位的字段（`eta_minutes → 预计送达(分钟)`）。这类字段没有别的
+       事实来源，只能让管理员手写一份。
+    3. 都没有 → 不给 label，前端退回显示原始 key。
+
+    第 3 级是刻意的：显示 `eta_minutes` 不好看，但能看出是哪个字段；编一个错的
+    中文名（比如把「数量」标成「件数」）会让用户以为那是别的东西。
+
+    合并顺序是「后覆盖前」：手写的 `field_labels` 优先于槽位 label —— 手写是
+    为了改写某个字段的显示名，如果被槽位覆盖就永远改不动。
+    """
+    labels: dict[str, str] = {}
+    for slot in scene.slots_json or []:
+        if not isinstance(slot, dict):
+            continue
+        key = str(slot.get("key") or "").strip()
+        label = str(slot.get("label") or "").strip()
+        if key and label and label != key:
+            labels[key] = label
+
+    config = scene.tool_api_json if isinstance(scene.tool_api_json, dict) else {}
+    manual = config.get("field_labels")
+    if isinstance(manual, dict):
+        for key, label in manual.items():
+            name = str(key).strip()
+            text = str(label or "").strip()
+            if name and text:
+                labels[name] = text
+    return labels
+
+
 #: 通道名 → 实现。
 #:
-#: ⚠️ **这不是分派注册表**——``dispatch_scene`` 用 ``match`` 语句显式写 4 个
-#: ``case``（arch §2.5：已知 4 个常量分支时 ``match`` 能让类型检查器做穷尽性
+#: ⚠️ **这不是分派注册表**——``dispatch_scene`` 用 ``match`` 语句显式写每个
+#: ``case``（arch §2.5：已知常量分支时 ``match`` 能让类型检查器做穷尽性
 #: 提醒，dict 查表会把「少注册一个」变成运行期 ``KeyError``）。
-#: 这个映射只服务于「按名取实现」的测试与诊断，**新增第 5 类时不要只加这里**。
+#: 这个映射只服务于「按名取实现」的测试与诊断，**新增类型时不要只加这里**。
 CHANNEL_RUNNERS = {
     "table_match": _run_table_match,
     "sop_flow": _run_sop_flow,
     "handoff": _run_handoff,
     "script": _run_script,
+    "tool_submit": _run_tool_submit,
 }
 
 

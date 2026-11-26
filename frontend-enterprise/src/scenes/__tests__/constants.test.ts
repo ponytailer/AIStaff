@@ -40,10 +40,11 @@ const BACKEND_SCENE_TYPE_META: Record<string, { label: string; icon: string; nee
   sop_flow: { label: '流程办理', icon: '🧭', needs_table: 'none' },
   handoff: { label: '转人工', icon: '🙋', needs_table: 'none' },
   script: { label: '固定话术', icon: '💬', needs_table: 'none' },
+  tool_submit: { label: '表单提交', icon: '📮', needs_table: 'none' },
 };
 
 /** 后端 `SCENE_TYPES`（顺序也一致）。 */
-const BACKEND_SCENE_TYPES = ['table_match', 'sop_flow', 'handoff', 'script'];
+const BACKEND_SCENE_TYPES = ['table_match', 'sop_flow', 'handoff', 'script', 'tool_submit'];
 
 /** 后端 `DEFAULT_MODULE_BY_SCENE_TYPE`。前端必须存在同名 module，否则胶囊点了没反应。 */
 const BACKEND_DEFAULT_MODULE_BY_TYPE: Record<string, string> = {
@@ -51,6 +52,7 @@ const BACKEND_DEFAULT_MODULE_BY_TYPE: Record<string, string> = {
   sop_flow: 'generic.sop_flow',
   handoff: 'generic.handoff',
   script: 'generic.script',
+  tool_submit: 'generic.tool_submit',
 };
 
 /** 后端 `MAX_TABLES_PER_SCENE`。 */
@@ -167,7 +169,10 @@ describe('effectiveNeedsTable：module 只能收紧不能放宽', () => {
     const reachableBaseTypes = SCENE_TYPES.filter(
       (type) => SCENE_TYPE_META[type].needs_table !== 'required',
     );
-    expect(reachableBaseTypes.length).toBe(4);
+    // 不写死数字：写死会让每次新增类型都红一次，而红的原因与这条用例
+    // 真正要守的东西（「取更严者」）毫无关系。这里只断言「确实遍历到了东西」，
+    // 避免 `filter` 出空数组导致循环体一次都不执行（等于没测）。
+    expect(reachableBaseTypes.length).toBeGreaterThan(0);
     for (const type of reachableBaseTypes) {
       const base = SCENE_TYPE_META[type].needs_table;
       for (const moduleNeeds of ['none', 'optional', 'required'] as NeedsTable[]) {
@@ -268,16 +273,24 @@ describe('注册表：目录名 === meta.module_key', () => {
     }
   });
 
-  it('五个 P0 module 全部注册（四个 generic + travel.itinerary）', async () => {
+  it('每个场景类型的默认 module 都已注册', async () => {
     const metas = await loadSceneModuleCatalog();
-    const keys = metas.map((meta) => meta.module_key).sort();
-    expect(keys).toEqual([
-      'generic.handoff',
-      'generic.script',
-      'generic.sop_flow',
-      'generic.table_match',
-      'travel.itinerary',
-    ]);
+    const keys = new Set(metas.map((meta) => meta.module_key));
+    // 不写死 module 清单：清单会随类型增长，而这条用例要守的是
+    // 「`DEFAULT_MODULE_BY_SCENE_TYPE` 指向的 module 真的存在」这一条不变式。
+    // 写死清单的后果是每次加类型都要改测试 —— 改测试时很容易顺手连断言一起
+    // 放宽，于是真正该拦的问题（少建了 module）反而拦不住。
+    for (const expected of Object.values(BACKEND_DEFAULT_MODULE_BY_TYPE)) {
+      expect(keys.has(expected), expected).toBe(true);
+    }
+    // 反向：每个 module 都必须被某个类型用到，否则它是「建了但永远选不到」的死 module。
+    const used = new Set(Object.values(BACKEND_DEFAULT_MODULE_BY_TYPE));
+    for (const key of keys) {
+      // `travel.itinerary` 是 `table_match` 的定制 module，不在默认映射里 ——
+      // 它是「管理员主动选」的，不是「新建时的默认值」。
+      if (key === 'travel.itinerary') continue;
+      expect(used.has(key), key).toBe(true);
+    }
   });
 
   it('每个类型的默认 module 都存在（否则胶囊点了没反应）', async () => {
@@ -294,7 +307,9 @@ describe('注册表：目录名 === meta.module_key', () => {
 
   it('P0 每个 module 只声明一种场景类型（数组是过滤语义，不是多类型许可）', async () => {
     const metas = await loadSceneModuleCatalog();
-    expect(metas.length).toBe(5);
+    // 同样不写死总数：断言的是「每个 module 只声明一种类型」，
+    // 而不是「一共有几个 module」。数字写死只会让新增类型时多改一行。
+    expect(metas.length).toBeGreaterThan(0);
     for (const meta of metas) {
       // 为什么断言长度 1：`supported_scene_types` 是数组，是为了让
       // `modulesForSceneType()` 能用 `.includes()` 做**过滤**（同一个 module 将来

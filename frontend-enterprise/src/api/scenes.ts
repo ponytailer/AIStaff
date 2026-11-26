@@ -209,6 +209,14 @@ export type SceneRead = {
   handoff: Record<string, unknown>;
   /** script 的话术表。 */
   scripts: Array<Record<string, unknown>>;
+  /**
+   * `tool_submit` 的接口调用配置。
+   *
+   * 后端字段名是 `tool_api`（读写两侧同名，不像 `tables`/`table_ids` 那样分叉）。
+   * 老场景可能没有这个键，读的时候必须 `?? DEFAULT_TOOL_API` 兜底 ——
+   * 直接读 `.tool_name` 会在 undefined 上抛，把整个定义器打挂。
+   */
+  tool_api: SceneToolApi;
   /** 这个场景挂在哪些员工上（由后端反查 AgentResourceBinding 得出） */
   agent_ids: string[];
   /**
@@ -219,6 +227,63 @@ export type SceneRead = {
   warnings: string[];
   created_at: string;
   updated_at: string;
+};
+
+/**
+ * `tool_submit` 的接口调用配置，存在场景的 `tool_api_json` 上。
+ *
+ * ## 为什么它不放在 `ui_config.params` 里
+ *
+ * `params` 是「长得什么样」（按钮文案、价格说明），由超管在预设页调、用户改不了。
+ * 这里的每一条都是**这个场景自己的业务决定**（调哪个接口、字段怎么对上、
+ * 回执那句话怎么说），必须归用户。混进 `params` 会让「同一件事有两个来源」，
+ * 改一处不生效时无从判断该看哪。
+ *
+ * ## 五个字段的分工
+ *
+ * | 字段 | 谁填 | 作用 |
+ * |---|---|---|
+ * | `tool_name` | **用户（必填）** | 调哪个工具。空 = 通道报「还没配接口」 |
+ * | `reply_template` | 用户 | 回复正文那句话，`{{字段}}` 占位 |
+ * | `param_map` | 用户（多数不用） | 槽位 key → 接口参数名的改名表 |
+ * | `timeout_seconds` | 预设给默认 | 单次调用超时 |
+ * | `field_labels` | 用户（可选） | 只出现在**返回值**里的字段的中文名 |
+ */
+export type SceneToolApi = {
+  /** 工具名（如 `room.delivery_submit`）。空串 = 还没配。 */
+  tool_name: string;
+  /**
+   * 回复正文模板。占位符既能取返回值字段，也能取槽位值。
+   *
+   * 留空时后端会按返回值里 `message` / `summary` 这类「人话字段」拼一句兜底，
+   * 所以它是可选的 —— 但留空意味着不同接口的回复口吻会不一致。
+   */
+  reply_template: string;
+  /**
+   * 参数改名表：`{接口参数名: 槽位 key}`。
+   *
+   * 空对象 = 槽位 key 与接口参数同名直传（最常见）。只有接口那边叫
+   * `guestName` 而槽位叫 `guest_name` 时才需要填。
+   */
+  param_map: Record<string, string>;
+  /** 单次调用超时（秒）。 */
+  timeout_seconds: number;
+  /**
+   * 回执字段的中文名，**只用于补纯响应字段**。
+   *
+   * 槽位字段的中文名后端会自动从槽位 `label` 取，不用在这里重复写 ——
+   * 写了也是覆盖（手写优先），但重复维护两份名字迟早不一致。
+   */
+  field_labels: Record<string, string>;
+};
+
+/** 一份「新建表单场景」的最小可用 `tool_api`（预设里的骨架）。 */
+export const DEFAULT_TOOL_API: SceneToolApi = {
+  tool_name: '',
+  reply_template: '已提交，受理单号 {{order_no}}。',
+  param_map: {},
+  timeout_seconds: 8,
+  field_labels: {},
 };
 
 export type SceneHit = {
@@ -289,6 +354,14 @@ export type SceneCreateInput = {
   handoff?: Record<string, unknown>;
   /** script 的话术表。 */
   scripts?: Array<Record<string, unknown>>;
+  /**
+   * `tool_submit` 的接口调用配置。
+   *
+   * ⚠️ 与 `tables` 不同，这是**整份覆盖**语义（传什么存什么），
+   * 所以「只改回复模板」也必须把 `tool_name` 一起带上 —— 否则存进去的
+   * 配置就没了工具名，场景直接不工作。定义器里统一从 state 整份拼，不做 patch。
+   */
+  tool_api?: SceneToolApi;
 };
 
 /**
@@ -482,6 +555,10 @@ export type ScenePresetPayload = {
   trigger?: Partial<SceneTrigger>;
   slots?: SceneSlot[];
   match_action?: Partial<SceneMatchAction>;
+  /** 调接口的骨架（只对 `tool_submit` 有内容）。`tool_name` 恒为空 —— 见后端注释。 */
+  tool_api?: SceneToolApi;
+  /** 表单引导语的建议值。与场景上的 `respond_action.ask_prompt` 同一条路径。 */
+  respond_action?: { ask_prompt?: string };
 };
 
 /** 定义器「场景类型」下拉的一项。**不含完整 preset_json**。 */
@@ -492,6 +569,19 @@ export type ScenePresetOption = {
   icon: string;
   icons: string[];
   description: string;
+};
+
+/**
+ * 定义器「接口」下拉的一项：**这个员工真的调得动**的工具。
+ *
+ * 与「工具管理页」那种 `ToolRead` 不是一回事，别混用：这里只有下拉要显示的三项，
+ * 且已经按员工绑定 + 启用过滤过。判据与执行期同源（后端 `visible_tool_rows`）。
+ */
+export type SceneToolOption = {
+  name: string;
+  description: string;
+  /** 工具分组。下拉里按段分组，工具多了不至于一条长龙。 */
+  bucket: string;
 };
 
 /** 新建场景时预填的默认值（选了某一项之后填什么）。 */
@@ -513,6 +603,12 @@ export type ScenePresetDefaults = {
    * 否则「取个默认值」这条路径会因为 undefined 直接抛，把整个定义器打挂。
    */
   respond_action?: Record<string, unknown>;
+  /**
+   * 调接口的骨架（只有 `tool_submit` 有内容）。
+   *
+   * 同样可选：老后端不带这个键。`tool_name` 恒为空 —— 工具是租户自己建的。
+   */
+  tool_api?: Partial<SceneToolApi>;
 };
 
 /** 下拉选项。登录即可（不要求管理员）—— 普通用户建场景时要用。 */
@@ -528,6 +624,40 @@ export async function getScenePresetDefaults(moduleKey: string): Promise<ScenePr
     `/api/enterprise/scene-preset-options/defaults/${encodeURIComponent(moduleKey)}`
     + `?tenant_id=${encodeURIComponent(TENANT_ID)}`,
   );
+}
+
+/**
+ * 可选的工具清单（`tool_submit` 的「调用哪个接口」下拉）。
+ *
+ * ## 为什么不再打 `/api/enterprise/tools`
+ *
+ * 那个接口是**工具管理页**的数据源，口径是「这个租户有哪些工具」：含未绑定的、
+ * 已停用的、别人私有的。拿来填下拉，用户能选中一个自己根本调不通的工具 ——
+ * 配完保存、线上一点就报「没开通提交权限」，而界面从头到尾都让他选。
+ *
+ * 所以改打 `GET /scenes/tool-options?agent_id=...`，它的判据与执行期
+ * （`ToolExecutor` → `visible_tool_rows(include_inactive=False)`）**同源**：
+ * **下拉里列出来的，就是执行时放行的**。两处各写一套必然漂成
+ * 「能选但调不通」或「能调却选不到」，后者更难发现。
+ *
+ * 只取 `name` / `description` / `bucket`：下拉要显示的就这些。工具地址、
+ * 鉴权、入参 schema 不该为了一个下拉下发到浏览器。
+ *
+ * 过滤掉 `name` 为空的项：下拉里一个没有值的选项会让用户选了个「空气」，
+ * 保存后 `tool_name` 变成空 → 后端当作「还没配接口」，而界面上看起来是选过的。
+ */
+export async function listSceneToolOptions(agentId?: string | null): Promise<SceneToolOption[]> {
+  const params = new URLSearchParams({ tenant_id: TENANT_ID });
+  if (agentId) params.set('agent_id', agentId);
+  const rows = await api.get<Array<Partial<SceneToolOption>>>(`/api/enterprise/scenes/tool-options?${params}`);
+  const list = Array.isArray(rows) ? rows : [];
+  return list
+    .filter((row) => typeof row?.name === 'string' && row.name.trim())
+    .map((row) => ({
+      name: String(row.name).trim(),
+      description: String(row.description ?? '').trim(),
+      bucket: String(row.bucket ?? '').trim(),
+    }));
 }
 
 /** 超管：全部预设（含已停用）。 */

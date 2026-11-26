@@ -33,6 +33,7 @@ from app.agents.branching import (
     ensure_private_resource_binding,
     get_agent,
     hide_open_gallery_binding,
+    visible_tool_rows,
 )
 from app.db import get_session
 from app.db.models import (
@@ -71,6 +72,7 @@ from app.scenes.schema import (
     SceneTablePreview,
     SceneTablePreviewRow,
     SceneTableRead,
+    SceneToolOptionRead,
     SceneUpdateRequest,
 )
 from app.scenes.table_parser import SUPPORTED_TABLE_EXTENSIONS, parse_table
@@ -223,6 +225,7 @@ def _scene_read(
         flow=dict(row.flow_json or {}),
         handoff=dict(row.handoff_json or {}),
         scripts=list(row.scripts_json or []),
+        tool_api=dict(row.tool_api_json or {}),
         agent_ids=agent_ids or [],
         warnings=_scene_warnings(row, len(ids)),
         created_at=_iso(row.created_at),
@@ -353,6 +356,52 @@ def list_tables(tenant_id: str = Query(...), db: Session = Depends(get_session))
         .order_by(SceneTable.created_at.desc())  # type: ignore[attr-defined]
     ).all()
     return [_table_read(r) for r in rows]
+
+
+@router.get(
+    "/tool-options",
+    response_model=list[SceneToolOptionRead],
+    dependencies=[Depends(require_agent_scope_viewer)],
+)
+def list_scene_tool_options(
+    tenant_id: str = Query(...),
+    agent_id: str | None = Query(default=None),
+    db: Session = Depends(get_session),
+) -> list[SceneToolOptionRead]:
+    """定义器「接口」下拉的数据源：**这个员工真正能调的工具**。
+
+    为什么不复用 ``GET /api/enterprise/tools``：那个接口给工具管理页用，要的是
+    「有哪些工具」（含未绑定的、停用的、别人的），下拉要的是「这个员工能用
+    哪几个」。拿全量给下拉，用户能选中一个自己调不通的工具 —— 配好了、保存了、
+    线上一点就报「没开通提交权限」，最难查的是「界面明明让我选」。
+
+    判据与执行期**同源**（``visible_tool_rows(include_inactive=False)``）：
+    下拉里列出来的，就是 ``ToolExecutor`` 会放行的。两处若各写一套，必然漂成
+    「能选但调不通」或「能调却选不到」。
+
+    ``agent_id`` 为空时返回广场开放的工具（与 ``visible_tool_rows`` 对
+    ``overall`` 员工的口径一致）：定义器在「场景管理」页打开时没有员工语境，
+    此时按广场口径给，用户仍然能配；真正执行时的拦截在 ``ToolExecutor`` 那层，
+    这里只是尽量把不可选项提前滤掉。
+    """
+    ensure_tenant(db, tenant_id)
+    # 传了 agent_id 就必须真的存在，否则 `visible_tool_rows` 会静默返回空列表，
+    # 界面表现为「这个员工一个工具都没有」——那是**另一种**结论，不该被一个
+    # 打错的 id 伪造出来。
+    if agent_id:
+        agent = get_agent(db, tenant_id, agent_id)
+        if agent is None:
+            raise HTTPException(status_code=404, detail="Agent not found")
+    rows = visible_tool_rows(db, tenant_id, agent_id, include_inactive=False)
+    return [
+        SceneToolOptionRead(
+            name=str(row.name or ""),
+            description=str(row.description or ""),
+            bucket=str(row.bucket or ""),
+        )
+        for row in rows
+        if str(row.name or "").strip()
+    ]
 
 
 @router.get(
@@ -740,6 +789,7 @@ def create_scene(
         flow_json=dict(payload.flow or {}),
         handoff_json=dict(payload.handoff or {}),
         scripts_json=list(payload.scripts or []),
+        tool_api_json=dict(payload.tool_api or {}),
     )
     db.add(row)
     db.flush()
@@ -819,6 +869,8 @@ def update_scene(
         row.handoff_json = dict(payload.handoff)
     if payload.scripts is not None:
         row.scripts_json = list(payload.scripts)
+    if payload.tool_api is not None:
+        row.tool_api_json = dict(payload.tool_api)
 
     row.updated_at = utc_now()
     db.add(row)

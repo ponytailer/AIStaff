@@ -2328,6 +2328,16 @@ class Scene(SQLModel, table=True):
     flow_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     handoff_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     scripts_json: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    # tool_submit 的接口调用配置：``{tool_name, response_template, ...}``。
+    #
+    # 为什么不复用 ``module_config_json``：那是「前端 module 的私有状态」，
+    # 框架只透传、从不解释；而这一列**后端通道必须读它**才知道调哪个工具、
+    # 怎么把返回值拼成回复。两者语义不同，混在一列里会让「框架从不读
+    # module_config」这条约定失效，以后没人敢动它。
+    #
+    # 也不复用 ``respond_action_json``：那是文案配置（模板/语气），
+    # 不承载「调哪个工具」这种执行参数 —— 类型切换时两者要各自保留。
+    tool_api_json: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { loadSceneModule } from '@/scenes/registry';
 import type { SceneModule, SceneUiBlock } from '@/scenes/types';
@@ -27,13 +27,22 @@ import type { SceneModule, SceneUiBlock } from '@/scenes/types';
  */
 
 /**
- * 预览用的样例数据。形状严格按 arch §2.2 的 `kind=result` 契约。
+ * 预览用的样例数据 —— **按场景类型给不同形状**。
  *
- * 刻意用「经典雪山五日」这份数据：它与 `test_scene_api.py` 的 CSV_FIXTURE
- * 同源，视觉契约 §1 的排版就是按这组长度的文案调的 —— 换一组数据就看不出
- * 排版是否对齐（比如标题过长会不会把徽标挤歪）。
+ * ## 为什么不能只有一份
+ *
+ * 原先是写死的行程样例（经典雪山五日 / 亚布力 / 4 人 / 5 天 / 3000）。
+ * 用户建「客房送物」时看到的也是这份数据：回执卡上写着「亚布力」「4 人」
+ * 「3000」，既不是他的业务、也判断不了自己配的话术对不对 ——
+ * 「预览」本该回答「我配完是什么样」，一份与配置无关的样例提供不了这个答案。
+ *
+ * 现在按 `module_key` 分派：行程给行程样例，表单提交给一张**通用回执**
+ * （字段名用 `labels` 里的中文，值用中性占位）。认不出的类型回落到行程
+ * —— 那是目前视觉契约的唯一基准，至少能看出卡片家族长什么样。
  */
-export const PREVIEW_BLOCK: SceneUiBlock = {
+
+/** 行程推荐的样例（`travel.itinerary`）。形状严格按 arch §2.2 的 `kind=result` 契约。 */
+const ITINERARY_BLOCK: SceneUiBlock = {
   kind: 'result',
   module_key: '',
   module_version: 0,
@@ -65,16 +74,111 @@ export const PREVIEW_BLOCK: SceneUiBlock = {
   },
 };
 
+/**
+ * 表单提交的样例（`generic.tool_submit`）。
+ *
+ * 字段刻意用**场景配的槽位 label**（调用方传 `params` 时一并传 `slotLabels`），
+ * 这样「我配的字段会怎么显示」能直接看出来。没有槽位信息时用一组中性占位。
+ *
+ * `data.labels` 一起给：回执卡靠它把英文 key 翻成中文，预览里也得有，
+ * 否则用户看到的是 `order_no`、`eta_minutes`，跟他配的中文名对不上。
+ */
+function toolSubmitBlock(overrides?: {
+  title?: string;
+  subtitle?: string;
+  noField?: string;
+  slotLabels?: Record<string, string>;
+}): SceneUiBlock {
+  const labels = overrides?.slotLabels ?? {};
+  const values: Record<string, unknown> = {
+    // 单号字段：用户配了就用他的，否则给一个「像单号」的占位
+    [overrides?.noField || 'order_no']: 'RD20261126001',
+  };
+  // 槽位字段：有 label 的按 label 出，没配则给两个通用占位
+  const slotEntries = Object.entries(labels);
+  if (slotEntries.length > 0) {
+    for (const [key, label] of slotEntries) {
+      if (key === (overrides?.noField || 'order_no')) continue;
+      values[key] = `示例${label}`;
+    }
+  } else {
+    values.item = '示例物品';
+    values.quantity = 2;
+  }
+
+  return {
+    kind: 'result',
+    module_key: '',
+    module_version: 0,
+    fallback_text: '',
+    data: {
+      total: 1,
+      max_items: 1,
+      items: [{ row_id: 'preview-1', score: 0, source_table: '', values }],
+      // 回执卡读块级 labels 做中文名。这里把「单号字段」也补上中文名，
+      // 否则预览里单号那一行的标签会退回英文 key。
+      labels: {
+        ...labels,
+        [overrides?.noField || 'order_no']: '单号',
+      },
+    },
+  };
+}
+
+/** 按 module 选样例。未知类型回落到行程（视觉契约的基准）。 */
+export function previewBlockFor(
+  moduleKey: string,
+  overrides?: {
+    title?: string;
+    subtitle?: string;
+    noField?: string;
+    slotLabels?: Record<string, string>;
+  },
+): SceneUiBlock {
+  if (moduleKey === 'generic.tool_submit') return toolSubmitBlock(overrides);
+  return ITINERARY_BLOCK;
+}
+
+/** @deprecated 用 `previewBlockFor()` —— 保留仅为兼容既有 import。 */
+export const PREVIEW_BLOCK: SceneUiBlock = ITINERARY_BLOCK;
+
 export default function ScenePreviewCard({
   moduleKey,
+  /**
+   * 场景的 `ui_config.params` —— **必须传**，这是「预览」有意义的前提。
+   *
+   * 传空对象时卡片会用代码兜底话术（「已提交」/「查看进度」），看起来是能出图的；
+   * 但用户改过的结论句、单号标签、进度按钮文案全都不会体现。那就退回到
+   * 「Demo 一个样、实际另一个样」—— 正是这个组件存在的理由所反对的事。
+   */
+  params,
+  /**
+   * 槽位 key → 中文名。回执卡靠块级 `data.labels` 翻字段名，预览也要有，
+   * 否则用户看到 `room_no` / `item`，跟他刚配的中文名对不上。
+   */
+  slotLabels,
   /** 是否显示「样例数据预览」这行说明。检查器右栏自己有分组标题，就不再叠一层。 */
   showCaption = true,
 }: {
   moduleKey: string;
+  params?: Record<string, unknown>;
+  slotLabels?: Record<string, string>;
   showCaption?: boolean;
 }) {
   const [module, setModule] = useState<SceneModule | null>(null);
   const [failed, setFailed] = useState(false);
+
+  /**
+   * 样例数据跟着配置走。
+   *
+   * `receipt_no_field` 是用户明确指定的单号字段 —— 预览里必须用同一个字段名，
+   * 否则用户填了 `waybill_no`，预览卡片上却显示 `order_no`，会以为配置没生效。
+   */
+  const block = useMemo(() => {
+    const raw = params?.receipt_no_field;
+    const noField = typeof raw === 'string' ? raw.trim() : '';
+    return previewBlockFor(moduleKey, { noField, slotLabels });
+  }, [moduleKey, params, slotLabels]);
 
   useEffect(() => {
     let alive = true;
@@ -133,9 +237,9 @@ export default function ScenePreviewCard({
         </p>
       )}
       <Card
-        block={PREVIEW_BLOCK}
-        siblings={[PREVIEW_BLOCK]}
-        params={{}}
+        block={block}
+        siblings={[block]}
+        params={params ?? {}}
         sendText={() => {}}
         submitSlots={() => {}}
         openExternal={() => {}}

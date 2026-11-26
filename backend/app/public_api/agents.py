@@ -29,6 +29,8 @@ from app.public_api.schemas import (
     ResourceBindingsUpdate,
 )
 from app.public_api.utils import etag_for
+from app.scene_modules.chips import list_scene_chips
+from app.public_api.sessions import ensure_public_agent
 
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -174,6 +176,50 @@ def get_agent_resources(
         agent_id, principal.tenant_id, db, principal.actor_user
     )
     return {"data": [row.model_dump(mode="json", exclude={"tenant_id"}) for row in rows]}
+
+
+@router.get("/{agent_id}/scene-chips", response_model=dict)
+def get_agent_scene_chips(
+    agent_id: str,
+    principal: PublicPrincipal = Depends(require_scopes("agents:read")),
+    db: Session = Depends(get_session),
+) -> dict:
+    """对话页入口胶囊（`GET /agents/{agent_id}/scene-chips`）。
+
+    ## 为什么公开 API 也要开一个
+
+    胶囊是场景的唯一**发现入口** —— 没有它，用户只能靠猜关键词才能进场景
+    （关键词是管理员配的，界面上不显示）。内部聊天页走
+    `GET /api/chat/scenes?tenant_id=&agent_id=`，但那套依赖登录态与租户参数，
+    公开 API 的调用方（小程序、第三方集成）拿不到 `tenant_id`，也没有 cookie。
+
+    ## 载荷为什么比内部接口窄
+
+    只给「画一颗胶囊 + 发一句话」需要的字段，**不含 `slots` / `scene_type` /
+    `module_key`**：
+      · `slots` 是表单字段定义，泄露了场景的内部条件结构；
+      · `module_key` 让调用方去猜「这个场景长什么样」，而后端已经用
+        `ui_blocks[].module_key` 在消息里说清楚了 —— 两处都给等于两个事实来源。
+
+    `send_text` 是点击后要发的那句话（`shortcut.message` → 首个关键词 → 场景名）。
+    调用方发这句话即可命中场景，**不需要**也**不应该**自己判断进哪个场景。
+    """
+    enforce_agent_access(principal, agent_id)
+    ensure_public_agent(db, principal, agent_id)
+    chips = list_scene_chips(db, tenant_id=principal.tenant_id, agent_id=agent_id)
+    return {
+        "data": [
+            {
+                "scene_id": chip.scene_id,
+                "label": chip.label,
+                "icon": chip.icon,
+                "scene_name": chip.scene_name,
+                "send_text": chip.send_text or chip.label,
+            }
+            for chip in chips
+            if str(chip.label or "").strip()
+        ]
+    }
 
 
 @router.put("/{agent_id}/resources", response_model=dict)

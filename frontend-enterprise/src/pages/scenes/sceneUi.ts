@@ -101,6 +101,37 @@ export const SCENE_TEXTAREA =
   + 'leading-[19px] text-[#18181a] outline-none transition-colors placeholder:text-[#b0b1ab] '
   + 'focus:border-[#0f766e]';
 
+/**
+ * 下拉框本体（**不含宽度**）。
+ *
+ * ## 为什么不能复用 `SCENE_INPUT`
+ *
+ * 原生 `<select>` 套 `<input>` 的样式会坏两件事：
+ *
+ * 1. **右侧箭头还是浏览器自绘的**（Windows 上是灰三角、macOS 上是蓝色渐变方块），
+ *    和站点其它下拉（shadcn `Select`、`SELECT_TRIGGER_CLASS` 那套自绘 chevron）
+ *    完全不是一个东西。截图里最刺眼的就是这个 —— 页面上其它下拉都是细线箭头，
+ *    只有接口这个是个系统控件。
+ * 2. **`SCENE_INPUT` 带 `w-full`**，调用点再追加 `w-[420px]` 时是「两个宽度类
+ *    同时存在」，谁生效取决于 Tailwind 产物里的顺序而不是书写顺序。表现是
+ *    「我明明写了 420px，它却撑满整行」。
+ *
+ * 所以下拉单独一份：`appearance-none` 干掉原生箭头、`pr` 留出自绘箭头的位、
+ * **不写宽度**（宽度一律由调用点给，避免上面第 2 条那种双写）。
+ * 高度/圆角/边框/字号与 `SCENE_INPUT` 逐值一致 —— 并排放的时候是同一排控件。
+ */
+export const SCENE_SELECT =
+  'h-[32px] w-full appearance-none rounded-[8px] border border-[#cfc5b7] bg-white '
+  + 'pl-[9px] pr-[26px] text-[12.5px] text-[#18181a] outline-none transition-colors '
+  + 'focus:border-[#0f766e] disabled:cursor-not-allowed disabled:bg-[#fbfaf6]';
+
+/** 下拉框外层（承载自绘箭头）。`relative` 是箭头绝对定位的锚。 */
+export const SCENE_SELECT_WRAP = 'relative inline-flex items-center';
+
+/** 下拉框的自绘箭头。 */
+export const SCENE_SELECT_CHEVRON =
+  'pointer-events-none absolute right-[7px] size-[14px] text-[#6d6d72]';
+
 /** 等宽多行输入（JSON 编辑）。 */
 export const SCENE_TEXTAREA_MONO =
   'w-full resize-y rounded-[8px] border border-[#cfc5b7] bg-white px-[9px] py-[7px] font-mono '

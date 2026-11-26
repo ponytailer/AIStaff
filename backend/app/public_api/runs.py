@@ -152,6 +152,29 @@ def _latest_artifacts(
     return artifacts[-100:]
 
 
+def _scene_payload(metadata: dict[str, Any]) -> dict[str, Any]:
+    """从 assistant 消息 metadata 里取场景 v3 的三个字段。
+
+    **抽成一个函数是两个出口共用同一份口径**：SSE 的 `run.output.completed`
+    与 `GET /runs/{id}/result` 都在这里读，字段名写错一次就到处都错；
+    分开各写一遍则会漂成两套（改一处漏一处，而且两处都叫「场景数据」）。
+
+    三个字段都是「有值才给」，且没有值时给空数组/空字典而不是省略：
+    省略会让调用方写 `if (payload.ui_blocks)` 时炸掉，而普通对话（绝大多数）
+    正是没有块的那条路径 —— 它不该是特例。
+
+    `scene_id` 单独给而不是让调用方从块里猜：前端靠它给「改槽重跑」带
+    `forced_scene_id`（提交文本里没有关键词，不带就必然落回普通对话）。
+    """
+    blocks = list(metadata.get("ui_blocks") or [])
+    params = dict(metadata.get("scene_params") or {})
+    return {
+        "ui_blocks": _redact(blocks),
+        "scene_params": _redact(params),
+        "scene_id": str(metadata.get("scene_id") or "").strip(),
+    }
+
+
 @register_job_handler("run")
 def execute_run(db: Session, job: APIJob) -> dict[str, Any]:
     credential, actor = _job_actor(db, job)
@@ -190,6 +213,13 @@ def execute_run(db: Session, job: APIJob) -> dict[str, Any]:
         event_data={"session_id": session_id, "engine": "harness_v2"},
     )
     attachments = [ChatAttachmentRead.model_validate(item) for item in payload.get("attachments") or []]
+    # 场景字段只在有值时传入。`ChatTurnRequest` 的这两项都是 `exclude=True`
+    # 的内部字段（不进响应、不进消息），这里显式传是为了让表单提交轮和
+    # 胶囊点击能跳过意图识别 —— 它们的文本里没有任何场景关键词。
+    forced_scene_id = str(payload.get("forced_scene_id") or "").strip() or None
+    slot_submission = payload.get("slot_submission")
+    if not isinstance(slot_submission, dict) or not slot_submission:
+        slot_submission = None
     request = ChatTurnRequest(
         tenant_id=job.tenant_id,
         session_id=session_id,
@@ -200,6 +230,8 @@ def execute_run(db: Session, job: APIJob) -> dict[str, Any]:
         attachments=attachments,
         channel="public_api",
         web_search=bool(payload.get("web_search") or False),
+        forced_scene_id=forced_scene_id,
+        slot_submission=slot_submission,
     )
     seen_event_ids: set[str] = set()
     worker_done = threading.Event()
@@ -313,7 +345,14 @@ def execute_run(db: Session, job: APIJob) -> dict[str, Any]:
         None,
     )
     assistant_metadata = dict(assistant.metadata_json or {}) if assistant else {}
-    return {
+    # 场景 v3 的块。为什么必须在这里也给：SSE 是「边跑边看」，而
+    # 拉结果接口（`GET /runs/{id}/result`）是回调/异步场景的唯一出口 ——
+    # 只给 SSE 的话，走轮询的调用方永远拿不到卡片，只能看到一段正文。
+    #
+    # 与 `reply` 的关系：正文照旧（非 UI 渠道只吃文本），块是「这条消息
+    # 还可以画成什么」。两者不重复表达同一句话 —— 后端产块时把引导语
+    # 放进正文、块里只有表单/结果（契约 §3.5）。
+    payload = {
         "run_id": job.id,
         "agent_id": job.agent_id,
         "session_id": None if stateless else session_id,
@@ -352,6 +391,8 @@ def execute_run(db: Session, job: APIJob) -> dict[str, Any]:
             source_turn_id,
         ),
     }
+    payload.update(_scene_payload(assistant_metadata))
+    return payload
 
 
 def _relay_agent_events(
@@ -417,6 +458,19 @@ def _relay_agent_events(
                 )
                 if citations:
                     event_data["citations"] = _redact(citations)
+                # 场景 v3 的块必须跟着 completed 一起下发。
+                #
+                # 为什么不在 task_frame 事件里带：块是**一轮的产物**，由
+                # `turn_run` 逐帧累加后写进 assistant 消息 metadata。帧事件
+                # 先到、块后到，逐帧下发等于让前端自己合并多帧，而
+                # 「同轮多帧时取最后一个」正是 arch §2.4 明确要避免的丢块场景。
+                #
+                # 为什么这里才查 assistant：块和 citations 同源（都在消息
+                # metadata 上），一次查询拿两样，不额外加一次 DB 往返。
+                if assistant:
+                    event_data.update(
+                        _scene_payload(dict(assistant.metadata_json or {}))
+                    )
             update_job(
                 db,
                 job,

@@ -262,18 +262,32 @@ describe('试跑：有命中', () => {
     expect(within(dialog).getAllByText('经典雪山五日').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('命中后回答是只读卡片预览，没有模板输入框', async () => {
+  it('回答方式与模板输入框仍然不给用户配', async () => {
     mockFetch(HIT_RUN);
     const user = userEvent.setup();
     const dialog = await openEditor(user);
 
-    // v3 起「命中后回答」区块只剩一张只读预览卡（用真 module 渲染样例数据），
-    // 模板输入框已移除 —— 回答长什么样由 module 的 UI 代码决定。
-    // 这条断言锁住「不给用户配回答」这个产品决策，防止模板输入框被悄悄加回来。
+    /*
+      v3 起「回答长什么样」由 module 的 UI 代码决定，用户不配「回答方式」，
+      也不填「模板」。
+
+      这条锁的是产品决策，防止模板输入框被悄悄加回来。
+
+      ⚠️ 这里曾经断言「样例数据预览」**不存在**，理由是「预览区块已删除」——
+      那是误解（用户说的「这没什么用，可以删了」指的是列表页的类型 tab）。
+      现在预览确实回来了，但挂在「回复用户」区块下面，且只对**声明了文案参数**
+      的 module 生效。
+
+      本用例用的是 `travel.itinerary`，它的 `params_schema` 全是 `column` 和
+      `boolean`（标题取哪列、价格取哪列），一条文案都没有 —— 所以这一块不出现。
+      「不出现」在这里是**正确行为**：一个没有输入框的「回复用户」区块，
+      用户会以为漏配了什么。表单提交（`generic.tool_submit`）那边才看得到。
+    */
     expect(within(dialog).queryByPlaceholderText(/为你找到/)).toBeNull();
     expect(within(dialog).queryByText('回答方式')).toBeNull();
-    // 预览区标注了「样例数据」，用户不会把它误认成真结果
-    expect(await within(dialog).findByText(/样例数据预览/)).toBeTruthy();
+    // 行程 module 没有文案参数 → 不出现「回复用户」，也就不出现预览
+    expect(within(dialog).queryByText('回复用户')).toBeNull();
+    expect(within(dialog).queryByText(/样例数据预览/)).toBeNull();
   });
 
   it('有命中时不显示空结果解释（两件事不能同时出现）', async () => {

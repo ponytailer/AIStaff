@@ -416,6 +416,15 @@ class _FrameExecutionMixin:
                 persist=True,
                 session_id=session.id,
                 user_id=request.user_id,
+                # **当前会话挂的那个员工**，不是场景绑定的员工。
+                #
+                # 两者语义不同：场景可能同时绑在 3 个员工上，而这一轮是「哪个
+                # 员工在跟用户说话」，工具鉴权必须按后者——否则 A 员工没勾选
+                # 的工具，会因为 B 员工勾了而在 A 的会话里调得通。
+                #
+                # 这也和 `resolve_scene_hit` 用的是同一个 `session.agent_id`，
+                # 场景层与工具层的判据因此严格对齐。
+                agent_id=str(session.agent_id or "") or None,
             )
         except Exception as exc:  # noqa: BLE001 - 降级到标准路径
             row.status = "queued"

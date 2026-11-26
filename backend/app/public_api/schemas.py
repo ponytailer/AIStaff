@@ -143,6 +143,18 @@ class AgentRunCreate(BaseModel):
     # 知识库，证据不足（或问题带时效性）才补一次网络检索。语义与聊天
     # 输入框上的「互联网检索」开关完全一致。
     web_search: bool = False
+    # 强制进入某个场景实例（用户点胶囊/表单提交轮）。
+    #
+    # 为什么公开 API 需要它：表单提交轮发的文本是「人数：4；天数：5；预算：3000」，
+    # 一个场景关键词都没有，靠关键词匹配必然落回普通对话 —— 用户刚填完表就
+    # 拿到一段闲聊。所以提交轮必须把 scene_id 带回来，后端当 forced 处理。
+    #
+    # 安全：`resolve_scene_hit` 会校验它在该员工当前生效的绑定集内，不在就
+    # 静默落回普通对话（解绑后的旧请求、伪造 id 都不会误触发场景）。
+    forced_scene_id: str | None = Field(default=None, max_length=120)
+    # 表单提交的结构化槽位 `{字段名: 取值}`。不带它的话后端只能把提交文本
+    # 当自由文本再抽一遍，抽错了就会「填完表又弹回同一张空表」。
+    slot_submission: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     webhook_url: HttpUrl | None = None
 

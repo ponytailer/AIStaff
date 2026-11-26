@@ -17,7 +17,6 @@ import {
   type SceneTableRead,
 } from '../../api/scenes';
 import { statusMeta } from './sceneUtils';
-import { SCENE_TYPES, sceneTypeMeta } from '@/scenes/types';
 import {
   SCENE_BTN_LINK_DANGER,
   SCENE_BTN_PRIMARY,
@@ -88,8 +87,7 @@ export default function ScenesPage({
    */
   const canManage = isAdmin || Boolean(agentId);
 
-  /** 筛选与选中态。选中项跟着筛选走，否则右侧会停在「看不见的那条」上。 */
-  const [typeFilter, setTypeFilter] = useState<string>('all');
+  /** 搜索与选中态。选中项跟着搜索走，否则右侧会停在「看不见的那条」上。 */
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>('');
 
@@ -152,15 +150,6 @@ export default function ScenesPage({
     [tableNames],
   );
 
-  /** 类型 tab 的计数。**统计永远反映全量**，不随筛选变 —— 跟着筛选变会让人以为数据丢了。 */
-  const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: scenes.length };
-    for (const scene of scenes) {
-      counts[scene.scene_type] = (counts[scene.scene_type] ?? 0) + 1;
-    }
-    return counts;
-  }, [scenes]);
-
   const stats = useMemo(
     () => ({
       total: scenes.length,
@@ -174,11 +163,10 @@ export default function ScenesPage({
   const visibleScenes = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return scenes.filter((scene) => {
-      if (typeFilter !== 'all' && scene.scene_type !== typeFilter) return false;
       if (!keyword) return true;
       return `${scene.name} ${scene.description ?? ''}`.toLowerCase().includes(keyword);
     });
-  }, [scenes, typeFilter, query]);
+  }, [scenes, query]);
 
   // 选中项被筛掉 → 落到第一条。不这么做的话右侧停在一条「列表里看不见」的场景上，
   // 用户会以为自己点错了。
@@ -193,8 +181,27 @@ export default function ScenesPage({
   }, [visibleScenes, selectedId]);
 
   const selected = visibleScenes.find((scene) => scene.id === selectedId) ?? null;
+
+  /**
+   * 槽位 key → 中文名，喂给预览卡片当 `data.labels`。
+   *
+   * 后端渲染时会从 `slots_json` 取中文名下发（那是唯一事实来源）；预览走的是
+   * 前端样板数据，没有后端参与，所以这里自己从场景的槽位上取一遍。
+   * 少了它，预览里显示的是 `room_no`、`item`，跟检查器上半部分写着的中文
+   * 「房间号」「送什么」对不上，用户会以为预览不是他这个场景的。
+   */
+  const labelsOf = useCallback(
+    (scene: SceneRead): Record<string, string> => {
+      const out: Record<string, string> = {};
+      for (const slot of scene.slots ?? []) {
+        const label = (slot.label ?? '').trim();
+        if (slot.key && label) out[slot.key] = label;
+      }
+      return out;
+    },
+    [],
+  );
   const isSearching = query.trim() !== '';
-  const isFiltering = typeFilter !== 'all';
 
   const openCreate = () => {
     // 不强制「先有表再建场景」：`table_match` 是 optional 档，其余三类是 none 档，
@@ -402,7 +409,12 @@ export default function ScenesPage({
                     <span className="ml-auto text-[#b3b4ae]">实际宽度 ≈ 400px</span>
                   </div>
                   {scene.module_key ? (
-                    <ScenePreviewCard moduleKey={scene.module_key} showCaption={false} />
+                    <ScenePreviewCard
+                      moduleKey={scene.module_key}
+                      params={scene.ui_config?.params}
+                      slotLabels={labelsOf(scene)}
+                      showCaption={false}
+                    />
                   ) : (
                     <p className="m-0 text-[12.5px] leading-[19px] text-[#6d6d72]">
                       这个场景没有卡片界面，回答以纯文本呈现。
@@ -505,14 +517,13 @@ export default function ScenesPage({
 
     if (visibleScenes.length === 0) {
       /*
-         两条路径的救法不一样：搜索是改关键词，类型筛选是点「全部」。
-         合成一句「换个关键词」会让人在类型筛选里徒劳地改词。
+         原本文案分三支：搜索、类型筛选、两者都没有。类型 tab 删掉之后
+         只剩两支 —— 留着一句提到「点「全部」」的文案会把用户指向一颗
+         已经不存在的按钮。
       */
       const hint = isSearching
         ? `没有匹配「${query.trim()}」的场景。换个关键词，或清空搜索框。`
-        : isFiltering
-          ? `「${sceneTypeMeta(typeFilter).label}」下还没有场景。点「全部」看看其他 ${scenes.length} 个。`
-          : '没有可显示的场景。';
+        : '没有可显示的场景。';
       return (
         <div className="rounded-[13px] border border-[#e7dfd3] bg-white px-[20px] py-[40px] text-center text-[12.5px] text-[#6d6d72]">
           {hint}
@@ -568,30 +579,20 @@ export default function ScenesPage({
             ))}
           </div>
 
-          {/* ---- 工具栏：类型 tab + 搜索 ---- */}
+          {/* ---- 工具栏：只剩搜索 ---- */}
+          {/*
+            这里原先有一排类型 tab（全部 / 查表推荐 / 流程办理 / 转人工 /
+            固定话术 / 表单提交），每个后面跟一个计数。
+
+            删掉的理由：五个类型里通常有三四个是 0，那几颗永远点不出东西的
+            按钮只能制造「我是不是漏配了什么」的焦虑；而真正常用的「找某个
+            场景」靠的是搜索框。计数也没有信息量 —— 「表单提交 1」不如列表里
+            直接看到那一个场景本身。
+
+            搜索框保留，`ml-auto` 去掉（左侧没有 tab 了，靠右没有意义）。
+          */}
           <div className="mb-[12px] flex flex-wrap items-center gap-[10px]">
-            <div className="flex flex-wrap items-center gap-[3px] rounded-[10px] bg-[#eeece4] p-[3px]">
-              {['all', ...SCENE_TYPES].map((type) => {
-                const active = typeFilter === type;
-                const label = type === 'all' ? '全部' : sceneTypeLabel(type);
-                const count = typeCounts[type] ?? 0;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setTypeFilter(type)}
-                    aria-pressed={active}
-                    className={`inline-flex items-center gap-[5px] rounded-[8px] px-[10px] py-[5px] text-[12px] transition-colors ${
-                      active ? 'bg-white font-medium text-[#18181a] shadow-[0_1px_2px_rgba(17,17,17,0.06)]' : 'text-[#6d6d72] hover:text-[#18181a]'
-                    }`}
-                  >
-                    {label}
-                    <span className={`text-[10px] ${active ? 'text-[#0f766e]' : 'text-[#b3b4ae]'}`}>{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="relative ml-auto flex min-w-[180px] items-center">
+            <div className="relative flex min-w-[180px] max-w-[420px] flex-1 items-center">
               <span className="pointer-events-none absolute left-[9px] text-[#b3b4ae]">⌕</span>
               <input
                 type="search"

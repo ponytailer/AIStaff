@@ -3,8 +3,10 @@ import { notify } from '@/components/ui/app-toast';
 import { StatusBadge } from '../scheduled-tasks/StatusBadge';
 import IconTrash from '../../assets/icons/trash.svg?react';
 import IconRefresh from '../../assets/icons/refresh.svg?react';
+import IconChevronDown from '../../assets/icons/chevron-down.svg?react';
 import {
   DEFAULT_MATCH_ACTION,
+  DEFAULT_TOOL_API,
   DEFAULT_TRIGGER,
   SEMANTIC_SLOTS,
   createScene,
@@ -13,6 +15,7 @@ import {
   getSceneTable,
   importSceneTable,
   listScenePresetOptions,
+  listSceneToolOptions,
   runScene,
   updateScene,
   type SceneMatchAction,
@@ -21,12 +24,13 @@ import {
   type SceneStatus,
   type SceneTablePreview,
   type SceneTableRead,
+  type SceneToolApi,
   type SceneTrigger,
   type ScenePresetOption,
+  type SceneToolOption,
 } from '../../api/scenes';
 import type { SceneType } from '@/scenes/types';
 import { sceneTypeMeta, tableCountWarnings } from '@/scenes/types';
-import ScenePreviewCard from './ScenePreviewCard';
 import {
   SCENE_BTN_PRIMARY,
   SCENE_BTN_PRIMARY_SM,
@@ -37,6 +41,9 @@ import {
   SCENE_FORM_SECTION_N,
   SCENE_FORM_SECTION_NOTE,
   SCENE_INPUT,
+  SCENE_SELECT,
+  SCENE_SELECT_CHEVRON,
+  SCENE_SELECT_WRAP,
   SCENE_TEXTAREA,
 } from './sceneUi';
 import { metaForModule, useSceneModuleCatalog } from '@/scenes/registry';
@@ -51,6 +58,7 @@ import {
   statusMeta,
   visibleSteps,
 } from './sceneUtils';
+import ScenePreviewCard from './ScenePreviewCard';
 
 /**
  * 场景定义器（**用户视角**，不是开发者视角）。
@@ -61,28 +69,45 @@ import {
  * |---|---|---|
  * | L1 module 实现 | 开发者写代码 | 看不见 |
  * | L2 预设 | 超管在 `/enterprise/scene-presets` 改 | **看不见**，但决定默认值 |
- * | L3 场景实例 | 用户 | 名称 / 图标 / 描述 / 槽位 / 匹配策略 |
+ * | L3 场景实例 | 用户 | 名称 / 图标 / 描述 / 槽位 / 话术 / 提交到哪 |
  *
- * 所以这页只有五个区块：
+ * ## 区块清单（按类型显隐，序号由 `sectionIndex` 算）
  *
- * 1. 基础信息 —— 场景名称、类型下拉（数据来自预设，目前只有「行程规划」）、
- *    图标下拉（选项来自预设）、描述
- * 2. 数据表 —— 按类型的 `needs_table` 显隐（`travel.itinerary` 是 required）
- * 3. 槽位 —— 保留可改（换表后列名不同必须能重新映射）
- * 4. 匹配策略 —— 保留可改（初始值来自预设）
- * 5. 命中后回答 —— **只读预览**，用真实的 module 卡片渲染，不可配
+ * 1. 基础信息 —— 名称、类型下拉、图标、描述、引导语、副标题
+ * 2. 数据表 —— 按 `needs_table` 显隐（`table_match` 才渲染）
+ * 3. 槽位 —— 要问用户什么
+ * 4. 提交到哪里 —— **只有 `tool_submit`**：接口、单号字段、参数映射
+ * 5. 回复用户 —— **话术**：一句话回复 + module 声明的文案参数 + 实时预览
+ * 6. 匹配策略 —— 按 `needs_table` 显隐（有表才有匹配）
  *
- * ## 被刻意拿掉的四个区块
+ * ## 被刻意拿掉的区块
  *
  * | 原区块 | 去哪了 | 为什么 |
  * |---|---|---|
  * | 2 场景界面（选 module + 参数） | 预设页 | 用户不该选 module —— 类型下拉已经定了它 |
  * | 触发条件 | 预设页 | 固定「按钮触发 + 跳过意图路由」，配错只会让场景不响应 |
- * | 7 命中后回答（回答方式/模板/按钮动作） | 预设页 | 回答长什么样由 module 的代码决定 |
  * | 8 绑定员工 | 员工档案页 | 建场景的地方不是挂场景的地方，双入口会让人以为要建两次 |
+ * | 类型 tab（场景列表页） | 已删除 | 多数类型计数为 0，那几颗点不出东西的按钮只制造焦虑 |
  *
- * 「不渲染」而不是「置灰」：这些项用户永远改不了（改在预设页），
- * 置灰会让他以为以后能开。这是契约 §4.2 的硬要求。
+ * ## 「回复用户」为什么是话术输入框，不是一张示意图
+ *
+ * 起初这里是 `ScenePreviewCard` 渲染的**只读预览**，喂的是写死的行程样例
+ * （经典雪山五日 / 亚布力 / 4 人 / 5 天 / 3000）。对行程场景还算贴切，
+ * 但用户建「客房送物」时看到的是别人的数据 —— 既判断不了自己配得对不对，
+ * 也容易误以为「我的场景怎么长这样」。
+ *
+ * 现在这一块的**主体是输入框**（版式固定、话术开放），预览降级成下方的
+ * 实时反馈：改了字立刻能看到卡片变成什么样。这样「预览」回答的才是
+ * 「我配完是什么样」，而不是「别人配完是什么样」。
+ *
+ * ## 话术为什么留给用户
+ *
+ * 卡片的**样式**由 module 代码决定（这是 L1，用户改不了也不该改），
+ * 但**说了什么话**随业务变：客房送物说「已提交，师傅会上门」，
+ * 报修说「已派单，工单号 XXX」。写死一句只能对上一个业务。
+ *
+ * 输入框不写死，而是按 module 的 `params_schema` 里 `type` 为
+ * `text` / `textarea` 的项渲染 —— 加新 module 时定义器零改动。
  *
  * 试跑面板固定在右侧 —— 没有试跑，调匹配策略就是盲调。
  */
@@ -159,6 +184,39 @@ export default function SceneEditor({
   const [trigger, setTrigger] = useState<SceneTrigger>({ ...DEFAULT_TRIGGER });
   const [slots, setSlots] = useState<SceneSlot[]>([]);
   const [matchAction, setMatchAction] = useState<SceneMatchAction>({ ...DEFAULT_MATCH_ACTION });
+  /**
+   * 调接口的配置（只有 `tool_submit` 用得上）。
+   *
+   * ## 为什么必须有这块 state
+   *
+   * 在它之前，定义器**完全没有 `tool_api` 的输入入口**，保存时也不带这个字段
+   * ——用户能把「表单提交」类型的场景建出来，却永远不能指定它调哪个接口。
+   * 表现是场景建好了、按钮也点得动，一提交就回「这个场景还没有配置要调用的接口」，
+   * 而界面上找不到任何可以填的地方。
+   *
+   * ## 为什么整份存、不做 patch
+   *
+   * 后端 `tool_api` 是**整份覆盖**语义。所以这里必须始终持有完整的一份
+   * （含 `tool_name`），不能只存「用户改过的那几个键」——那样一次保存就会把
+   * 没碰过的字段清空。
+   */
+  const [toolApi, setToolApi] = useState<SceneToolApi>({ ...DEFAULT_TOOL_API });
+
+  /**
+   * 可选的工具列表（`tool_submit` 的接口下拉数据源）。
+   *
+   * **不是广场全量**：只有「这个员工已绑定且已启用」的工具。判据与执行期
+   * 同源（后端 `visible_tool_rows`），所以下拉里能选到的就是调得通的。
+   * 拿全量填下拉会让用户选到一个自己没权限的工具，配完保存、线上一调就
+   * 报「没开通提交权限」—— 界面从头到尾都让他选。
+   *
+   * 只在场景类型是 `tool_submit` 时才拉：其余类型用不上。
+   *
+   * 拉不到时退化成空数组，界面提示「没有可用工具」—— 而不是给一个空下拉
+   * 让用户以为是自己没找对地方。
+   */
+  const [toolOptions, setToolOptions] = useState<SceneToolOption[]>([]);
+  const [toolsLoading, setToolsLoading] = useState(false);
   /**
    * 回答方式：**用户不能改**，恒为 `template`，且模板由预设/module 决定。
    *
@@ -248,6 +306,77 @@ export default function SceneEditor({
     [moduleMetas, moduleKey],
   );
 
+  /**
+   * 「回复用户」区块要渲染哪些输入框 —— **由 module 自己声明**。
+   *
+   * ## 判据为什么是 `scope === 'reply'`，而不是「所有 text 项」
+   *
+   * `text` 档里混着两种性质完全不同的东西：
+   *
+   * - **话术**（结论句、单号叫什么、进度按钮文案）→ 归这里
+   * - **技术映射**（接口返回里哪个字段是单号）→ 归「提交到哪里」
+   *
+   * 一开始用「所有 `type === 'text'`」当判据，结果 `receipt_no_field` 跑到了
+   * 话术区，标签写着「哪个字段是单号」——用户会以为自己要在这里写一句中文。
+   * 两类东西混在一屏，改了其中一类还以为两类都改了。
+   *
+   * ## 为什么 `scope` 不标就不渲染
+   *
+   * `travel.itinerary` 的 `price_note` 也是 `text`，但它归超管在预设页调
+   * （那是全局参数，不该由单个员工改）。不标 `scope` = 明确表示「不在这里」。
+   * 多渲染一个输入框比少渲染更糟：用户会以为漏配了，改完还不生效。
+   */
+  const replyParams = useMemo(
+    () =>
+      (selectedModuleMeta?.params_schema ?? []).filter(
+        (field): field is Extract<typeof field, { type: 'text' | 'textarea' }> =>
+          (field.type === 'text' || field.type === 'textarea') && field.scope === 'reply',
+      ),
+    [selectedModuleMeta],
+  );
+
+  /** 「提交到哪里」里的技术选项（例如「接口返回里哪个字段是单号」）。 */
+  const submitParams = useMemo(
+    () =>
+      (selectedModuleMeta?.params_schema ?? []).filter(
+        (field): field is Extract<typeof field, { type: 'text' | 'textarea' }> =>
+          (field.type === 'text' || field.type === 'textarea') && field.scope === 'submit',
+      ),
+    [selectedModuleMeta],
+  );
+
+  /**
+   * 各区块的序号（左侧目录和 `Section` 的圆点数字都用它）。
+   *
+   * ## 为什么必须算出来而不是写死
+   *
+   * 区块是**按类型显隐**的：`tool_submit` 不渲染「数据表」和「匹配策略」
+   * 但多一个「提交到哪里」。写死数字会出现两种坏情况：
+   *
+   * - 序号跳号（1 2 3 5 6）→ 用户以为中间那块没加载出来
+   * - 序号重复（两块都是 4）→ 左侧高亮同时点亮两项，看不出当前在哪
+   *
+   * 用累计计数保证「渲染出来的区块永远是 1..N 连续」。
+   */
+  const sectionIndex = useMemo(() => {
+    const meta = sceneTypeMeta(sceneType);
+    let next = 1;
+    const base = next++;
+    const tables = meta.blocks.tables ? next++ : 0;
+    const slots = next++;
+    /*
+     * 顺序与渲染顺序**必须一致**，否则序号和视觉位置对不上（读者会以为
+     * 「回复用户」在「提交到哪里」之前，实际看到的是反过来）。
+     *
+     * 顺序跟着后端的四步走：收表（槽位）→ 提交（接口）→ 回复（话术）。
+     * 「回复用户」对所有类型都出现 —— 每种类型都有话术要配。
+     */
+    const toolApiSection = sceneType === 'tool_submit' ? next++ : 0;
+    const reply = next++;
+    const matchStrategy = meta.blocks.matchStrategy ? next++ : 0;
+    return { base, tables, slots, toolApi: toolApiSection, reply, matchStrategy };
+  }, [sceneType]);
+
   const [tablePreview, setTablePreview] = useState<SceneTablePreview | null>(null);
   const [uploading, setUploading] = useState(false);
   const [localTables, setLocalTables] = useState<SceneTableRead[]>(tables);
@@ -272,17 +401,6 @@ export default function SceneEditor({
     () => (currentTable?.columns ?? []).map((column) => column.key),
     [currentTable],
   );
-
-  /**
-   * 当前选中预设的展示名（「行程规划」）。空则回落到类型标签。
-   *
-   * 用它而不是 `sceneTypeMeta(sceneType).label`（「查表推荐」）：用户看到的是
-   * 「行程规划」，你给他显示「查表推荐」他会以为选错了。
-   */
-  const currentPresetName = useMemo(() => {
-    const hit = presetOptions.find((item) => item.module_key === moduleKey);
-    return hit?.display_name ?? '';
-  }, [moduleKey, presetOptions]);
 
   /**
    * 图标下拉的选项。
@@ -350,6 +468,13 @@ export default function SceneEditor({
         // （后端 `if payload.respond_action is not None: row.respond_action_json = payload.respond_action`），
         // 不回填 + 不带回去 = 每次保存都清空员工配的引导语。
         setAskPrompt(row.respond_action?.ask_prompt ?? '');
+        // 调接口的配置：**必须回填**，理由同上一行 —— 它是整份覆盖语义，
+        // 不回填就意味着「打开已有场景 → 只改个名字 → 保存」把工具名、回复模板
+        // 全清了，而界面上看不出任何异常（表单还在，只是提交时永远说不工作）。
+        //
+        // 老场景可能没有这个键（`tool_api_json` 是后加的列），此时用骨架兜底：
+        // 直接读 `row.tool_api.tool_name` 会在 undefined 上抛，把整个定义器打挂。
+        setToolApi({ ...DEFAULT_TOOL_API, ...(row.tool_api ?? {}) });
         // `shortcut` / `agent_ids` 仍由后端持有，但这页不再展示：
         // - `shortcut`（按钮动作）由预设决定，保存时不回写（见 toPayload）
         // - 绑定员工在员工档案页管，这页不回写 `agent_ids`
@@ -386,6 +511,41 @@ export default function SceneEditor({
       alive = false;
     };
   }, []);
+
+  /**
+   * 工具列表（`tool_submit` 的接口下拉数据源）。
+   *
+   * 只在类型是 `tool_submit` 时拉：其余类型用不上，而工具列表在有几百个工具
+   * 时不算便宜。依赖写成 `sceneType` 而不是 `moduleKey`，是因为「要不要这个
+   * 下拉」由**类型**决定（一个类型对应一个 module，反之不成立）。
+   *
+   * 拉过一次就不再拉（`toolOptions.length > 0` 的短路）：用户在类型之间来回切
+   * 时不该每次都重新请求。
+   */
+  useEffect(() => {
+    if (sceneType !== 'tool_submit') return;
+    if (toolOptions.length > 0) return;
+    let alive = true;
+    setToolsLoading(true);
+    void (async () => {
+      try {
+        // 带上 `defaultAgentId`：从员工档案进来时校验的是「这个员工的工具」；
+        // 从场景管理页进来时它是 undefined，后端退回广场口径。
+        const rows = await listSceneToolOptions(defaultAgentId);
+        if (!alive) return;
+        setToolOptions(rows);
+      } catch {
+        // 拉不到就留空数组：界面会提示「没有可用工具」，用户可以先去绑工具。
+        // 不抛错 —— 定义器还有五个区块要填，不该因为一个下拉挂了就整页不可用。
+        if (alive) setToolOptions([]);
+      } finally {
+        if (alive) setToolsLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [sceneType, toolOptions.length, defaultAgentId]);
 
   // 预览表变了就拉预览（需要列定义来配槽位）
   useEffect(() => {
@@ -491,6 +651,13 @@ export default function SceneEditor({
 
       // 槽位：只在空的时候用预设的（用户可能已经按自己的表头映射过）
       setSlots((current) => (current.length > 0 ? current : (defaults.slots ?? [])));
+      // 调接口的骨架：整份套用（含 `tool_name: ""`）。
+      //
+      // 为什么这里不像槽位那样「只在空的时候用」：切类型是「换一套玩法」，
+      // 把上一个类型残留的 `tool_name` 带过去，就会变成「选了个不查表的类型，
+      // 结果它去调上一个场景的接口」——这种杂交状态比清空难查得多。
+      // 用户切回来时重选一次接口，是可接受的代价。
+      setToolApi({ ...DEFAULT_TOOL_API, ...(defaults.tool_api ?? {}) });
       // 匹配策略：整份套用预设值。
       //
       // 为什么不做「保留用户改过的键」：`current` 初值就是 DEFAULT_MATCH_ACTION，
@@ -520,9 +687,29 @@ export default function SceneEditor({
     void applyPreset(first);
   }, [applyPreset, isNew, moduleKey, presetLoading, presetOptions]);
 
+  /*
+   * 语义槽位校验**只对查表类型生效**。
+   *
+   * `people` / `days` / `budget` 是查表匹配的三层维度（人数硬约束、
+   * 天数 ±1、预算排序）。非查表类型（`sop_flow` / `handoff` / `script` /
+   * `tool_submit`）不按这三维筛任何东西，传进去只会在界面上挂出
+   * 「没配「people」槽位」这类纯噪音 —— 用户会以为漏配了，然后去加
+   * 三个跟自己业务毫无关系的槽位。
+   *
+   * 判据用 `blocks.matchStrategy`（由 `needs_table` 推导，有表才有匹配策略），
+   * 与「匹配策略区块显不显示」「匹配策略参不参与发布校验」同源 ——
+   * 一处判据决定三件事，不会出现「区块藏了但校验还在报」。
+   */
   const slotIssues = useMemo(
-    () => checkSlotMappings(slots, columnKeys, SEMANTIC_SLOTS.map((item) => item.key)),
-    [columnKeys, slots],
+    () =>
+      checkSlotMappings(
+        slots,
+        columnKeys,
+        sceneTypeMeta(sceneType).blocks.matchStrategy
+          ? SEMANTIC_SLOTS.map((item) => item.key)
+          : [],
+      ),
+    [columnKeys, sceneType, slots],
   );
   const blockers = useMemo(
     () =>
@@ -608,6 +795,14 @@ export default function SceneEditor({
       trigger,
       slots,
       match_action: matchAction,
+      // 调接口的配置：**只在 `tool_submit` 类型下发**。
+      //
+      // 为什么不无条件发：`tool_api` 是整份覆盖语义，把一份 `{tool_name: ""}`
+      // 写到 `script` 类型的场景上虽然不影响它运行，但会让库里的存量数据变成
+      // 「每个场景都有一份空配置」，以后要统计「哪些场景真的调了接口」时
+      // 分不清「没配」和「不是这类场景」。类型切换时旧类型的配置各有字段、
+      // 互不覆盖，这里的语义与 `flow` / `handoff` / `scripts` 一致。
+      ...(sceneType === 'tool_submit' ? { tool_api: toolApi } : {}),
       respond_action: {
         mode: respondMode,
         template: respondTemplate,
@@ -635,6 +830,8 @@ export default function SceneEditor({
           scene_type: sceneType,
           slots,
           respond_action: { mode: respondMode, template: respondTemplate },
+          // 表单提交类型发布前必须选好接口（见 `publishBlockers` 的注释）
+          tool_api: toolApi,
         },
         columnKeys,
         selectedModuleMeta?.needs_table,
@@ -752,7 +949,7 @@ export default function SceneEditor({
             {/* 左：六个区块 */}
             <div className="min-w-0 flex-1 overflow-y-auto px-[28px] py-[22px]">
               {/* 1 基础信息 */}
-              <Section index={1} title="基础信息" note="这些都能改" active={activeSection} onEnter={setActiveSection}>
+              <Section index={sectionIndex.base} title="基础信息" note="这些都能改" active={activeSection} onEnter={setActiveSection}>
                 <Field label="场景名称" required hint="在员工档案和聊天按钮上显示">
                   <input
                     value={name}
@@ -781,15 +978,16 @@ export default function SceneEditor({
                       还没有可用的场景类型，请联系管理员在「场景预设」里配置。
                     </span>
                   ) : (
-                    <select
+                    <Select
                       value={moduleKey}
-                      onChange={(event) => {
+                      onChange={(next) => {
                         const option = presetOptions.find(
-                          (item) => item.module_key === event.target.value,
+                          (item) => item.module_key === next,
                         );
                         if (option) void applyPreset(option);
                       }}
-                      className={`${INPUT_CLASS} w-[320px]`}
+                      label="场景类型"
+                      className="w-[320px] max-w-full"
                     >
                       {/* 存量场景的 module 可能已从预设里停用/删除。此时不能
                           悄悄回落到第一项 —— 一保存就把场景换了个 module，
@@ -802,7 +1000,7 @@ export default function SceneEditor({
                           {`${option.icon ? `${option.icon} ` : ''}${option.display_name}`}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   )}
                 </Field>
                 <Field label="场景描述" hint="告诉员工什么时候该用它，会进模型的系统提示">
@@ -867,7 +1065,7 @@ export default function SceneEditor({
                   原「场景界面」区块已并入「场景类型」下拉：module 由预设决定，
                   参数在超管预设页配，用户不选也不填。 */}
               {sceneTypeMeta(sceneType).blocks.tables && (
-                <Section index={2} title="数据表" active={activeSection} onEnter={setActiveSection}>
+                <Section index={sectionIndex.tables} title="数据表" active={activeSection} onEnter={setActiveSection}>
                   {/* 已选表按顺序列出：顺序即合并池的 order_index，
                       调整顺序会改变命中优先级，所以要让人看见并挪得动。 */}
                   {tableIds.length > 0 ? (
@@ -942,16 +1140,16 @@ export default function SceneEditor({
                   )}
 
                   <div className="flex flex-wrap items-center gap-[10px]">
-                    <select
+                    <Select
                       value=""
-                      onChange={(event) => {
-                        const id = event.target.value;
+                      onChange={(id) => {
                         if (!id) return;
                         // 追加到末尾，不替换已有选择。
                         setTableIds((current) => (current.includes(id) ? current : [...current, id]));
                         setRunResult(null);
                       }}
-                      className={`${INPUT_CLASS} w-[280px]`}
+                      label="添加已有数据表"
+                      className="w-[280px] max-w-full"
                     >
                       <option value="">＋ 添加已有数据表</option>
                       {localTables
@@ -961,7 +1159,7 @@ export default function SceneEditor({
                             {table.name}（{table.row_count} 行）
                           </option>
                         ))}
-                    </select>
+                    </Select>
                     {/* 用 `<label>` 包 `<input type="file">`：原生文件框没法改样式，
                         隐藏它、把 label 画成按钮是唯一干净的做法。
                         视觉必须与 `SCENE_BTN_SM` 一致 —— 它下面就是「按表头自动映射」
@@ -1056,10 +1254,15 @@ export default function SceneEditor({
                 </Section>
               )}
 
-              <Section index={3} title="槽位（要问用户什么）" active={activeSection} onEnter={setActiveSection}>
+              <Section index={sectionIndex.slots} title="槽位（要问用户什么）" active={activeSection} onEnter={setActiveSection}>
+                {/* 说明文案必须按类型分支。
+                    「人数是硬约束、天数允许 ±1」这套说法只对查表类型成立；
+                    在「表单提交」下它一个字都不对（那里不查表、也没有匹配层），
+                    照抄过来会让用户去找「对应列」下拉 —— 而那一栏根本没有。 */}
                 <p className="m-0 mb-[10px] text-[12px] leading-[18px] text-[#9a9a9f]">
-                  三个语义槽位对应匹配的三层：人数是硬约束、天数允许 ±1、预算按相对偏差排序。
-                  key 不能改（匹配层按它取值），只需要把「对应列」指对。
+                  {sceneType === 'tool_submit'
+                    ? '这些就是用户要在表单里填的字段。勾了「必填」的会先问齐再提交；不勾的可以留空。'
+                    : '三个语义槽位对应匹配的三层：人数是硬约束、天数允许 ±1、预算按相对偏差排序。key 不能改（匹配层按它取值），只需要把「对应列」指对。'}
                 </p>
                 <div className="flex flex-col gap-[10px]">
                   {slots.map((slot, index) => {
@@ -1073,23 +1276,31 @@ export default function SceneEditor({
                           {slot.label ?? slot.key}
                         </span>
                         <span className="text-[11px] text-[#9a9a9f]">{slot.unit}</span>
-                        <span className="text-[12px] text-[#6d6d72]">→</span>
-                        <select
-                          value={slot.target ?? ''}
-                          onChange={(event) => {
-                            const next = [...slots];
-                            next[index] = { ...slot, target: event.target.value };
-                            setSlots(next);
-                          }}
-                          className={`${INPUT_CLASS} w-[180px]`}
-                        >
-                          <option value="">未映射</option>
-                          {columnKeys.map((key) => (
-                            <option key={key} value={key}>
-                              {key}
-                            </option>
-                          ))}
-                        </select>
+                        {/* 「对应列」只在查表类型下有意义。
+                            表单提交类型不查表，`target` 永远是空的 ——
+                            摆一个「未映射」的下拉在那里，用户会以为漏配了什么。 */}
+                        {sceneType !== 'tool_submit' && (
+                          <>
+                            <span className="text-[12px] text-[#6d6d72]">→</span>
+                            <Select
+                              value={slot.target ?? ''}
+                              onChange={(next) => {
+                                const updated = [...slots];
+                                updated[index] = { ...slot, target: next };
+                                setSlots(updated);
+                              }}
+                              label={`槽位 ${slot.label || slot.key} 对应列`}
+                              className="w-[180px]"
+                            >
+                              <option value="">未映射</option>
+                              {columnKeys.map((key) => (
+                                <option key={key} value={key}>
+                                  {key}
+                                </option>
+                              ))}
+                            </Select>
+                          </>
+                        )}
                         <label className="flex items-center gap-[5px] text-[12px] text-[#6d6d72]">
                           <input
                             type="checkbox"
@@ -1138,17 +1349,29 @@ export default function SceneEditor({
                     </p>
                   ))}
                 <div className="mt-[10px] flex gap-[8px]">
-                  <button
-                    onClick={() => adoptSemanticSlots(columnKeys)}
-                    className={SCENE_BTN_SM}
-                  >
-                    按表头自动映射
-                  </button>
+                  {/* 「按表头自动映射」只对查表类型有意义：它把语义槽位
+                      （人数/天数/预算）对到表的列名上。表单提交类型没有表，
+                      点它只会把三个不相干的语义槽位塞进这份表单。 */}
+                  {sceneType !== 'tool_submit' && (
+                    <button
+                      onClick={() => adoptSemanticSlots(columnKeys)}
+                      className={SCENE_BTN_SM}
+                    >
+                      按表头自动映射
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       setSlots([
                         ...slots,
-                        { key: `extra_${slots.length + 1}`, label: '新槽位', target: '', type: 'number' },
+                        // 表单提交类型的字段是文本（房间号、物品名这类），
+                        // 默认给 text；查表类型给 number 是因为它要参与数值比较。
+                        {
+                          key: `extra_${slots.length + 1}`,
+                          label: '新槽位',
+                          target: '',
+                          type: sceneType === 'tool_submit' ? 'text' : 'number',
+                        },
                       ])
                     }
                     className={SCENE_BTN_SM}
@@ -1158,8 +1381,259 @@ export default function SceneEditor({
                 </div>
               </Section>
 
-              {/* 5 匹配策略 */}
-              <Section index={4} title="匹配策略" active={activeSection} onEnter={setActiveSection}>
+              {/*
+                4 调接口 —— 只在「表单提交」类型下渲染。
+
+                这一块是「表单 + 调外部系统」这个玩法的核心：上面的槽位定义
+                *问用户什么*，这里定义*问完之后发到哪里、怎么发、回执怎么说*。
+                没有它，场景能建、表单能出，一提交就报「还没配置接口」。
+
+                位置放在槽位之后、匹配策略之前：语义上是跟着槽位走的
+                （参数映射的源就是槽位的 key）。
+              */}
+              {sceneType === 'tool_submit' && (
+                <Section
+                  index={sectionIndex.toolApi}
+                  title="提交到哪里"
+                  note="填完表单后调这个接口"
+                  active={activeSection}
+                  onEnter={setActiveSection}
+                >
+                  <Field
+                    label="接口"
+                    required
+                    hint={
+                      defaultAgentId
+                        ? '只列这个员工已绑定且启用的接口'
+                        : '在「工具」页建好的接口'
+                    }
+                  >
+                    {toolsLoading ? (
+                      <span className="text-[12px] text-[#9a9b95]">加载工具列表…</span>
+                    ) : toolOptions.length === 0 ? (
+                      // 空态要说清「没有可用工具」而不是「加载失败」：
+                      // 两者的处置完全不同（前者去绑工具，后者刷新即可）。
+                      //
+                      // 文案里区分两种语境：从员工档案进来时，用户该做的是
+                      // 「给这个员工勾上工具」；从场景管理页进来时，才该去工具页建。
+                      // 一律说「去工具页创建」会让前者白跑一趟 —— 工具其实早就有了，
+                      // 只是没绑到这个人身上。
+                      <span className="rounded-[8px] bg-[#fff2e5] px-[10px] py-[6px] text-[12px] leading-[18px] text-[#b45309]">
+                        {defaultAgentId
+                          ? '这个员工还没有绑定任何可用的工具。请到员工档案的「工具」里勾选一个，回来这里就能选。'
+                          : '还没有可用工具。请先到「工具」页创建一个接口，回来这里就能选。'}
+                      </span>
+                    ) : (
+                      <Select
+                        value={toolApi.tool_name}
+                        onChange={(next) => setToolApi({ ...toolApi, tool_name: next })}
+                        label="接口"
+                        className="w-[420px] max-w-full"
+                      >
+                        <option value="">请选择要调用的接口</option>
+                        {/* 存量场景的工具可能已被改名/删除/解绑。此时不能悄悄回落到
+                            第一项 —— 一保存就把场景换了个接口。补一个只读占位项。
+
+                            「已不可用」而不只是「已不存在」：工具本身可能还在，
+                            只是这个员工没绑定它 —— 那种情况更常见，文案必须说对，
+                            否则用户去工具页找半天发现工具明明在。 */}
+                        {toolApi.tool_name &&
+                          !toolOptions.some((item) => item.name === toolApi.tool_name) && (
+                            <option value={toolApi.tool_name}>
+                              {`${toolApi.tool_name}（已不可用）`}
+                            </option>
+                          )}
+                        {toolOptions.map((item) => (
+                          <option key={item.name} value={item.name}>
+                            {item.description ? `${item.name} — ${item.description}` : item.name}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </Field>
+
+                  {/* 回复模板搬到上一块「回复用户」了 —— 它是「说什么话」，
+                      和回执卡上的结论句是同一件事的两种呈现（纯文本 / 卡片）。
+                      这里只留技术配置：调哪个接口、参数怎么对上。 */}
+
+                  {/*
+                    单号字段名：**技术映射，不是话术**。
+
+                    它和「单号叫什么」是两件事，用户经常只改后者就以为改完了 ——
+                    结果标签写着「运单号」，认的却是 `order_no`，接口换了字段名
+                    就整行消失。摆在这里（挨着接口）而不是话术区，语义才对得上：
+                    它说的是「这个接口返回里哪个字段是单号」。
+
+                    留空是常态：模块按 no / id / code / 单号 等词根自动识别，
+                    覆盖绝大多数命名。只有接口用了 `ref` / `ticket` 这种
+                    看不出意图的名字时才需要填。
+                  */}
+                  {submitParams.map((field) => (
+                    <Field key={field.key} label={field.label} hint={field.help}>
+                      <input
+                        value={String(moduleParams[field.key] ?? '')}
+                        onChange={(event) =>
+                          setModuleParams({ ...moduleParams, [field.key]: event.target.value })
+                        }
+                        placeholder={field.placeholder}
+                        className={`${INPUT_CLASS} w-[320px] max-w-full`}
+                      />
+                    </Field>
+                  ))}
+
+                  {/*
+                    参数映射：**默认折叠**。
+
+                    绝大多数接口的参数名和槽位 key 一致，不需要配（`param_map` 为空
+                    就是同名直传）。把它摊开会让每个用户都以为「这里必须填点什么」，
+                    然后手抄一遍本来就一样的映射，抄错还更难查。
+                  */}
+                  <details className="rounded-[10px] border border-[rgba(24,24,26,0.10)] bg-[#faf9f6] px-[12px] py-[10px]">
+                    <summary className="cursor-pointer text-[12px] font-medium text-[#18181a]">
+                      参数映射
+                      <span className="ml-[6px] font-normal text-[#9a9a9f]">
+                        接口参数名和字段名不一样时才需要配
+                      </span>
+                    </summary>
+                    <div className="mt-[10px] flex flex-col gap-[8px]">
+                      {slots.length === 0 && (
+                        <p className="m-0 text-[12px] text-[#9a9a9f]">先在上面配好槽位。</p>
+                      )}
+                      {slots.map((slot) => {
+                        // 反查：这个槽位有没有被显式映射到某个接口参数名上。
+                        // `param_map` 是 `{接口参数名: 槽位key}`，方向与界面相反
+                        // （界面问的是「这个字段对应接口的哪个参数」），所以这里翻一下。
+                        const mapped = Object.entries(toolApi.param_map ?? {}).find(
+                          ([, source]) => source === slot.key,
+                        )?.[0];
+                        return (
+                          <label key={slot.key} className="flex items-center gap-[8px]">
+                            <span className="w-[112px] shrink-0 truncate text-[12px] text-[#6d6d72]">
+                              {slot.label ?? slot.key}
+                            </span>
+                            <span className="text-[12px] text-[#9a9a9f]">→</span>
+                            <input
+                              value={mapped ?? ''}
+                              onChange={(event) => {
+                                const next: Record<string, string> = {};
+                                // 先剔掉这个槽位的旧映射（可能改了名），再按新值加回去。
+                                // 不剔的话改一次名会留下两条映射指向同一个槽位，
+                                // 后端 `_submission_params` 会把同一个值赋给两个参数名。
+                                for (const [target, source] of Object.entries(
+                                  toolApi.param_map ?? {},
+                                )) {
+                                  if (source !== slot.key) next[target] = source;
+                                }
+                                const target = event.target.value.trim();
+                                if (target) next[target] = slot.key;
+                                setToolApi({ ...toolApi, param_map: next });
+                              }}
+                              placeholder={slot.key}
+                              className={`${INPUT_CLASS} flex-1`}
+                            />
+                          </label>
+                        );
+                      })}
+                      <p className="m-0 text-[11.5px] leading-[17px] text-[#9a9a9f]">
+                        留空 = 接口参数名与字段名相同，直接同名传过去。
+                      </p>
+                    </div>
+                  </details>
+                </Section>
+              )}
+
+              {/*
+                5 回复用户 —— **话术开放给员工填**。
+
+                区块的**版式**由 module 代码决定（渐变卡头、单号一行、字段平铺），
+                用户改不了也不该改 —— 那是视觉契约，改了就和别的卡片不是一家。
+                但**说什么话**必须能改：同一个「提交成功」，客房送物说「师傅会上门」，
+                报修说「已派单给张师傅」，预约说「凭码到前台取号」。
+                写死一句只能对上一个业务。
+
+                ## 为什么按 `params_schema` 动态渲染，而不是写死几个输入框
+
+                这一块**不认业务**，只认 module 声明了哪些文案参数。将来加一个
+                「预约挂号」module，只要它的 `params.ts` 里声明 `receipt_subtitle`，
+                这里自动长出一个输入框 —— 定义器零改动。写死的话每来一个新 module
+                都要回来改这个文件，而且迟早漏掉一个（漏掉的表现是「配了不生效」，
+                最难查）。
+
+                ## 为什么样式/技术项不在这里
+
+                `receipt_no_field` 是「接口返回里哪个字段是单号」，属于技术映射，
+                跟着「提交到哪里」走。它和 `receipt_no_label`（这一行叫什么）
+                是两件事，用户经常只改后者就以为改完了。
+              */}
+              {(sceneType === 'tool_submit' || replyParams.length > 0) && (
+                <Section
+                  index={sectionIndex.reply}
+                  title="回复用户"
+                  note="话术随业务变，样式固定"
+                  active={activeSection}
+                  onEnter={setActiveSection}
+                >
+                  {/* 提交类场景有两段回复：一句纯文本 + 一张回执卡。两者是
+                      同一件事的两种呈现，必须放在一起配 —— 分开摆的话用户
+                      改了卡片上的「已提交」，聊天记录里那句仍是旧文案。 */}
+                  {sceneType === 'tool_submit' && (
+                    <Field
+                      label="一句话回复"
+                      hint="提交成功后先说这句话，卡片跟在后面；{{字段}} 从返回值里取"
+                    >
+                      <textarea
+                        value={toolApi.reply_template}
+                        onChange={(event) =>
+                          setToolApi({ ...toolApi, reply_template: event.target.value })
+                        }
+                        rows={2}
+                        placeholder="例如：已为 {{room_no}} 房提交{{item}}，受理单号 {{order_no}}。"
+                        className={cnTextarea}
+                      />
+                      <span className="text-[11px] leading-[16px] text-[#9a9a9f]">
+                        可以取接口返回值里的任意字段，也可以取上面槽位的 key。留空则由系统按返回值自动拼一句。
+                      </span>
+                    </Field>
+                  )}
+                  {replyParams.map((field) => (
+                    <Field key={field.key} label={field.label} hint={field.help}>
+                      <input
+                        value={String(moduleParams[field.key] ?? '')}
+                        onChange={(event) =>
+                          setModuleParams({ ...moduleParams, [field.key]: event.target.value })
+                        }
+                        placeholder={field.placeholder}
+                        className={`${INPUT_CLASS} w-[420px] max-w-full`}
+                      />
+                    </Field>
+                  ))}
+                  {/* 实时预览：改了字立刻能看到卡片变成什么样。
+                      不摆预览的话用户得保存 → 开聊天 → 点一次才知道改对没有。 */}
+                  <div className="mt-[2px]">
+                    <p className="m-0 mb-[6px] text-[11.5px] text-[#9a9a9f]">
+                      用户会看到这样一张卡片：
+                    </p>
+                    <ScenePreviewCard
+                      moduleKey={moduleKey}
+                      params={moduleParams}
+                      slotLabels={Object.fromEntries(
+                        slots
+                          .filter((slot) => slot.key && (slot.label ?? '').trim())
+                          .map((slot) => [slot.key, (slot.label ?? '').trim()]),
+                      )}
+                    />
+                  </div>
+                </Section>
+              )}
+
+              {/* 匹配策略 —— 只有需要查表的类型才渲染。
+                  `sceneTypeMeta(sceneType).blocks.matchStrategy` 由 `needs_table`
+                  推导（有表才有「匹配策略」，两者同真同假）。原先这里无条件渲染，
+                  结果是 `script` / `tool_submit` 这类不查表的类型也会看到
+                  「天数容差」「淘汰阈值」——用户会以为这些参数对它生效，
+                  实际后端根本不读。契约 §4.2 要求「不渲染，不置灰」。 */}
+              {sceneTypeMeta(sceneType).blocks.matchStrategy && (
+              <Section index={sectionIndex.matchStrategy} title="匹配策略" active={activeSection} onEnter={setActiveSection}>
                 <div className="grid grid-cols-2 gap-[12px]">
                   <NumberField
                     label="天数容差（天）"
@@ -1193,20 +1667,21 @@ export default function SceneEditor({
                   />
                 </div>
                 <Field label="完全没有命中时" hint="这决定了空结果时员工怎么说话">
-                  <select
+                  <Select
                     value={matchAction.on_empty}
-                    onChange={(event) =>
+                    onChange={(next) =>
                       setMatchAction({
                         ...matchAction,
-                        on_empty: event.target.value as SceneMatchAction['on_empty'],
+                        on_empty: next as SceneMatchAction['on_empty'],
                       })
                     }
-                    className={`${INPUT_CLASS} w-[260px]`}
+                    label="完全没有命中时"
+                    className="w-[260px] max-w-full"
                   >
                     <option value="nearest">给出差距最小的一批（推荐）</option>
                     <option value="clarify">反问用户能否放宽条件</option>
                     <option value="none">只说明没有结果</option>
-                  </select>
+                  </Select>
                 </Field>
                 <ToggleRow
                   label="用决策模型辅助排序"
@@ -1215,17 +1690,7 @@ export default function SceneEditor({
                   onChange={(next) => setMatchAction({ ...matchAction, use_decision_model: next })}
                 />
               </Section>
-
-              {/* 4 命中后回答（只读预览）—— 用户不可配，样式由 module 代码决定 */}
-              <Section index={5} title="命中后回答" active={activeSection} onEnter={setActiveSection}>
-                <p className="m-0 text-[12px] leading-[18px] text-[#9a9b95]">
-                  用户命中后会看到这样一张卡。样式由「{currentPresetName || sceneTypeMeta(sceneType).label}」这个场景
-                  类型的代码决定，不需要配置；想改文案或按钮，请管理员在「场景预设」里调。
-                </p>
-                <ScenePreviewCard moduleKey={moduleKey} />
-              </Section>
-
-
+              )}
               <div className="h-[40px]" />
             </div>
 
@@ -1287,8 +1752,10 @@ const FALLBACK_ICONS = ['🎿', '🏔️', '🗺️', '✈️', '🧳', '📊', 
  * 不用自由输入框（改造前的做法）：用户能填「🎿🏔️」三个 emoji、或一段文字、
  * 或留空，视觉上完全失控。下拉把可选集限死，一致性由预设保证。
  *
- * 用原生 `<select>` 而不是自绘：emoji 在原生下拉里能正常渲染，自绘要处理
- * 定位/键盘/无障碍三件事，收益只有「好看一点」——这里不值得。
+ * 用原生 `<select>` 而不是自绘**列表**：emoji 在原生下拉里能正常渲染，自绘要
+ * 处理定位/键盘/无障碍三件事，收益只有「好看一点」——这里不值得。但**外观**
+ * 仍走共享的 `Select`（自绘 chevron + 统一边框），否则这颗下拉的箭头又变成
+ * 系统控件，和它上面「场景类型」那颗不是一个东西。
  */
 function IconPicker({
   value,
@@ -1301,18 +1768,13 @@ function IconPicker({
 }) {
   return (
     <div className="flex items-center gap-[8px]">
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        aria-label="场景图标"
-        className={`${INPUT_CLASS} w-[120px]`}
-      >
+      <Select value={value} onChange={onChange} label="场景图标" className="w-[120px]">
         {options.map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
-      </select>
+      </Select>
       {/* 大号预览：下拉里 emoji 很小，选完不确认一下很容易挑错 */}
       <span
         className="grid size-[32px] shrink-0 place-items-center rounded-[8px] border border-[rgba(24,24,26,0.10)] bg-[#fbfaf6] text-[18px]"
@@ -1333,6 +1795,55 @@ function IconPicker({
  */
 const INPUT_CLASS = SCENE_INPUT;
 const cnTextarea = SCENE_TEXTAREA;
+
+/**
+ * 定义器里**唯一**的下拉框实现。
+ *
+ * 六个下拉（场景类型 / 图标 / 添加数据表 / 槽位映射 / 接口 / 空结果策略）
+ * 原先各写一份 `<select className={`${INPUT_CLASS} w-[...]`}>`。后果有两个：
+ *
+ * 1. 复用了 `<input>` 的样式，于是右侧是浏览器自绘的箭头 —— 页面其它地方的
+ *    下拉（shadcn `Select`）都是细线 chevron，只有这几处是系统控件。用户原话
+ *    就是「这里的下拉样式要和站点统一」。
+ * 2. `SCENE_INPUT` 自带 `w-full`，调用点再追加 `w-[420px]` 是**两个宽度类并存**，
+ *    谁赢取决于 CSS 产物里的顺序。于是「写了 420 却撑满整行」。
+ *
+ * 现在箭头自绘（`chevron-down.svg`，14px 细线），宽度只由 `className` 给。
+ * 新增下拉一律用它，不要再手写 `<select>` —— 否则又会出现「同一个东西在两处
+ * 长得不一样」。
+ */
+function Select({
+  value,
+  onChange,
+  label,
+  disabled,
+  className = 'w-full',
+  children,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  /** 无障碍名。多个下拉同屏时，`getByRole('combobox', { name })` 靠它区分。 */
+  label?: string;
+  disabled?: boolean;
+  /** 只放宽度（`w-[320px]` 这类），不要再传边框/高度。 */
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className={`${SCENE_SELECT_WRAP} ${className}`}>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={label}
+        disabled={disabled}
+        className={SCENE_SELECT}
+      >
+        {children}
+      </select>
+      <IconChevronDown className={SCENE_SELECT_CHEVRON} aria-hidden />
+    </span>
+  );
+}
 
 function Section({
   index,

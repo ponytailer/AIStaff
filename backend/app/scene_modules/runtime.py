@@ -24,6 +24,7 @@ from app.scene_modules.channels import (
     _run_script,
     _run_sop_flow,
     _run_table_match,
+    _run_tool_submit,
 )
 from app.scene_modules.constants import SCENE_TYPE_META
 from app.scene_modules.types import SceneRunResult, SceneUiBlock
@@ -199,12 +200,18 @@ def dispatch_scene(
     user_id: str | None = None,
     persist: bool = True,
     action_overrides: dict[str, Any] | None = None,
+    agent_id: str | None = None,
 ) -> SceneRunResult:
     """按 ``scene_type`` 分派到 channels 里的 4 个函数之一。
 
     用 ``match`` 不用 ``dict[str, Callable]`` 注册表：已知 4 个常量分支时
     ``match`` 能让类型检查器做穷尽性提醒；dict 查表会把「少注册一个」变成
     运行期 ``KeyError``（arch §2.5）。
+
+    ``agent_id`` 是**这次执行的归属员工**，一路透传到 ``tool_submit`` 通道，
+    由 ``ToolExecutor`` 用它校验「这个工具绑没绑在这个员工身上」。不传不是
+    「跳过校验」，而是「这次执行没有员工身份」——试跑面板这类没有员工语境的
+    入口才允许为空；聊天链路必须传 ``session.agent_id``。
 
     **未知类型不抛异常**：降级成一条 ``text`` block 说明原因，
     ``status = "error"``，让用户在对话里看到原因而不是白屏。
@@ -255,6 +262,21 @@ def dispatch_scene(
                 user_id=user_id,
                 persist=persist,
                 action_overrides=action_overrides,
+            )
+        case "tool_submit":
+            return _run_tool_submit(
+                db,
+                scene=scene,
+                slots=slots,
+                message=message,
+                session_id=session_id,
+                user_id=user_id,
+                persist=persist,
+                action_overrides=action_overrides,
+                # 只有这一条通道会**真的调外部工具**，所以只有它需要员工身份。
+                # 其余三条（查表 / SOP / 转人工）只读本库数据，员工身份不影响
+                # 结果，透传进去反而会诱导后来者写出「四个通道都靠它鉴权」的错觉。
+                agent_id=agent_id,
             )
         case _:
             label = SCENE_TYPE_META.get(scene_type, {}).get("label") or scene_type or "未知"
@@ -412,12 +434,19 @@ def run_scene_instance(
     session_id: str = "",
     user_id: str | None = None,
     action_overrides: dict[str, Any] | None = None,
+    agent_id: str | None = None,
 ) -> SceneRunResult:
     """试跑面板与聊天执行**共用的唯一入口**（PRD 要求两者不漂移）。
 
     两条入口只是 ``persist`` / ``session_id`` 不同：
     - 试跑面板：``persist=False``（默认），不写 ``SceneRun``、不建工单；
     - 聊天执行：``persist=True`` + ``session_id``，写 ``SceneRun`` 并允许建单。
+
+    ``agent_id`` **只有聊天执行传得出来**（``session.agent_id``）。试跑面板是
+    管理员在验证配置，本来就没有「员工身份」可言，于是它调 ``tool_submit``
+    时的工具鉴权退化成「工具存在且启用」—— 这是刻意的，否则管理员永远没法
+    预览一个「刚建好、还没绑到任何员工」的场景。真实链路（聊天）必须传，
+    否则就是本文件上一版那个权限漏洞：员工身上一个工具都没有，场景照样调得通。
 
     找不到场景（已删/租户不匹配）时返回一条 ``error`` 结果而**不是抛异常**：
     调用方（``/run`` 路由）自己做 404 判定，聊天链路则应当降级而不是崩。
@@ -444,6 +473,7 @@ def run_scene_instance(
             user_id=user_id,
             persist=False,
             action_overrides=action_overrides,
+            agent_id=agent_id,
         )
         result.blocks = build_ui_blocks(scene, result, db)
         result.trace.append(
@@ -461,6 +491,7 @@ def run_scene_instance(
         user_id=user_id,
         persist=persist,
         action_overrides=action_overrides,
+        agent_id=agent_id,
     )
     result.blocks = build_ui_blocks(scene, result, db)
 

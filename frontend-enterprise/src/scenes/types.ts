@@ -12,9 +12,15 @@ import type { ComponentType, ReactNode } from 'react';
  * 3. `kind` 只能取 `BlockKind` 里的值，**不许造新 kind**（可少实现，不可多造）。
  */
 
-export type SceneType = 'table_match' | 'sop_flow' | 'handoff' | 'script';
+export type SceneType = 'table_match' | 'sop_flow' | 'handoff' | 'script' | 'tool_submit';
 
-export const SCENE_TYPES: SceneType[] = ['table_match', 'sop_flow', 'handoff', 'script'];
+export const SCENE_TYPES: SceneType[] = [
+  'table_match',
+  'sop_flow',
+  'handoff',
+  'script',
+  'tool_submit',
+];
 
 /**
  * block 的语义类型 —— **不是 UI 形态**，是「这块说的是什么事」。
@@ -76,7 +82,34 @@ export type SceneRequiredSlot = {
 
 /** 定义器「场景界面」区块据此渲染 module 参数表单（新增 module 时定义器零改动）。 */
 export type SceneParamField =
-  | { key: string; label: string; type: 'text' | 'textarea'; placeholder?: string }
+  /**
+   * `help` 是可选的第二行说明。
+   *
+   * 原先只有 `column` 档有 `help`，`text` 没有 —— 于是想给一个文本框加说明时
+   * 只能把长句塞进 `label`，或者干脆不解释。这是历史遗留的不一致：
+   * 「要不要解释」与「控件是下拉还是输入框」无关。现在两档都支持。
+   *
+   * ## `scope` —— 这一项归哪个区块填
+   *
+   * `text` / `textarea` 分两种性质，不能靠「是不是字符串」猜：
+   *
+   * | scope | 归哪 | 例子 |
+   * |---|---|---|
+   * | `'reply'` | 「回复用户」区块 | 结论句、单号叫什么、进度按钮文案 |
+   * | `'submit'` | 「提交到哪里」区块 | 接口返回里哪个字段是单号 |
+   * | 不标 | 不在这两处渲染 | `travel.itinerary` 的价格说明（归超管预设页） |
+   *
+   * 不标就不渲染是刻意的保守默认：**多渲染一个输入框比少渲染更糟** ——
+   * 用户会以为自己漏配了，改完还不生效（因为那个值其实在预设页管）。
+   */
+  | {
+      key: string;
+      label: string;
+      type: 'text' | 'textarea';
+      placeholder?: string;
+      help?: string;
+      scope?: 'reply' | 'submit';
+    }
   | { key: string; label: string; type: 'boolean'; default?: boolean }
   /** 从表列里选一个；`help` 是一行说明。 */
   | { key: string; label: string; type: 'column'; help?: string };
@@ -381,6 +414,13 @@ export const SCENE_TYPE_META: Record<SceneType, SceneTypeMeta> = {
     tagline: '关键词命中直出，零模型零逻辑',
     needs_table: 'none',
     slotsReadOnly: true,
+  }),
+  tool_submit: buildTypeMeta({
+    type: 'tool_submit',
+    label: '表单提交',
+    icon: '📮',
+    tagline: '收表单 → 调接口 → 回执，业务逻辑全在接口里',
+    needs_table: 'none',
   }),
 };
 
