@@ -46,7 +46,7 @@ function makeProps(overrides: Partial<SceneBlockProps> = {}): SceneBlockProps {
 }
 
 describe('travel.itinerary 条件表单', () => {
-  it('人数/天数是下拉，不再是平铺的分段按钮', () => {
+  it('三个字段都是下拉，不再是平铺按钮或金额输入框', () => {
     render(<TravelItinerarySlotForm {...makeProps()} />);
 
     const people = screen.getByLabelText(/人数/) as HTMLSelectElement;
@@ -60,33 +60,62 @@ describe('travel.itinerary 条件表单', () => {
     expect(days.querySelectorAll('option')).toHaveLength(6);
     expect(days.textContent).toContain('5 天');
 
-    // 原先那两颗「分段按钮组」必须彻底消失，否则同一个字段会出现两种控件
+    const budget = screen.getByLabelText(/预算/) as HTMLSelectElement;
+    expect(budget.tagName).toBe('SELECT');
+    // 1k/2k/3k/4k/4k+：五项候选 + 一项占位
+    expect(budget.querySelectorAll('option')).toHaveLength(6);
+
+    // 原先那两颗「分段按钮组」和金额输入框必须彻底消失，
+    // 否则同一个字段会出现两种控件
     expect(screen.queryByRole('group', { name: '人数' })).toBeNull();
     expect(screen.queryByRole('group', { name: '天数' })).toBeNull();
+    expect(document.querySelector('input#itinerary-budget')).toBeNull();
+    // 快选胶囊也没了
+    expect(screen.queryByRole('button', { name: '3k' })).toBeNull();
   });
 
-  it('下拉默认不预选任何值（占位项 disabled），避免看起来像已选 1 人', () => {
-    render(<TravelItinerarySlotForm {...makeProps()} />);
+  it('预算下拉的选项是 1k/2k/3k/4k/4k+，提交的是数字不是「4k+」这串字', async () => {
+    const submitSlots = vi.fn();
+    render(<TravelItinerarySlotForm {...makeProps({ submitSlots })} />);
 
-    const people = screen.getByLabelText(/人数/) as HTMLSelectElement;
-    expect(people.value).toBe('');
+    const budget = screen.getByLabelText(/预算/) as HTMLSelectElement;
+    const labels = Array.from(budget.querySelectorAll('option'))
+      .map((option) => option.textContent);
+    expect(labels.slice(1)).toEqual(['1k', '2k', '3k', '4k', '4k+']);
 
-    const placeholder = people.querySelector('option[value=""]') as HTMLOptionElement;
-    expect(placeholder.disabled).toBe(true);
+    await userEvent.selectOptions(screen.getByLabelText(/人数/), '4');
+    await userEvent.selectOptions(screen.getByLabelText(/天数/), '5');
+    // 「4k+」的显示文案是 4k+，提交值是 5000（产品决定，理由见组件里
+    // SelectOption 注释：matcher 按绝对相对偏差排序，没有区间语义）
+    await userEvent.selectOptions(budget, '5000');
+    await userEvent.click(screen.getByRole('button', { name: '开始匹配' }));
+
+    expect(submitSlots).toHaveBeenCalledWith({ people: 4, days: 5, budget: 5000 });
   });
 
-  it('选下拉后值进提交载荷，且是 number 不是字符串', async () => {
+  it('选固定档位时提交对应数字（3k → 3000）', async () => {
     const submitSlots = vi.fn();
     render(<TravelItinerarySlotForm {...makeProps({ submitSlots })} />);
 
     await userEvent.selectOptions(screen.getByLabelText(/人数/), '4');
     await userEvent.selectOptions(screen.getByLabelText(/天数/), '5');
-    await userEvent.click(screen.getByRole('button', { name: '3k' }));
+    await userEvent.selectOptions(screen.getByLabelText(/预算/), '3000');
     await userEvent.click(screen.getByRole('button', { name: '开始匹配' }));
 
-    expect(submitSlots).toHaveBeenCalledTimes(1);
     // 数字必须是 number：字符串会被后端 `unit_by_slot` 判成不可转换然后丢掉
     expect(submitSlots).toHaveBeenCalledWith({ people: 4, days: 5, budget: 3000 });
+  });
+
+  it('下拉默认不预选任何值（占位项 disabled），避免看起来像已选', () => {
+    render(<TravelItinerarySlotForm {...makeProps()} />);
+
+    const people = screen.getByLabelText(/人数/) as HTMLSelectElement;
+    expect(people.value).toBe('');
+    const placeholder = people.querySelector('option[value=""]') as HTMLOptionElement;
+    expect(placeholder.disabled).toBe(true);
+
+    const budget = screen.getByLabelText(/预算/) as HTMLSelectElement;
+    expect(budget.value).toBe('');
   });
 
   it('缺必填项时不提交，只标错', async () => {

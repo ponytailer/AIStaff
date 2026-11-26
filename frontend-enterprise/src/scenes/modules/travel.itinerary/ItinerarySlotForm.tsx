@@ -8,22 +8,28 @@ import type { SceneBlockProps, SceneUiBlock } from '../../types';
  *
  * ## 为什么不复用平台的 `SlotFormCard`
  *
- * 预算不是一个裸数字：它要带「¥ + 输入 + 元」和 2k/3k/4k/6k 快选。
- * `SlotFormCard` 只能把 `type:"number"` 画成 `<input type="number">`，做不出这一层。
+ * 三个字段的候选值是**业务取值**（人数 1-8、天数 3-7、预算 1k~4k+），
+ * `SlotFormCard` 只能把 `type:"number"` 画成 `<input type="number">` —— 用户
+ * 得自己敲数字，且敲出来的值（比如 37 人、99999 元）在表里必然查不到。
  * module 的价值就是「代码驱动比配置驱动多做了什么」（见 `index.tsx` 头注释），
- * 所以这里**不调 `renderForm`**，自己画。代价是必须自己保证提交口径与
- * `SlotFormCard` 一致：提交的是 `{people:4, days:5, budget:3000}`，数字是
- * **number 而不是字符串**（后端 matcher 按数值比区间，字符串会被判成不可转换）。
+ * 所以这里**不调 `renderForm`**，自己画。
  *
- * ## 人数/天数为什么是下拉，不是分段按钮（2026-11-26 改）
+ * 代价是必须自己保证提交口径与 `SlotFormCard` 一致：提交的是
+ * `{people:4, days:5, budget:3000}`，数字是 **number 而不是字符串**
+ * （后端 matcher 按数值比区间，字符串会被判成不可转换）。
  *
- * 原先是 demo 里的横向分段（人数 1-8 八颗、天数 3-7 五颗平铺）。问题是它把
- * **整行宽度吃干**：八颗按钮横排下来，标签只能压在它们上面单独占一行，于是
- * 一张表里三个字段有两套排版。用户原话：「改成下拉选项吧，不要平铺了，然后
- * 表单里改成文字和选项在一行。」
+ * ## 三个字段的控件为什么统一成下拉（2026-11-26）
  *
- * 下拉同时把「选项多就必须换行」这件事彻底消掉了 —— 以后要扩到 1-12 人也不用
- * 再动布局。
+ * 演变过程记一下，避免有人「优化」回去：
+ *
+ * 1. 最早人数/天数是 demo 的横向分段按钮（1-8 八颗、3-7 五颗平铺），预算
+ *    是「¥ 输入框 + 2k/3k/4k/6k 快选」两排；
+ * 2. 用户要求「改成下拉选项吧，不要平铺了，然后表单里改成文字和选项在一行」；
+ * 3. 再要求「预算也改成下拉，1k 2k 3k 4k 4k+」。
+ *
+ * 现在三个字段是同一种控件（原生 `select`），标签统一在左、控件在右同一行。
+ * **同一张表里不再存在「某种字段是两排、别的字段是一排」的差异** —— 那正是
+ * 之前标签对齐要打 `pt-[7px]` 补丁的根源（见 `FIELD_ROW_CLASS` 注释）。
  *
  * ## `appearance-none` 不影响键盘操作
  *
@@ -49,34 +55,30 @@ const CARD_CLASS =
 /**
  * 一个字段 = 一行「标签 + 控件」。
  *
- * `items-start` + 标签上加 `pt-[7px]`：**不能**用 `items-center`。
- * 预算那格有两行（¥ 输入框 + 一排 2k/3k/4k/6k 快选），而人数/天数只有一行。
- * 用 `items-center` 时，人数/天数的标签对齐单行控件（对），预算的标签却会被
- * 推到「输入框 + 快选」整体的垂直中点 —— 实测差 16px，一进页面就能看到
- * 第三行标签比前两行明显低一截。这正是「同一个东西在不同地方不一样」。
+ * `items-center` 现在是对的：三个字段都是**单排** 34px 下拉，标签自然与控件
+ * 同中线，不需要任何 padding 补丁。
  *
- * 改成 `items-start` 后，每行标签都对齐**该行第一个控件**的顶部，与这一行
- * 后面还有没有第二排无关。`pt-[7px]` 是把标签的文字基线压到 34px 控件的
- * 视觉中线（控件高 34、行高 20 → (34-20)/2 = 7）。
+ * 这里曾经要 `items-start` + 标签 `pt-[7px]`，因为预算那格是「¥ 输入 + 快选
+ * 胶囊」两排 —— `items-center` 会把预算标签推到两排整体的中点，实测比前两行
+ * 低 16px。2026-11-26 预算也改成下拉后，两排字段不存在了，那个补丁随之删除。
+ * **留着它会变成一个没有理由的魔术数字**（而且和单排控件的实际中线差 0）。
+ *
+ * 错误提示是独立的 grid item（`col-start-1 col-end-[-1]`），占第二行，
+ * 不参与这一行的垂直居中，所以标红时标签也不会被推下去。
  *
  * `max-[380px]:grid-cols-1` 是给窄屏的兜底：极窄时标签压到控件上面一行，
  * 否则「天数（天）*」加一个下拉会挤成两行字。
  */
 const FIELD_ROW_CLASS =
-  'grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-[12px] gap-y-[5px] '
+  'grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-[12px] gap-y-[5px] '
   + 'max-[380px]:grid-cols-1 max-[380px]:gap-y-[6px]';
 
 const LABEL_CLASS =
-  'flex shrink-0 items-center gap-[3px] whitespace-nowrap pt-[7px] text-[12px] '
-  + 'font-medium text-[#4a4b45] max-[380px]:pt-0';
+  'flex shrink-0 items-center gap-[3px] whitespace-nowrap text-[12px] '
+  + 'font-medium text-[#4a4b45]';
 const REQUIRED_CLASS = 'text-[#c0392b]';
 
-/**
- * 字段控件的列容器。
- *
- * `flex-col` 是给「控件 + 快选胶囊」这种一个字段两排的情况（预算）。
- * 错误提示**不在**这里 —— 它跨满整行（见 `ERROR_ROW_CLASS`）。
- */
+/** 字段控件的列容器。错误提示**不在**这里 —— 它跨满整行（见 `ERROR_ROW_CLASS`）。 */
 const CONTROL_CLASS = 'flex min-w-0 flex-col gap-[5px]';
 
 /**
@@ -96,21 +98,6 @@ const SELECT_CLASS =
 /** 下拉右侧箭头。`pointer-events-none` 让点击穿透到 `<select>` 本身。 */
 const SELECT_CHEVRON_CLASS =
   'pointer-events-none absolute right-[9px] top-1/2 -translate-y-1/2 text-[#9a9b95]';
-
-/** demo `.money`：前置 ¥、后置元，整体看起来是一个输入框。 */
-const MONEY_ROW_CLASS =
-  'flex items-center gap-[6px] rounded-[10px] border border-[#ded7cc] bg-white px-[10px] py-[7px] '
-  + 'focus-within:border-[#18181a]';
-const MONEY_INPUT_CLASS =
-  'min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-[13px] text-[#18181a] '
-  + 'outline-none placeholder:text-[#b3b4ae]';
-
-/** demo `.quick`：2k/3k/4k/6k 快选小胶囊。 */
-const QUICK_ROW_CLASS = 'flex flex-wrap gap-[5px]';
-const QUICK_BTN_CLASS =
-  'rounded-full border border-[#e2dbd0] bg-[#fbf9f5] px-[9px] py-[3px] text-[11px] '
-  + 'text-[#6b6c66] transition-colors hover:border-[#18181a] hover:text-[#18181a] '
-  + 'disabled:cursor-not-allowed disabled:opacity-50';
 
 /** 错误提示：占满整行（跨标签与控件两列），不把布局挤歪。 */
 const ERROR_ROW_CLASS = 'col-start-1 col-end-[-1] text-[11px] text-[#c0392b]';
@@ -150,21 +137,42 @@ function readFields(block: SceneUiBlock): FormField[] {
 }
 
 /**
- * 下拉候选值。
+ * 下拉选项：`label` 是给人看的，`value` 是提交给后端的数字。
  *
- * 人数 1-8、天数 3-7 是 demo 的选择，**不是**业务约束 —— 但「少而全」正是
- * 下拉能成立的前提：选项一多，下拉反而比输入更慢。范围之外的取值由
- * `allowCustom` 之外的后端校验兜住，不会因为这里少一个选项就把用户卡死
- * （用户仍可直接回复文字，见 `handleSubmit` 上方注释）。
+ * **两者必须能不同**，预算那一档就是活例子：`4k+` 显示「4k+」（下不封顶），
+ * 提交的却是 5000。后端 matcher 按「与基准数的**绝对相对偏差**」排序
+ * （`matcher.py` 的 `budget_dev = abs(budget_base - r.nb.num) / budget_base`），
+ * 没有区间/下限概念，所以「至少 4k」只能落成一个具体数：
+ *
+ * - 提交 4000 → 与「4k」那一档完全等价，用户选哪个结果都一样（假选项）；
+ * - 提交 9999 → 所有行的预算偏差都趋近 1，预算等于退出排序（丢了信息）；
+ * - 提交 5000 → 排序偏向 4800 这类高价方案，符合「4k 以上、越贵也给我看」
+ *   的直觉。样本价目表最高 4800，5000 能覆盖到。
+ *
+ * 这个取值是**产品决定**，不是技术推导；换成别的数据源后若价格区间变了，
+ * 应该回来重新校准这一档。
  */
-const PEOPLE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
-const DAYS_OPTIONS = [3, 4, 5, 6, 7];
-const BUDGET_QUICK = [2000, 3000, 4000, 6000];
+type SelectOption = { label: string; value: number };
+
+const PEOPLE_OPTIONS: SelectOption[] = [1, 2, 3, 4, 5, 6, 7, 8]
+  .map((n) => ({ label: String(n), value: n }));
+/** 天数带单位显示（「4 天」）；人数不带 —— 加「人」会和标签「人数（人）」重复。 */
+const DAYS_OPTIONS: SelectOption[] = [3, 4, 5, 6, 7]
+  .map((n) => ({ label: `${n} 天`, value: n }));
+const BUDGET_OPTIONS: SelectOption[] = [
+  { label: '1k', value: 1000 },
+  { label: '2k', value: 2000 },
+  { label: '3k', value: 3000 },
+  { label: '4k', value: 4000 },
+  // 见上方 `SelectOption` 注释：显示 4k+，提交 5000。
+  { label: '4k+', value: 5000 },
+];
 
 /** 哪些字段走下拉，以及它的选项。返回空数组 = 不是下拉字段。 */
-function selectOptionsFor(name: string): number[] {
-  if (name === 'people') return PEOPLE_OPTIONS;
-  if (name === 'days') return DAYS_OPTIONS;
+function selectOptionsFor(field: FormField): SelectOption[] {
+  if (field.name === 'people') return PEOPLE_OPTIONS;
+  if (field.name === 'days') return DAYS_OPTIONS;
+  if (isMoneyField(field)) return BUDGET_OPTIONS;
   return [];
 }
 
@@ -270,7 +278,7 @@ export function TravelItinerarySlotForm({ block, submitSlots, disabled }: SceneB
       <div className="flex flex-col gap-[12px] px-[14px] py-[13px]">
         {fields.map((field) => {
           const value = values[field.name];
-          const selectOptions = selectOptionsFor(field.name);
+          const selectOptions = selectOptionsFor(field);
           const errorText = errors[field.name];
 
           return (
@@ -281,7 +289,10 @@ export function TravelItinerarySlotForm({ block, submitSlots, disabled }: SceneB
               </label>
 
               <div className={CONTROL_CLASS}>
-                {/* ① 人数 / 天数：原生下拉（2026-11-26 由分段按钮改来） */}
+                {/* 人口 / 天数 / 预算：统一走原生下拉。
+                    预算原先是「¥ 输入框 + 2k/3k/4k/6k 快选」两排，用户要求
+                    「预算也改成下拉，1k 2k 3k 4k 4k+」，于是三种字段的控件
+                    终于变成同一种东西 —— 同一张表里不再有「两排的字段」。 */}
                 {selectOptions.length > 0 && (
                   <div className="relative min-w-0">
                     <select
@@ -290,7 +301,7 @@ export function TravelItinerarySlotForm({ block, submitSlots, disabled }: SceneB
                       className={SELECT_CLASS}
                       // `''` 而不是 `undefined`：受控 select 在无选中项时要显式
                       // 交给占位 option，否则浏览器会默认选中第一项，看起来像
-                      // 「已经帮你选了 1 人」。
+                      // 「已经帮你选了」。
                       value={value === undefined || value === null ? '' : String(value)}
                       onChange={(event) => {
                         const raw = event.target.value;
@@ -301,10 +312,10 @@ export function TravelItinerarySlotForm({ block, submitSlots, disabled }: SceneB
                         {field.placeholder || '请选择'}
                       </option>
                       {selectOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {/* 天数带单位显示（「4 天」），人数不带（「4」）——
-                              人数加「人」会和标签「人数（人）」重复一遍单位。 */}
-                          {field.name === 'days' ? `${option} 天` : option}
+                        // value 用数字而不是下标：提交载荷要的是 3000 而不是 2，
+                        // `handleSubmit` 里那条 `Number(value)` 因此保持不变。
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -327,47 +338,9 @@ export function TravelItinerarySlotForm({ block, submitSlots, disabled }: SceneB
                   </div>
                 )}
 
-                {/* ② 预算：¥ 前缀 + 输入 + 元 + 快选（demo `.money` + `.quick`） */}
-                {selectOptions.length === 0 && isMoneyField(field) && (
-                  <>
-                    <div className={MONEY_ROW_CLASS}>
-                      <span className="shrink-0 text-[12px] text-[#9a9b95]">¥</span>
-                      <input
-                        id={`itinerary-${field.name}`}
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        disabled={disabled}
-                        className={MONEY_INPUT_CLASS}
-                        placeholder={field.placeholder || '3000'}
-                        value={value === undefined || value === null ? '' : String(value)}
-                        onChange={(event) => {
-                          const raw = event.target.value;
-                          setValue(field.name, raw === '' ? undefined : Number(raw));
-                        }}
-                      />
-                      {field.unit && (
-                        <span className="shrink-0 text-[12px] text-[#9a9b95]">{field.unit}</span>
-                      )}
-                    </div>
-                    <div className={QUICK_ROW_CLASS}>
-                      {BUDGET_QUICK.map((amount) => (
-                        <button
-                          key={amount}
-                          type="button"
-                          disabled={disabled}
-                          className={QUICK_BTN_CLASS}
-                          onClick={() => setValue(field.name, amount)}
-                        >
-                          {amount / 1000}k
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* ③ 其它字段（场景改了槽位时）：行内文本框兜底，保证不出空表 */}
-                {selectOptions.length === 0 && !isMoneyField(field) && (
+                {/* 兜底：场景改了槽位、出现认不出的字段时，退化成行内文本框，
+                    保证不出一个提交了也没人认的空表。 */}
+                {selectOptions.length === 0 && (
                   <input
                     id={`itinerary-${field.name}`}
                     type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
