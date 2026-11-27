@@ -25,6 +25,17 @@ const AVATAR_TONE = [
 const BAR_HEIGHTS = [42, 64, 50, 82, 60, 94, 72] as const;
 
 /**
+ * 竖卡里的 SOP 步骤。三态对应三种圈：勾选 / 实心 / 空心。
+ * 底部文案「进行到 3 / 4 步」与进度条宽度都依赖这份顺序，改的时候一起改。
+ */
+const SOP_STEPS = [
+  { label: '澄清采购需求', state: 'done' },
+  { label: '汇总供应商清单', state: 'done' },
+  { label: '供应商比价分析', state: 'active' },
+  { label: '生成审批材料', state: 'todo' },
+] as const;
+
+/**
  * 登录页左栏的场景拼贴（Bento）。
  *
  * 结构照 Mystique 品牌稿：圆角面板 + 窄缝、宽窄混排。
@@ -107,26 +118,64 @@ export default function LoginSceneCollage() {
         </div>
       </div>
 
-      {/* ② 竖跨两行的深紫卡：整个拼贴唯一的饱和色块，撑住竖向节奏。
-          窄屏没有竖向空间可撑，转成一条通栏的品牌带：slogan 单行、
-          「经验·流程·判断」靠右不换行，否则三段文字会互相挤压折行。 */}
-      <div
-        className="col-span-2 row-span-2 flex flex-col justify-between overflow-hidden rounded-[15px] px-4 py-[15px] shadow-[0_16px_36px_-18px_rgba(109,40,217,0.65)] max-[640px]:col-span-2 max-[640px]:row-span-1 max-[640px]:min-h-[74px] max-[640px]:flex-row max-[640px]:items-center max-[640px]:justify-start max-[640px]:gap-[12px] max-[640px]:px-[16px] max-[640px]:py-[13px]"
-        style={{
-          background:
-            'radial-gradient(110% 70% at 80% 108%, rgba(167,139,250,0.5), transparent 60%), linear-gradient(168deg, #7c3aed 0%, #6d28d9 55%, #5b21b6 100%)',
-        }}
-      >
-        <span className="shrink-0 text-[10px] font-semibold uppercase leading-none tracking-[0.16em] text-[#d8cbff]">
-          AIStaff
+      {/* ② 竖跨两行的 SOP 执行卡：把「数字员工正在干活」讲成一条可读的流程。
+          SOP_STEPS 的 done / active / todo 三态对应勾选、实心点、空心圈，
+          进度条按已完成步数算，和底部文案的「3 / 4 步」保持一致 —— 改步数时
+          这三处要一起改，否则卡片自己会前后矛盾。 */}
+      <div className="col-span-2 row-span-2 flex flex-col rounded-[15px] border border-[rgba(124,58,237,0.13)] bg-white px-[15px] py-[14px] shadow-[0_16px_36px_-20px_rgba(91,33,182,0.30)] max-[640px]:col-span-2 max-[640px]:row-span-1">
+        <div className="flex items-center gap-[6px]">
+          <i className="size-[6px] shrink-0 rounded-full bg-[#7c3aed]" />
+          <span className="text-[10px] font-semibold tracking-[0.02em] text-[#5f5872]">项目任务</span>
+          <span className="text-[10px] text-[#a79fbb]">·</span>
+          <span className="text-[10px] font-medium text-[#8b5cf6]">执行中</span>
+        </div>
+
+        <span className="mt-[7px] text-[13.5px] font-semibold leading-[1.4] tracking-[-0.01em] text-[#2e2a3d]">
+          供应商比价与审批材料
         </span>
-        <p className="m-0 min-w-0 flex-1 text-[16px] font-semibold leading-[1.38] tracking-[-0.015em] text-white max-[640px]:text-[14.5px]">
-          Intelligence.
-          <br className="max-[640px]:hidden" />{' '}
-          On duty.
-        </p>
-        <span className="shrink-0 whitespace-nowrap text-[10px] uppercase leading-none tracking-[0.1em] text-[#c4b0f5] max-[640px]:hidden">
-          经验 · 流程 · 判断
+
+        <ol className="m-0 mt-[9px] flex list-none flex-col gap-[6px] p-0">
+          {SOP_STEPS.map((step) => (
+            <li key={step.label} className="flex items-center gap-[7px]">
+              {step.state === 'done' && (
+                <span className="grid size-[13px] shrink-0 place-items-center rounded-full border border-[rgba(124,58,237,0.45)] text-[#7c3aed]">
+                  <svg width="7" height="7" viewBox="0 0 12 12" fill="none" aria-hidden>
+                    <path d="M2 6.2 4.6 8.8 10 3.2" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+              {step.state === 'active' && (
+                <span className="grid size-[13px] shrink-0 place-items-center rounded-full border border-[#7c3aed]">
+                  <i className="size-[6px] rounded-full bg-[#7c3aed]" />
+                </span>
+              )}
+              {step.state === 'todo' && (
+                <span className="size-[13px] shrink-0 rounded-full border border-[#ded8ec]" />
+              )}
+              <span
+                className={
+                  step.state === 'active'
+                    ? 'truncate text-[11.5px] font-semibold leading-[1.3] text-[#2e2a3d]'
+                    : step.state === 'done'
+                      ? 'truncate text-[11.5px] leading-[1.3] text-[#6b6288]'
+                      : 'truncate text-[11.5px] leading-[1.3] text-[#a79fbb]'
+                }
+              >
+                {step.label}
+                {step.state === 'active' && '...'}
+              </span>
+            </li>
+          ))}
+        </ol>
+
+        {/* 进度：4 步里完成 3 步 → 75%，但当前这步还在跑，视觉上给 62%。
+            纯装饰，所以直接写死宽度，不跟状态推导。 */}
+        <div className="mt-[11px] h-[5px] w-full overflow-hidden rounded-full bg-[#efeaf9]" aria-hidden>
+          <div className="h-full w-[62%] rounded-full bg-[linear-gradient(90deg,#a78bfa,#7c3aed)]" />
+        </div>
+
+        <span className="mt-[9px] text-[10px] leading-[1.3] text-[#8b82a3]">
+          SOP · 采购流程 v2 · 进行到 3 / 4 步
         </span>
       </div>
 

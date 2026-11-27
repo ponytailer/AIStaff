@@ -106,9 +106,14 @@ describe('LoginPage', () => {
     expect(screen.getByText('4 位')).toBeTruthy();
     expect(screen.getByText('已交付 3 条方案')).toBeTruthy();
     expect(screen.getByText('本周已交付')).toBeTruthy();
-    // 拼贴里的品牌竖卡 —— 品牌名只在这里和页头眼眉出现。
-    // slogan 被 <br /> 分成两行，所以按整段 textContent 匹配，不要按单个文本节点找。
-    expect(screen.getByText(/Intelligence\..*On duty\./s)).toBeTruthy();
+    // 拼贴里的竖卡 —— 换成 SOP 执行卡后，讲的是「一个任务跑到第几步」。
+    // 标题、进行中状态、四步清单、底部进度文案要能一起读出来。
+    expect(screen.getByText('供应商比价与审批材料')).toBeTruthy();
+    expect(screen.getByText('执行中')).toBeTruthy();
+    for (const step of ['澄清采购需求', '汇总供应商清单', '供应商比价分析', '生成审批材料']) {
+      expect(screen.getByText(new RegExp(step))).toBeTruthy();
+    }
+    expect(screen.getByText('SOP · 采购流程 v2 · 进行到 3 / 4 步')).toBeTruthy();
 
     // 四个能力标签现在由底部「SOP 光路流水线」的节点承载。
     // 宽屏光路与窄屏时间轴是两套布局（靠 CSS 断点互斥显示），

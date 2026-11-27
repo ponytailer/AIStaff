@@ -152,14 +152,12 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
   return (
     <div ref={sceneRef} className="relative flex w-full justify-center py-[10px] [perspective:1200px]">
       {/* 场景固定 560px 宽，但双栏时右栏只有 396px：两侧装饰卡的横向偏移
-          会伸出栏外。1440 下正好落在两栏右侧的页边距里，窄一点就直接越过
-          视口，被 overflow-x-clip 切掉。
-          --sx 必须是纯数字（数字混长度的 clamp 会让整条 transform 失效，
-          三张卡会叠成一摞）。只在「双栏且不够宽」的那一段收紧横向偏移：
-          1440 有 130px 页边距，够用；1280 起只有 50px，要收到 0.44。
-          x 偏移参与缩放，y 不参与——竖向本来就在版心内。 */}
+          会伸出栏外。表单整块被设计稿推到右下方之后，右侧装饰卡的可用空间
+          进一步被吃掉，这里统一收紧横向偏移。
+          --sx 必须是纯数字（数字混长度会让整条 transform 失效，
+          三张卡会叠成一摞）。 */}
       <div
-        className="relative h-[352px] w-[min(560px,94vw)] [transform-style:preserve-3d] [--sx:1] max-[1439px]:min-[1151px]:[--sx:0.44] max-[900px]:h-[276px]"
+        className="relative h-[352px] w-[min(560px,94vw)] [transform-style:preserve-3d] [--sx:0.42] max-[1400px]:[--sx:0.34] max-[1150px]:[--sx:0.44] max-[900px]:h-[276px]"
       >
         {/* 后排装饰卡：整层先压到 -60px 深度，再由 tilt 整层随指针微转。
             分层是为了让表单卡彻底退出 3D 旋转——装饰怎么动都抢不到表单的

@@ -173,11 +173,16 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             <LoginSceneCollage />
           </section>
 
-          {/* 右：登录卡堆。表单自己管状态，输入时这一层不重渲染。 */}
+          {/* 右：登录卡堆。表单自己管状态，输入时这一层不重渲染。
+              整块向右下偏移，让出左栏拼贴的呼吸空间（构图见设计稿）：
+              x 按视口连续放大，避免窄视口把卡片推出内容区；
+              单栏时归零，交给居中对齐。 */}
           <section className="flex w-full flex-col items-center">
-            <LoginCardStack>
-              <LoginForm onLogin={onLogin} />
-            </LoginCardStack>
+            <div className="w-full translate-x-[max(0px,min(228px,calc((100vw-1180px)*0.445)))] translate-y-[142px] max-[1150px]:translate-x-0 max-[1150px]:translate-y-0">
+              <LoginCardStack>
+                <LoginForm onLogin={onLogin} />
+              </LoginCardStack>
+            </div>
           </section>
         </div>
 
