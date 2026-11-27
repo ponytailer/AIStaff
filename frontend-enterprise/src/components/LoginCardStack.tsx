@@ -12,19 +12,19 @@ export type LoginCardStackProps = {
  * 漂浮与入场动画只作用于内层，避免两套 transform 互相覆盖。
  */
 const BACK_CARDS = [
-  { x: -178, y: -86, rotate: -5, scale: 0.92, bars: ['w-[60%]', 'w-[80%]', 'w-[40%]'], tone: 'teal' },
-  { x: 180, y: -72, rotate: 4, scale: 0.95, bars: ['w-[80%]', 'w-[60%]', 'w-[80%]'], tone: 'orange' },
+  { x: -178, y: -86, rotate: -5, scale: 0.92, bars: ['w-[60%]', 'w-[80%]', 'w-[40%]'], tone: 'violet' },
+  { x: 180, y: -72, rotate: 4, scale: 0.95, bars: ['w-[80%]', 'w-[60%]', 'w-[80%]'], tone: 'lilac' },
   { x: 8, y: 96, rotate: -1.5, scale: 1, bars: ['w-[40%]', 'w-[80%]', 'w-[60%]'], tone: 'plain' },
 ] as const;
 
 const TONE_CLASS: Record<string, string> = {
-  teal: 'bg-[rgba(15,118,110,0.10)] text-[#0f766e]',
-  orange: 'bg-[rgba(194,112,62,0.12)] text-[#c2703e]',
-  plain: 'bg-[#eef1f6] text-[#6d6d72]',
+  violet: 'bg-[rgba(124,58,237,0.10)] text-[#7c3aed]',
+  lilac: 'bg-[rgba(168,85,247,0.12)] text-[#9333ea]',
+  plain: 'bg-[#f1eefc] text-[#8b82a3]',
 };
 
 /** 卡片骨架条的公共样式。 */
-const BAR_CLASS = 'h-[9px] rounded-[5px] bg-[#eef1f6]';
+const BAR_CLASS = 'h-[9px] rounded-[5px] bg-[#eeeafa]';
 
 function hiddenState(scale: number): CSSProperties {
   return { opacity: 0, transform: `scale(${scale})` };
@@ -151,7 +151,16 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
 
   return (
     <div ref={sceneRef} className="relative flex w-full justify-center py-[10px] [perspective:1200px]">
-      <div className="relative h-[352px] w-[min(560px,94vw)] [transform-style:preserve-3d]">
+      {/* 场景固定 560px 宽，但双栏时右栏只有 396px：两侧装饰卡的横向偏移
+          会伸出栏外。1440 下正好落在两栏右侧的页边距里，窄一点就直接越过
+          视口，被 overflow-x-clip 切掉。
+          --sx 必须是纯数字（数字混长度的 clamp 会让整条 transform 失效，
+          三张卡会叠成一摞）。只在「双栏且不够宽」的那一段收紧横向偏移：
+          1440 有 130px 页边距，够用；1280 起只有 50px，要收到 0.44。
+          x 偏移参与缩放，y 不参与——竖向本来就在版心内。 */}
+      <div
+        className="relative h-[352px] w-[min(560px,94vw)] [transform-style:preserve-3d] [--sx:1] max-[1439px]:min-[1151px]:[--sx:0.44] max-[900px]:h-[276px]"
+      >
         {/* 后排装饰卡：整层先压到 -60px 深度，再由 tilt 整层随指针微转。
             分层是为了让表单卡彻底退出 3D 旋转——装饰怎么动都抢不到表单的
             悬停目标，指针在输入栏上时表单纹丝不动。 */}
@@ -160,9 +169,9 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
             {BACK_CARDS.map((card, index) => (
               <div
                 key={card.tone}
-                className="absolute left-1/2 top-1/2"
+                className={`absolute left-1/2 top-1/2 ${index < 2 ? 'max-[900px]:hidden' : 'max-[560px]:hidden'}`}
                 style={{
-                  transform: `translate(-50%, -50%) translate(${card.x}px, ${card.y}px) rotate(${card.rotate}deg) scale(${card.scale})`,
+                  transform: `translate(-50%, -50%) translate(calc(${card.x}px * var(--sx)), ${card.y}px) rotate(${card.rotate}deg) scale(${card.scale})`,
                 }}
               >
                 <div
@@ -170,7 +179,7 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
                     backRefs.current[index] = el;
                   }}
                   style={hiddenState(1)}
-                  className="w-[290px] rounded-[16px] border border-black/[0.06] bg-white p-[18px] shadow-[0_20px_50px_rgba(17,17,17,0.10)] [will-change:transform]"
+                  className="w-[290px] rounded-[16px] border border-[rgba(124,58,237,0.10)] bg-white p-[18px] shadow-[0_20px_50px_rgba(91,33,182,0.10)] [will-change:transform]"
                 >
                   {card.bars.map((bar, barIndex) => (
                     <div key={barIndex} className={`${BAR_CLASS} ${bar} ${barIndex > 0 ? 'mt-[10px]' : ''}`} />
@@ -179,7 +188,7 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
                     <span className={`rounded-[7px] px-[10px] py-[3px] text-[11px] ${TONE_CLASS[card.tone]}`}>
                       数字员工
                     </span>
-                    <span className="rounded-[7px] bg-[#eef1f6] px-[10px] py-[3px] text-[11px] text-[#757f9c]">
+                    <span className="rounded-[7px] bg-[#f1eefc] px-[10px] py-[3px] text-[11px] text-[#8b82a3]">
                       执行记录
                     </span>
                   </div>
@@ -194,7 +203,7 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
           <div
             ref={frontRef}
             style={hiddenState(1)}
-            className="w-[326px] rounded-[18px] border border-black/[0.07] bg-white p-[22px] shadow-[0_28px_70px_rgba(17,17,17,0.14)] [will-change:transform]"
+            className="w-[326px] rounded-[18px] border border-[rgba(124,58,237,0.13)] bg-white p-[22px] shadow-[0_28px_70px_rgba(76,29,149,0.14)] [will-change:transform]"
           >
             {children}
           </div>

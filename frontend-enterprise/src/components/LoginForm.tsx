@@ -15,7 +15,7 @@ import IconFieldEye from '../assets/icons/field-eye.svg?react';
 import IconFieldEyeOn from '../assets/icons/field-eye-on.svg?react';
 
 const inputBaseClass =
-  'flex h-[44px] w-full items-center gap-[8px] rounded-[10px] border bg-white px-[16px] transition-colors';
+  'flex h-[44px] w-full items-center gap-[8px] rounded-[10px] border bg-white px-[16px] transition-colors focus-within:border-[#7c3aed] focus-within:shadow-[0_0_0_3px_rgba(124,58,237,0.13)]';
 
 /**
  * 登录表单。
@@ -39,7 +39,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
   async function login() {
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
-    setUsernameError(trimmedUsername ? '' : '请输入账号');
+    setUsernameError(trimmedUsername ? '' : '请输入 OA 账号');
     setPasswordError(trimmedPassword ? '' : '请输入密码');
     if (!trimmedUsername || !trimmedPassword) return;
 
@@ -97,19 +97,19 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
       }}
     >
       <div
-        className={`${inputBaseClass} ${usernameError ? 'border-[#f54a45]' : username ? 'border-[#18181a]' : 'border-[#e6e4df]'}`}
+        className={`${inputBaseClass} ${usernameError ? 'border-[#dc2626]' : username ? 'border-[#7c3aed]' : 'border-[#e4e0ee]'}`}
       >
         <input
           value={username}
           autoComplete="username"
-          placeholder="请输入OA邮箱"
+          placeholder="请输入 OA 账号"
           aria-label="账号"
           onChange={(event) => {
             setUsername(event.target.value);
             if (usernameError) setUsernameError('');
           }}
           onKeyDown={onFieldKeyDown}
-          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181a] outline-none placeholder:text-[#6d6d72]"
+          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#2e2a3d] outline-none placeholder:text-[#9a94a8]"
         />
         {username && (
           <button
@@ -119,20 +119,20 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
               setUsername('');
               setUsernameError('');
             }}
-            className="grid size-[18px] shrink-0 place-items-center text-[#667085] outline-none transition-colors hover:text-[#3d3d3f]"
+            className="grid size-[18px] shrink-0 place-items-center text-[#9a94a8] outline-none transition-colors hover:text-[#5f5872]"
           >
             <IconFieldClear className="size-[18px]" />
           </button>
         )}
       </div>
       {usernameError && (
-        <p className="-mt-[6px] text-[12px] leading-none text-[#f54a45]" role="alert">
+        <p className="-mt-[6px] text-[12px] leading-none text-[#dc2626]" role="alert">
           {usernameError}
         </p>
       )}
 
       <div
-        className={`${inputBaseClass} ${passwordError ? 'border-[#f54a45]' : password ? 'border-[#18181a]' : 'border-[#e6e4df]'}`}
+        className={`${inputBaseClass} ${passwordError ? 'border-[#dc2626]' : password ? 'border-[#7c3aed]' : 'border-[#e4e0ee]'}`}
       >
         <input
           value={password}
@@ -145,13 +145,13 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
             if (passwordError) setPasswordError('');
           }}
           onKeyDown={onFieldKeyDown}
-          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#18181a] outline-none placeholder:text-[#6d6d72]"
+          className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-[#2e2a3d] outline-none placeholder:text-[#9a94a8]"
         />
         <button
           type="button"
           aria-label={showPassword ? '隐藏密码' : '显示密码'}
           onClick={() => setShowPassword((prev) => !prev)}
-          className="grid size-[18px] shrink-0 place-items-center text-[#677185] outline-none transition-colors hover:text-[#3d3d3f]"
+          className="grid size-[18px] shrink-0 place-items-center text-[#9a94a8] outline-none transition-colors hover:text-[#5f5872]"
         >
           {showPassword ? (
             <IconFieldEyeOn className="size-[18px]" />
@@ -161,7 +161,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
         </button>
       </div>
       {passwordError && (
-        <p className="-mt-[6px] text-[12px] leading-none text-[#f54a45]" role="alert">
+        <p className="-mt-[6px] text-[12px] leading-none text-[#dc2626]" role="alert">
           {passwordError}
         </p>
       )}
@@ -179,7 +179,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
           />
           <span
             aria-hidden
-            className="grid size-[16px] shrink-0 place-items-center rounded-[5px] border border-[#dfe3ec] bg-white text-white transition-colors peer-checked:border-[#18181a] peer-checked:bg-[#18181a] peer-focus-visible:ring-2 peer-focus-visible:ring-[#18181a]/25 peer-focus-visible:ring-offset-1"
+            className="grid size-[16px] shrink-0 place-items-center rounded-[5px] border border-[#ddd6fe] bg-white text-white transition-colors peer-checked:border-[#7c3aed] peer-checked:bg-[#7c3aed] peer-focus-visible:ring-2 peer-focus-visible:ring-[#7c3aed]/25 peer-focus-visible:ring-offset-1"
           >
             {remember && (
               <svg viewBox="0 0 12 12" className="size-[10px]">
@@ -194,9 +194,9 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
               </svg>
             )}
           </span>
-          <span className="text-[13px] leading-none text-[#55555a]">记住账号</span>
+          <span className="text-[13px] leading-none text-[#5f5872]">记住账号</span>
         </label>
-        <span className="shrink-0 text-[12px] leading-none text-[#6d6d72]">
+        <span className="shrink-0 text-[12px] leading-none text-[#9a94a8]">
           30 天内免登录
         </span>
       </div>
@@ -204,7 +204,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
       <button
         type="submit"
         disabled={loading}
-        className="mt-[6px] flex h-[42px] w-full items-center justify-center rounded-[10px] bg-[#18181a] text-[15px] font-normal text-white transition-colors hover:bg-[#18181a]/90 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-[6px] flex h-[42px] w-full items-center justify-center rounded-[10px] bg-[linear-gradient(180deg,#8b5cf6,#7c3aed)] text-[15px] font-medium text-white shadow-[0_10px_24px_-10px_rgba(124,58,237,0.75)] transition-all hover:brightness-105 hover:shadow-[0_14px_30px_-10px_rgba(124,58,237,0.85)] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
       >
         {loading ? '登录中…' : '登录'}
       </button>

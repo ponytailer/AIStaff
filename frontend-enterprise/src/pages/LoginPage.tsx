@@ -5,61 +5,40 @@ import { animate, createTimeline, stagger, text, utils } from 'animejs';
 import LoginForm from '../components/LoginForm';
 import AppHeader from '@/components/AppHeader';
 import BrandLogo from '@/components/BrandLogo';
-import EmployeeAvatar from '@/components/EmployeeAvatar';
 import LoginCardStack from '../components/LoginCardStack';
+import LoginSceneCollage from '../components/LoginSceneCollage';
 import LoginSopFlow from '../components/LoginSopFlow';
-import LoginWingCards from '../components/LoginWingCards';
 import type { EnterpriseAuthSession } from '../auth';
-import { EMPLOYEE_AVATAR_PRESETS } from '../employee';
 
 export type LoginPageProps = {
   onLogin: (session: EnterpriseAuthSession) => void;
 };
-
-/**
- * 登录页的「在岗播报」内容：岗位、头像与职责全部取自产品里真实的数字员工，
- * 不是营销文案——第一眼就能看出这个平台到底在做什么。
- */
-const STAFF_ON_DUTY = [
-  { role: '市场', avatarPreset: 'marketing-spark', duty: '梳理市场目标、受众与内容策划清单' },
-  { role: '数据分析', avatarPreset: 'data-insight', duty: '定义指标口径、分析周期与对比维度' },
-  { role: '采购', avatarPreset: 'procurement-check', duty: '准备采购需求、供应商比较与审批材料' },
-  { role: '项目管理', avatarPreset: 'project-board', duty: '拆解目标、里程碑、责任人与风险' },
-  { role: '行政', avatarPreset: 'after-sales-seal', duty: '统筹会议室预订、办公用品与用章申请' },
-  { role: '销售', avatarPreset: 'sales-handshake', duty: '澄清客户需求、准备沟通材料并推进商机' },
-] as const;
 
 /** 入场前先藏起来，避免首帧闪一下再跳到起点（useEffect 在首帧绘制后才跑）。 */
 function hiddenFrom(offsetY: number): CSSProperties {
   return { opacity: 0, transform: `translateY(${offsetY}px)` };
 }
 
-function avatarProfile(preset: string) {
-  const found = EMPLOYEE_AVATAR_PRESETS.find((item) => item.key === preset);
-  return {
-    avatarKind: 'preset' as const,
-    avatarImage: '',
-    avatarPreset: preset,
-    avatarText: found?.text ?? '员',
-    avatarTone: found?.tone ?? 'teal',
-  };
-}
-
 /**
  * 未登录的落地 / 登录页。
  *
- * 版式：品牌眼眉 + 产品主标题（按字入场）→ 副标题 → 在岗播报 →
- * 「视差浮层卡片堆」登录框（后排界面卡随光标 3D 转动，前排表单卡钉死不动）
- * → 底部「SOP 光路流水线」：一条光路穿过四个能力节点，光脉冲循环跑完全程。
- * 两翼（宽屏）放「工作快照」卡：左执行中任务、右已交付成果——
- * 中央是「你」，两侧是数字员工正在干的活。
- * 背景只放几团缓慢漂移的光斑和一层淡网格：留白不空，但不抢内容。
+ * 版式（左叙事 / 右登录，淡色系）：
+ *   品牌眼眉 → 产品主标题（按字入场）→ 副标题 → 场景拼贴 → 「视差浮层卡片堆」登录框
+ *   → 底部「SOP 光路流水线」：一条光路穿过四个能力节点，光脉冲循环跑完全程。
+ *
+ * 左栏的场景拼贴（`LoginSceneCollage`）替代了原来的「在岗播报」单条轮播：
+ * 播报一次只能露一条，而拼贴能同时说清「谁在岗 / 任务怎么跑 / 交付了多少」，
+ * 也才有了 Mystique 那种品牌级拼贴的观感。
+ *
+ * 配色是淡色版：整页浅底（#fbfaff 系），运营色统一收敛到淡紫——
+ * 只有场景拼贴里那块竖卡用饱和紫作唯一的重色锚点，其余全是白底 / 极浅紫。
+ * 这样页面是「淡」的，但不会淡到没有重点。
  *
  * 性能约束（改这里之前先读一遍，实测 12fps 的教训）：
  *   1. 背景光斑不用 `filter: blur()`：模糊半径 70px 的层每帧都要重新栅格化，
  *      改用自身带柔边的 radial-gradient，transform 动画就只剩合成，不再重绘。
  *   2. 任何常驻动画都只允许动 transform / opacity，不动 letterSpacing、width、height。
- *   3. 表单状态在 LoginForm 内部：输入时这一层（连同卡片堆、两翼、光路）一次都不重渲染，
+ *   3. 表单状态在 LoginForm 内部：输入时这一层（连同卡片堆、拼贴、光路）一次都不重渲染，
  *      否则每敲一个字符就会打断一圈合成层。
  */
 export default function LoginPage({ onLogin }: LoginPageProps) {
@@ -67,20 +46,16 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const brandRef = useRef<HTMLSpanElement>(null);
   const titleRef = useRef<HTMLSpanElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
-  const tickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const page = pageRef.current;
     const brand = brandRef.current;
     const title = titleRef.current;
     const subtitle = subtitleRef.current;
-    const ticker = tickerRef.current;
-    if (!page || !brand || !title || !subtitle || !ticker) return;
+    if (!page || !brand || !title || !subtitle) return;
 
-    const tickerRows = Array.from(ticker.querySelectorAll<HTMLElement>('[data-ticker-row]'));
     const auroraBlobs = Array.from(page.querySelectorAll<HTMLElement>('[data-aurora]'));
-    const liveDots = Array.from(page.querySelectorAll<HTMLElement>('[data-live-dot]'));
-    const heroBlocks = [brand, subtitle, ticker];
+    const heroBlocks = [brand, subtitle];
 
     // 主标题按字入场。拆字依赖 ResizeObserver，jsdom 等环境没有它，
     // 那就退化成整行出现，不为了动画把页面渲染搞挂。
@@ -99,7 +74,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       utils.set([...heroBlocks, title], { opacity: 1, y: 0, scale: 1 });
-      utils.set(tickerRows[0], { y: '0%', opacity: 1 });
       return disposeAll;
     }
 
@@ -118,21 +92,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       disposers.push(() => drift.revert());
     });
 
-    // 在岗小绿点：呼吸
-    liveDots.forEach((dot, index) => {
-      const pulse = animate(dot, {
-        scale: [1, 1.6],
-        opacity: [1, 0.25],
-        duration: 1000,
-        ease: 'inOutSine',
-        loop: true,
-        alternate: true,
-        delay: index * 130,
-      });
-      disposers.push(() => pulse.revert());
-    });
-
-    // 主入场：眼眉 → 标题逐字 → 副标题 → 在岗播报（登录卡堆入场由 LoginCardStack 自理）
+    // 主入场：眼眉 → 标题逐字 → 副标题（登录卡堆入场由 LoginCardStack 自理）
     // 原来还带一段 letterSpacing 0.62em → 0.2em 的收字距动画：那是逐帧布局，已删除，
     // 字距直接用静态值，视觉差异肉眼几乎看不出，帧时间省一半。
     const intro = createTimeline({ defaults: { duration: 720, ease: 'outQuint' } });
@@ -144,47 +104,31 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         { opacity: [0, 1], y: ['0.7em', '0em'], duration: 900, delay: stagger(30), ease: 'outExpo' },
         140,
       )
-      .add(subtitle, { opacity: [0, 1], y: [16, 0] }, '-=540')
-      .add(ticker, { opacity: [0, 1], y: [14, 0] }, '-=400');
+      .add(subtitle, { opacity: [0, 1], y: [16, 0] }, '-=540');
     disposers.push(() => intro.revert());
-
-    // 在岗播报：6 条职责循环滚过（只动 translateY / opacity）
-    if (tickerRows.length > 1) {
-      const loop = createTimeline({ loop: true });
-      tickerRows.forEach((row, index) => {
-        loop
-          .add(
-            row,
-            { y: ['110%', '0%'], opacity: [0, 1], duration: 560, ease: 'outQuint' },
-            index === 0 ? 0 : '+=140',
-          )
-          .add(row, { y: ['0%', '-110%'], opacity: [1, 0], duration: 470, ease: 'inQuad' }, '+=1500');
-      });
-      disposers.push(() => loop.revert());
-    }
 
     return disposeAll;
   }, []);
 
   return (
-    <div ref={pageRef} className="relative flex min-h-screen flex-col overflow-x-clip bg-[#fbfbfa]">
+    <div ref={pageRef} className="relative flex min-h-screen flex-col overflow-x-clip bg-[#fbfaff]">
       {/* 背景层：光斑 + 淡网格，纯装饰。
           光斑不加 filter: blur —— 柔边由 gradient 自己的多段色标提供，
           否则 70px 的模糊会跟着 transform 每帧重算，是原来卡顿的头号开销。 */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           data-aurora
-          className="absolute -left-[18%] top-[-2%] h-[520px] w-[660px] rounded-full bg-[radial-gradient(circle,rgba(15,118,110,0.17),rgba(15,118,110,0.05)_52%,transparent_76%)] [will-change:transform]"
+          className="absolute -left-[16%] top-[-6%] h-[520px] w-[660px] rounded-full bg-[radial-gradient(circle,rgba(167,139,250,0.30),rgba(167,139,250,0.07)_52%,transparent_76%)] [will-change:transform]"
         />
         <div
           data-aurora
-          className="absolute -right-[16%] top-[16%] h-[560px] w-[640px] rounded-full bg-[radial-gradient(circle,rgba(168,93,50,0.14),rgba(168,93,50,0.04)_52%,transparent_76%)] [will-change:transform]"
+          className="absolute -right-[14%] top-[10%] h-[560px] w-[640px] rounded-full bg-[radial-gradient(circle,rgba(196,181,253,0.34),rgba(196,181,253,0.07)_52%,transparent_76%)] [will-change:transform]"
         />
         <div
           data-aurora
-          className="absolute left-[26%] top-[52%] h-[460px] w-[640px] rounded-full bg-[radial-gradient(circle,rgba(111,123,66,0.13),rgba(111,123,66,0.04)_54%,transparent_78%)] [will-change:transform]"
+          className="absolute left-[24%] top-[54%] h-[460px] w-[640px] rounded-full bg-[radial-gradient(circle,rgba(129,140,248,0.20),rgba(129,140,248,0.05)_54%,transparent_78%)] [will-change:transform]"
         />
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(24,24,26,0.05)_1px,transparent_1px)] [background-size:26px_26px] [mask-image:radial-gradient(ellipse_at_50%_36%,black,transparent_72%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(124,58,237,0.055)_1px,transparent_1px)] [background-size:26px_26px] [mask-image:radial-gradient(ellipse_at_50%_36%,black,transparent_72%)]" />
       </div>
 
       <AppHeader
@@ -194,77 +138,50 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       />
 
       <main className="relative z-10 flex flex-1 flex-col items-center px-[32px] pb-[10px]">
-        {/* 两翼工作快照：左侧执行中任务卡 + 右侧已交付成果卡（窄屏自动隐藏） */}
-        <LoginWingCards />
-
-        <div className="flex w-full max-w-[1120px] flex-col items-center pt-[46px] text-center">
-          {/* 两行做层级化排版：公司名作眼眉（小号、宽字距、弱色）承接品牌，
-              产品名作主标题。拆成两个 span 是为了让读屏把公司名与产品名分开读，
-              中间的空白文本节点不能省。 */}
-          <h1 className="flex flex-col items-center text-center">
-            <span
-              ref={brandRef}
-              style={hiddenFrom(14)}
-              className="mr-[-4px] text-[20px] font-medium leading-[30px] tracking-[4px] text-[#6d6d72]"
-            >
-              地中海度假集团
-            </span>
-            {' '}
-            <span
-              ref={titleRef}
-              style={{ opacity: 0 }}
-              className="mt-[10px] text-[40px] font-semibold leading-[52px] tracking-[0.8px] text-[#18181a]"
-            >
-              AI 数字员工平台
-            </span>
-          </h1>
-
-          <p
-            ref={subtitleRef}
-            style={hiddenFrom(16)}
-            className="mt-[18px] max-w-[560px] text-[16px] leading-[26px] text-[#55555a]"
-          >
-            把经验、流程与判断标准，沉淀成持续在岗的数字员工
-          </p>
-
-          {/* 在岗播报：一次只露一条，逐条滚过（置于登录框上方）。
-              原来每行还带 backdrop-blur：6 个半透明行叠在一起滚动，
-              等于每帧重采样 6 次背景，已改为纯白底。 */}
-          <div
-            ref={tickerRef}
-            style={hiddenFrom(14)}
-            className="relative mt-[26px] h-[52px] w-full max-w-[520px] overflow-hidden"
-          >
-            {STAFF_ON_DUTY.map((item) => (
-              <div
-                key={item.role}
-                data-ticker-row
-                style={{ opacity: 0, transform: 'translateY(110%)' }}
-                className="absolute inset-0 flex items-center gap-[10px] rounded-[12px] border border-black/[0.05] bg-white px-[14px] text-left shadow-[0_6px_20px_rgba(17,17,17,0.05)]"
+        <div className="grid w-full max-w-[1180px] grid-cols-[minmax(0,1fr)_396px] items-center gap-[64px] pt-[30px] text-left max-[1150px]:grid-cols-1 max-[1150px]:justify-items-center max-[1150px]:gap-[40px] max-[1150px]:pt-[16px] max-[1150px]:text-center">
+          {/* 左：品牌叙事 + 场景拼贴 */}
+          <section className="flex min-w-0 flex-col max-[1150px]:w-full max-[1150px]:items-center">
+            {/* 两行做层级化排版：品牌名作眼眉（小号、宽字距、弱色）承接品牌，
+                产品名作主标题。拆成两个 span 是为了让读屏把品牌名与产品名分开读，
+                中间的空白文本节点不能省。 */}
+            <h1 className="m-0 flex flex-col max-[1150px]:items-center">
+              <span
+                ref={brandRef}
+                style={hiddenFrom(14)}
+                className="mr-[-4px] text-[20px] font-medium leading-[30px] tracking-[4px] text-[#7c7392]"
               >
-                <EmployeeAvatar profile={avatarProfile(item.avatarPreset)} size={34} radius={10} />
-                <span className="flex min-w-0 flex-1 items-baseline gap-[8px]">
-                  <span className="shrink-0 text-[13px] font-medium text-[#18181a]">
-                    {item.role}
-                  </span>
-                  <span className="truncate text-[12.5px] text-[#6d6d72]">{item.duty}</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-[6px] text-[12px] text-[#138a55]">
-                  <i data-live-dot className="size-[6px] rounded-full bg-[#138a55]" />
-                  在岗
-                </span>
-              </div>
-            ))}
-          </div>
+                AIStaff
+              </span>
+              {' '}
+              <span
+                ref={titleRef}
+                style={{ opacity: 0 }}
+                className="mt-[10px] text-[40px] font-semibold leading-[52px] tracking-[0.8px] text-[#2e2a3d] max-[720px]:text-[32px] max-[720px]:leading-[42px]"
+              >
+                AI 数字员工平台
+              </span>
+            </h1>
 
-          {/* 登录框：视差浮层卡片堆，前排为真实表单。
-              表单自己管状态，输入时这一层不重渲染。 */}
-          <LoginCardStack>
-            <LoginForm onLogin={onLogin} />
-          </LoginCardStack>
+            <p
+              ref={subtitleRef}
+              style={hiddenFrom(16)}
+              className="mt-[18px] max-w-[520px] text-[16px] leading-[26px] text-[#6b6288]"
+            >
+              把经验、流程与判断标准，沉淀成持续在岗的数字员工
+            </p>
+
+            <LoginSceneCollage />
+          </section>
+
+          {/* 右：登录卡堆。表单自己管状态，输入时这一层不重渲染。 */}
+          <section className="flex w-full flex-col items-center">
+            <LoginCardStack>
+              <LoginForm onLogin={onLogin} />
+            </LoginCardStack>
+          </section>
         </div>
 
-        {/* 底部：SOP 光路流水线（替代原产品截图预览） */}
+        {/* 底部：SOP 光路流水线 */}
         <LoginSopFlow />
       </main>
     </div>

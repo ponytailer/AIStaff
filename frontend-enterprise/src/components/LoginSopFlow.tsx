@@ -4,10 +4,10 @@ import { animate, createTimeline, stagger, svg, utils } from 'animejs';
 
 /** 一条光路串起的四步核心能力（与产品能力清单一一对应）。 */
 const SOP_NODES = [
-  { x: 200, y: 300, name: '流程 SOP', desc: '把经验写成可执行步骤', color: '#0f766e', icon: 'flow' },
-  { x: 480, y: 130, name: '知识检索', desc: '让判断有据可依', color: '#c2703e', icon: 'search' },
-  { x: 760, y: 300, name: '自主执行', desc: '跨系统推进到结果', color: '#6f7b42', icon: 'bolt' },
-  { x: 1000, y: 130, name: '长期记忆', desc: '越用越懂你的业务', color: '#5b6fa8', icon: 'memory' },
+  { x: 200, y: 300, name: '流程 SOP', desc: '把经验写成可执行步骤', color: '#7c3aed', icon: 'flow' },
+  { x: 480, y: 130, name: '知识检索', desc: '让判断有据可依', color: '#9333ea', icon: 'search' },
+  { x: 760, y: 300, name: '自主执行', desc: '跨系统推进到结果', color: '#6366f1', icon: 'bolt' },
+  { x: 1000, y: 130, name: '长期记忆', desc: '越用越懂你的业务', color: '#a855f7', icon: 'memory' },
 ] as const;
 
 /**
@@ -148,27 +148,31 @@ export default function LoginSopFlow() {
   }, []);
 
   return (
-    <div className="mt-[10px] flex w-full justify-center pb-[26px]">
+    <div className="mt-[10px] flex w-full justify-center pb-[10px]">
       <div className="w-full max-w-[1120px]">
-        <div ref={stageRef} className="relative mt-[4px] aspect-[1120/420] w-full">
+        {/* 宽屏：一条横向光路穿过四个节点（1120×420 定宽画布）。
+            窄屏画布宽度不足，四节点会重叠成一团，改用下方的纵向列表。
+            -mb 回收画布底部的 50 单位空白（节点最低到 y≈367，画布到 420），
+            不这样做页面会白白多出一截滚动高度。 */}
+        <div ref={stageRef} className="relative -mb-[26px] mt-[4px] aspect-[1120/420] w-full max-[900px]:hidden">
           <svg
             viewBox="0 0 1120 420"
             fill="none"
             aria-hidden
             className="absolute inset-0 h-full w-full"
           >
-            <path data-sop-base d={WAVE_PATH} stroke="rgba(24,24,26,0.12)" strokeWidth="2" strokeLinecap="round" />
+            <path data-sop-base d={WAVE_PATH} stroke="rgba(124,58,237,0.20)" strokeWidth="2" strokeLinecap="round" />
             <path
               data-sop-glow
               d={WAVE_PATH}
-              stroke="rgba(15,118,110,0.18)"
+              stroke="rgba(168,85,247,0.16)"
               strokeWidth="9"
               strokeLinecap="round"
             />
             <path data-sop-travel d={WAVE_PATH} stroke="none" />
             <g data-sop-pulse opacity="0">
-              <circle r="13" fill="rgba(15,118,110,0.20)" />
-              <circle r="5.5" fill="#0f766e" />
+              <circle r="13" fill="rgba(124,58,237,0.18)" />
+              <circle r="5.5" fill="#7c3aed" />
             </g>
           </svg>
 
@@ -186,7 +190,7 @@ export default function LoginSopFlow() {
                 className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[6px]"
               >
                 <span
-                  className="relative grid size-[62px] place-items-center rounded-full border-[1.5px] bg-white shadow-[0_8px_20px_rgba(17,17,17,0.07)]"
+                  className="relative grid size-[62px] place-items-center rounded-full border-[1.5px] bg-white shadow-[0_8px_20px_rgba(91,33,182,0.08)]"
                   style={{ color: node.color, borderColor: `${node.color}66` }}
                 >
                   <span data-sop-icon className="grid place-items-center">
@@ -204,6 +208,35 @@ export default function LoginSopFlow() {
             );
           })}
         </div>
+
+        {/* 窄屏：光路换成纵向时间轴。横向四节点在 900px 以下间距不足、挤成一堆，
+            与其压缩画布，不如换一种读得懂的排列。 */}
+        <ol className="m-0 hidden w-full max-w-[340px] list-none flex-col gap-0 p-0 max-[900px]:mx-auto max-[900px]:flex">
+          {SOP_NODES.map((node, index) => (
+            <li key={node.name} className="relative flex items-start gap-[13px] pb-[20px] last:pb-0">
+              {/* 竖向连接线：末项不画，避免尾部悬空 */}
+              {index < SOP_NODES.length - 1 && (
+                <span
+                  aria-hidden
+                  className="absolute left-[19px] top-[40px] h-[calc(100%-40px)] w-[2px] rounded-full"
+                  style={{ background: `linear-gradient(180deg, ${node.color}55, ${SOP_NODES[index + 1].color}30)` }}
+                />
+              )}
+              <span
+                className="relative z-10 grid size-[38px] shrink-0 place-items-center rounded-full border-[1.5px] bg-white shadow-[0_8px_20px_rgba(91,33,182,0.10)]"
+                style={{ color: node.color, borderColor: `${node.color}66` }}
+              >
+                <span className="grid scale-[0.72] place-items-center">
+                  <NodeIcon kind={node.icon} />
+                </span>
+              </span>
+              <span className="flex min-w-0 flex-col gap-[2px] pt-[3px]">
+                <span className="text-[13.5px] font-semibold leading-[1.3] text-[#18181a]">{node.name}</span>
+                <span className="text-[11.5px] leading-[1.45] text-[#6d6d72]">{node.desc}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
       </div>
     </div>
   );

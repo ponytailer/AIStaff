@@ -92,23 +92,40 @@ describe('LoginPage', () => {
 
     const heading = screen.getByRole('heading', { level: 1 });
     // 两行拆成 span 后，空白文本节点在 flex 列布局里不参与渲染，但仍应留在
-    // 无障碍名称里，避免读屏把「公司名 + 产品名」连读成一个词。
-    expect(heading.textContent).toBe('地中海度假集团 AI 数字员工平台');
+    // 无障碍名称里，避免读屏把「品牌名 + 产品名」连读成一个词。
+    expect(heading.textContent).toBe('AIStaff AI 数字员工平台');
     expect(heading.childElementCount).toBe(2);
   });
 
-  it('introduces the product with real on-duty staff and the SOP light path', () => {
+  it('introduces the product with a scene collage and the SOP light path', () => {
     renderLogin();
 
-    // 在岗播报用的是产品里真实存在的岗位与职责，不是占位文案。
-    expect(screen.getByText('市场')).toBeTruthy();
-    expect(screen.getByText('拆解目标、里程碑、责任人与风险')).toBeTruthy();
-    expect(screen.getByText('定义指标口径、分析周期与对比维度')).toBeTruthy();
+    // 左栏的拼贴承担「谁在岗 / 任务怎么跑 / 交付了多少」三件事，
+    // 替代了原来一次只能露一条的在岗播报。
+    expect(screen.getByText('把一次交代，变成一套可复用的流程')).toBeTruthy();
+    expect(screen.getByText('4 位')).toBeTruthy();
+    expect(screen.getByText('已交付 3 条方案')).toBeTruthy();
+    expect(screen.getByText('本周已交付')).toBeTruthy();
+    // 拼贴里的品牌竖卡 —— 品牌名只在这里和页头眼眉出现。
+    // slogan 被 <br /> 分成两行，所以按整段 textContent 匹配，不要按单个文本节点找。
+    expect(screen.getByText(/Intelligence\..*On duty\./s)).toBeTruthy();
 
     // 四个能力标签现在由底部「SOP 光路流水线」的节点承载。
+    // 宽屏光路与窄屏时间轴是两套布局（靠 CSS 断点互斥显示），
+    // 在 jsdom 里不会被隐藏，所以每项都会命中两次 —— 断言「至少一处」即可。
     for (const label of ['流程 SOP', '知识检索', '自主执行', '长期记忆']) {
-      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  it('labels the account field as the OA account and offers no SSO entry', () => {
+    renderLogin();
+
+    // 员工用的是企业 OA 账号登录，占位文案要说清这一点。
+    expect((screen.getByLabelText('账号') as HTMLInputElement).placeholder).toBe('请输入 OA 账号');
+    // SSO 入口已移除：本平台只有账号密码一种登录方式。
+    expect(screen.queryByText(/SSO/)).toBeNull();
+    expect(screen.queryByText('使用 SSO 登录')).toBeNull();
   });
 
   it('toggles the password between hidden and visible text', async () => {
@@ -213,7 +230,7 @@ describe('LoginPage', () => {
 
     await user.click(screen.getByRole('button', { name: '登录' }));
 
-    expect(screen.getByText('请输入账号')).toBeTruthy();
+    expect(screen.getByText('请输入 OA 账号')).toBeTruthy();
     expect(screen.getByText('请输入密码')).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
   });
