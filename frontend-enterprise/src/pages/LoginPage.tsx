@@ -178,7 +178,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               x 按视口连续放大，避免窄视口把卡片推出内容区；
               单栏时归零，交给居中对齐。 */}
           <section className="flex w-full flex-col items-center">
-            <div className="w-full translate-x-[max(0px,min(228px,calc((100vw-1180px)*0.445)))] translate-y-[142px] max-[1150px]:translate-x-0 max-[1150px]:translate-y-0">
+            <div className="w-full translate-x-[max(0px,min(228px,calc((100vw-1180px)*0.445)))] translate-y-[56px] max-[1150px]:translate-x-0 max-[1150px]:translate-y-0">
               <LoginCardStack>
                 <LoginForm onLogin={onLogin} />
               </LoginCardStack>

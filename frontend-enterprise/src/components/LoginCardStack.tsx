@@ -196,12 +196,15 @@ export default function LoginCardStack({ children }: LoginCardStackProps) {
           </div>
         </div>
 
-        {/* 前排表单卡：交互面，不参与视差与漂浮 */}
+        {/* 前排表单卡：交互面，不参与视差与漂浮。
+            质感（光环 / 顶部高光 / 内层光晕）全在 .login-card 里，
+            这里只负责尺寸与投影——投影必须留在 Tailwind 层，
+            因为 ::before 被光环占用了。 */}
         <div className="absolute left-1/2 top-1/2 z-10" style={{ transform: 'translate(-50%, -50%)' }}>
           <div
             ref={frontRef}
             style={hiddenState(1)}
-            className="w-[326px] rounded-[18px] border border-[rgba(124,58,237,0.13)] bg-white p-[22px] shadow-[0_28px_70px_rgba(76,29,149,0.14)] [will-change:transform]"
+            className="login-card w-[338px] rounded-[20px] border border-[rgba(124,58,237,0.16)] px-[26px] pb-[24px] pt-[24px] shadow-[0_30px_80px_-24px_rgba(76,29,149,0.24),0_2px_10px_-4px_rgba(46,42,61,0.10),inset_0_1px_0_rgba(255,255,255,0.9)] [will-change:transform]"
           >
             {children}
           </div>

@@ -133,6 +133,15 @@ describe('LoginPage', () => {
     expect(screen.queryByText('使用 SSO 登录')).toBeNull();
   });
 
+  it('heads the login card with a welcome line and a one-sentence intro', () => {
+    renderLogin();
+
+    // 卡头不是装饰：它要说明「这是谁的地盘、登录后能做什么」，
+    // 缺了它这张卡就只是两个输入框拼起来的填表控件。
+    expect(screen.getByRole('heading', { level: 2, name: '欢迎回来' })).toBeTruthy();
+    expect(screen.getByText('用 OA 账号登录，继续安排数字员工的工作')).toBeTruthy();
+  });
+
   it('toggles the password between hidden and visible text', async () => {
     const user = userEvent.setup();
     renderLogin();

@@ -90,12 +90,25 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
 
   return (
     <form
-      className="flex flex-col gap-[12px]"
+      className="flex flex-col text-left"
       onSubmit={(event) => {
         event.preventDefault();
         void login();
       }}
     >
+      {/* 卡头：登录卡不能只有两个输入框，那样像一块填表控件。
+          一句标题 + 一句说明，把「这是谁的地盘、登录后能做什么」讲清楚，
+          也给了卡片上方的呼吸空间。 */}
+      <div className="mb-[16px]">
+        <h2 className="m-0 text-[17px] font-semibold leading-[1.35] tracking-[-0.01em] text-[#2e2a3d]">
+          欢迎回来
+        </h2>
+        <p className="m-0 mt-[7px] text-[12px] leading-[1.6] text-[#8b82a3]">
+          用 OA 账号登录，继续安排数字员工的工作
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-[12px]">
       <div
         className={`${inputBaseClass} ${usernameError ? 'border-[#dc2626]' : username ? 'border-[#7c3aed]' : 'border-[#e4e0ee]'}`}
       >
@@ -208,6 +221,7 @@ export default function LoginForm({ onLogin }: { onLogin: (session: EnterpriseAu
       >
         {loading ? '登录中…' : '登录'}
       </button>
+      </div>
     </form>
   );
 }

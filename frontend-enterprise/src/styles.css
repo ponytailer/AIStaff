@@ -7284,3 +7284,79 @@ body,
 @keyframes sd-pop-in {
   from { opacity: 0; transform: translateY(12px) scale(0.97); }
 }
+
+/* ==========================================================================
+   登录卡质感层（LoginCardStack / LoginForm）
+   --------------------------------------------------------------------------
+   来自 Mystique 品牌稿的几个细节，只做装饰、不参与布局：
+     1. 卡外一圈慢转的锥形光环 —— 「有能量在流动」
+     2. 卡顶一道渐变高光 —— 玻璃感的来源
+     3. 卡内极浅的紫光晕 —— 让白卡不死板
+
+   ⚠️ 光环必须让**渐变的角度**转，不能让**元素**转。
+   曾经写 `animation: spin { to { transform: rotate(360deg) } }`，伪元素带
+   `inset:-1px` 整块旋转，正方形的四个角会甩到卡片外，页面上留下两条横穿
+   画面的斜线。改成用 @property 注册 <angle>、只动 conic-gradient 的 from。
+   ========================================================================== */
+@property --login-ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes login-ring-spin {
+  to { --login-ring-angle: 360deg; }
+}
+
+.login-card {
+  position: relative;
+  /* 内层光晕：从卡顶中央往下渗的一团极淡紫，避免大面积纯白显得空。
+     用独立 background 层，不额外加节点。 */
+  background:
+    radial-gradient(120% 88% at 50% -22%, rgba(167, 139, 250, 0.15), transparent 62%),
+    #ffffff;
+}
+
+/* 卡外光环：mask 切成 1px 细线，只沿圆角边框走。
+   注意 z-index:-1 —— 卡片有 border，光环若在上面会被 border 那条实线盖住，
+   只剩四个角露出一丁点。放到卡片背景后面，让光环从边框外侧透出来。 */
+.login-card::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--login-ring-angle),
+    transparent 0deg,
+    rgba(124, 58, 237, 0.75) 38deg,
+    rgba(168, 85, 247, 0.60) 72deg,
+    transparent 122deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: login-ring-spin 9s linear infinite;
+  pointer-events: none;
+}
+
+/* 不支持 @property 的浏览器里角度不会动，光环退化成一道静止渐变。
+   装饰性元素宁可不转，也不能甩出斜线。 */
+@supports not (background: conic-gradient(from var(--login-ring-angle), red, blue)) {
+  .login-card::before { animation: none; }
+}
+
+/* 卡顶高光：玻璃感的另一半，一段透明的紫色细线 */
+.login-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 26px;
+  right: 26px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), transparent);
+  pointer-events: none;
+}
