@@ -187,9 +187,12 @@ async function openEditor(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function fillAndRun(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement, people = '99') {
+  // 右栏现在是「预览 / 试跑」双 tab，默认停在预览。
+  // 先切到试跑 tab —— 这正是用户的操作路径，不是测试凑数。
+  await user.click(within(dialog).getByRole('tab', { name: '试跑' }));
   const peopleInput = within(dialog).getByPlaceholderText('单位：人');
   await user.type(peopleInput, people);
-  // 「试跑」既是面板标题也是按钮，按 role 取按钮那个
+  // 「试跑」既是 tab 名也是按钮，按 role 取按钮那个
   await user.click(within(dialog).getByRole('button', { name: /^试跑$/ }));
 }
 
@@ -241,6 +244,8 @@ describe('试跑：空结果', () => {
     const user = userEvent.setup();
     const dialog = await openEditor(user);
 
+    // 右栏默认停在「预览」，切到试跑才有那颗按钮
+    await user.click(within(dialog).getByRole('tab', { name: '试跑' }));
     const before = (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length;
     await user.click(within(dialog).getByRole('button', { name: /^试跑$/ }));
     await waitFor(() => {

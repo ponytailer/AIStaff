@@ -1,17 +1,34 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { loadSceneModule } from '@/scenes/registry';
+import SlotFormCard from '@/pages/chat/components/SlotFormCard';
+import { parseA2UIForm } from '@/pages/chat/chatHelpers';
+import { normalizeFormData } from '@/pages/chat/messageBlockSlots';
+import { componentForKind, loadSceneModule } from '@/scenes/registry';
 import type { SceneModule, SceneUiBlock } from '@/scenes/types';
+import type { SceneSlot } from '@/api/scenes';
 
 /**
- * 「命中后回答」的只读预览：用**真实的 module 卡片**渲染一份样例数据。
+ * 场景的**三段预览**：胶囊 → 表单 → 结果卡。
  *
  * ## 为什么不是一张示意图
  *
  * 用户要判断的是「我这个场景长什么样」。画一张示意图就等于 Demo 一个样、
  * 实际另一个样 —— 正是本项目明确要避免的事（视觉契约 §0 第 3 条：
- * 每个 module 完成后用同一份数据对照）。所以这里 `lazy` 加载真组件、
- * 喂真形状的 block，渲染结果与聊天里一致。
+ * 每个 module 完成后用同一份数据对照）。所以这里全部用**真组件**渲染：
+ * 结果卡来自 module 的 `ResultCard`，表单来自聊天的 `SlotFormCard`，
+ * 胶囊按 `SceneChips` 的视觉契约逐值复刻。
+ *
+ * ## 为什么预览要覆盖三段，而不是只有结果卡
+ *
+ * 原先只有结果卡。但用户在聊天里实际经历的是三步：
+ *
+ * 1. 输入框上方看到一颗胶囊（点进去）；
+ * 2. 弹出表单填条件（或直接发一句话）；
+ * 3. 看到结果卡。
+ *
+ * 只预览第 3 步的话，管理员调槽位时**看不到表单会被排成什么样** —— 而槽位
+ * 恰恰是定义器里最常改的一块（label / 单位 / 必填）。改了 label 预览纹丝不动，
+ * 用户只能保存 → 开聊天 → 点一次才知道效果，那就不叫「直观」。
  *
  * ## 为什么不传 `sendText`
  *
@@ -245,6 +262,268 @@ export default function ScenePreviewCard({
         openExternal={() => {}}
         disabled
       />
+    </div>
+  );
+}
+
+/* ============================================================
+   表单态预览（点开胶囊后用户填条件的那张表）
+   ============================================================ */
+
+/**
+ * 把定义器的槽位草稿转成**后端同形**的表单描述（`build_slot_form()` 的输出形状）。
+ *
+ * ## 为什么要在这里复刻后端的 `_slot_form_block()`
+ *
+ * 聊天里那张表单是**后端**产的（`channels.py::_slot_form_block` → 复用
+ * `build_slot_form()`）。定义器里用户还没保存，后端无从生成，只能在前端按同一
+ * 份规则算一遍：
+ *
+ * - `label` 拼单位：「人数」+「人」→「人数（人）」，除非 label 自己已经带括号
+ *   （后端 `if raw_label and not re.search(r"[（(]", raw_label)` 同一条规则）；
+ * - **额外带 `unit` 键**：后端会额外塞 `field["unit"] = unit`，
+ *   `ItinerarySlotForm.isMoneyField()` 靠它认出「预算」那一格。漏了它，
+ *   预览里预算会退化成文本框，跟聊天里对不上；
+ * - `type` 取槽位声明的类型，没声明按 `number` 猜（场景槽位几乎都是数值条件）；
+ * - `required` 默认 true —— 与后端「缺必填槽位才产表单」的语义一致；
+ * - `placeholder` 取槽位的 `prompt`（后端 `if spec.get("prompt")` 覆盖同一格）。
+ *
+ * ## 这是**唯一的**已知前端复刻点，所以注释写在这里
+ *
+ * 两侧规则一旦分叉，表现是「定义器预览里标签是『人数』、聊天里是『人数（人）』」
+ * 这种极难察觉的漂移。改后端的拼 label 规则时，务必回来同步这一个函数。
+ *
+ * 返回**扁平对象**而不是 `A2UIForm`：`kind` 用后端的 `slot_form`（真实链路的
+ * 那个值），交给 `parseA2UIForm()` 收窄 —— 而不是自己手搓一个 `kind: "form"`
+ * 的近似物。两条路各写一份解析正是本项目反复踩的坑。
+ */
+export function previewFormDataFor(
+  slots: SceneSlot[],
+  title: string,
+  subtitle?: string,
+): Record<string, unknown> | null {
+  const fields = slots
+    .filter((slot) => String(slot.key ?? '').trim() !== '')
+    .map((slot) => {
+      const key = String(slot.key).trim();
+      const rawLabel = String(slot.label ?? '').trim() || key;
+      const unit = String(slot.unit ?? '').trim();
+      // 单位拼进 label：与后端一致的「人数（人）」写法。
+      // 已带括号的 label 不再拼第二遍（后端同一条正则）。
+      const label = unit && !/[（(]/.test(rawLabel)
+        ? `${rawLabel}（${unit}）`
+        : rawLabel;
+      const prompt = String(slot.prompt ?? '').trim();
+      return {
+        name: key,
+        label,
+        type: slot.type === 'text' ? 'text' : 'number',
+        required: slot.required !== false,
+        placeholder: prompt || `请输入${label}`,
+        // 后端 `_slot_form_block` 会额外挂上 `unit`；定制 module 靠它区分
+        // 「金额字段」与「普通数字字段」。少了它，预览的表单控件形态会变。
+        ...(unit ? { unit } : {}),
+      };
+    });
+  if (fields.length === 0) return null;
+  return {
+    // `slot_form`：`parseA2UIForm()` 的准入条件就是这个值（legacy 通道也用它）。
+    // 写 `form` 会让解析直接返回 null —— 而那个 null 会被当成「没配槽位」。
+    kind: 'slot_form',
+    title,
+    subtitle,
+    submit_label: '开始匹配',
+    fields,
+  };
+}
+
+/**
+ * `previewFormFor` 曾经在这里，把槽位草稿转成 `SlotFormCard` 认的 `A2UIForm`。
+ *
+ * 2026-11-26 删除：`SceneFormPreview` 改成「按 module 的 `SlotForm` 渲染」之后
+ * （行程场景要用它自己那三个下拉），这条路径在生产代码里**没有调用方**了 ——
+ * 兜底分支直接 `parseA2UIForm(normalizeFormData(data))`，与聊天端
+ * `MessageBubble.renderFormForScene` 走同一个解析。
+ *
+ * 留着一个无人调用的导出只会让下一个人以为「预览有两种渲染方式」，
+ * 于是可能照着它写第三条。真要那份数据，用 `previewFormDataFor()`。
+ */
+
+/**
+ * 「点开胶囊后填条件」的表单预览。
+ *
+ * ## 渲染器必须按 module 走，不能一律 `SlotFormCard`
+ *
+ * 聊天里那张表单**不是**由平台统一渲染的：`SceneBlockList` 按 `module_key` 查注册表，
+ * 拿到 module 之后按 `kind` 取 `SlotForm.SlotForm` 组件。于是：
+ *
+ * | module | 聊天里那张表的实际组件 | 控件 |
+ * |---|---|---|
+ * | `travel.itinerary` | `TravelItinerarySlotForm` | 三个原生下拉（人数 / 天数 / 预算） |
+ * | `generic.tool_submit` | `GenericToolSubmitSlotForm` → `renderForm` → `SlotFormCard` | 文本 / 数字输入框 |
+ * | `generic.table_match` | 同上 | 同上 |
+ *
+ * 所以预览也必须是「先拿 module 的 `SlotForm`，没有才回落 `SlotFormCard`」。
+ * 一律用 `SlotFormCard` 会出现**同一个槽位配置、预览一个样、聊天另一个样**：
+ * 行程场景预览里是三个输入框，真到聊天里是三个下拉。那正是用户反复提的问题。
+ *
+ * ## 兜底路径为什么必须存在
+ *
+ * `SlotForm` 是可选实现（`SceneModule` 里 `SlotForm?`）。module 没实现它时，
+ * 聊天端的 `SceneModuleSurface` 会落到 `fallback_text`；但预览不该显示
+ * 「没有界面组件」这种半错误态 —— 定义器里用户关心的是自己配的字段。
+ * 所以这里回落 `SlotFormCard`，并明确注释「这是兜底、不是真实路径」。
+ *
+ * `disabled` 让它只读：预览里能点会让人以为填了就能提交。
+ */
+export function SceneFormPreview({
+  moduleKey,
+  slots,
+  title,
+  subtitle,
+  showCaption = true,
+}: {
+  /** 场景当前选的 module。决定用哪个 `SlotForm` 渲染 —— 与聊天端同一份判断。 */
+  moduleKey: string;
+  slots: SceneSlot[];
+  title: string;
+  subtitle?: string;
+  showCaption?: boolean;
+}) {
+  const data = useMemo(
+    () => previewFormDataFor(slots, title, subtitle),
+    [slots, title, subtitle],
+  );
+  const [module, setModule] = useState<SceneModule | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setModule(null);
+    if (!moduleKey) return;
+    void (async () => {
+      const mod = await loadSceneModule(moduleKey);
+      if (alive) setModule(mod);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [moduleKey]);
+
+  if (!data) {
+    return (
+      <p className="m-0 rounded-[10px] bg-[#fbfaf6] px-[12px] py-[10px] text-[12px] leading-[18px] text-[#9a9b95]">
+        还没有配槽位。配了「要问用户什么」，这里就会显示用户点开场景后看到的表单。
+      </p>
+    );
+  }
+
+  return (
+    <div className="rounded-[12px] border border-dashed border-[#cfc5b7] bg-[#fbfaf6] p-[10px]">
+      {showCaption && (
+        <p className="m-0 mb-[8px] text-[10.5px] text-[#9a9b95]">
+          表单预览 · 点开场景后先填这张表
+        </p>
+      )}
+      <FormPreviewBody moduleKey={moduleKey} module={module} data={data} />
+    </div>
+  );
+}
+
+/** 分隔出来只为一件事：`data` 非空之后才允许调 `hooks`。 */
+function FormPreviewBody({
+  moduleKey,
+  module,
+  data,
+}: {
+  moduleKey: string;
+  module: SceneModule | null;
+  data: Record<string, unknown>;
+}) {
+  // 与 `SceneBlockList` 完全同一条判断：`kind="form"` → module 的 `SlotForm`。
+  // 直接复用 `componentForKind` 而不是自己写 `module.SlotForm`：映射表只有一处，
+  // 将来 `form` 这种 kind 若改名，这里自动跟上。
+  const SlotForm = module ? componentForKind(module, 'form') : undefined;
+
+  if (SlotForm) {
+    const block: SceneUiBlock = {
+      kind: 'form',
+      module_key: moduleKey,
+      module_version: module?.meta.module_version ?? 0,
+      fallback_text: '',
+      data,
+    };
+    return (
+      <SlotForm
+        block={block}
+        siblings={[block]}
+        params={{}}
+        sendText={() => {}}
+        submitSlots={() => {}}
+        openExternal={() => {}}
+        disabled
+      />
+    );
+  }
+
+  // 兜底：module 没实现 `SlotForm`（或还没加载完）→ 平台通用表单。
+  const form = parseA2UIForm(normalizeFormData(data));
+  if (!form) {
+    return (
+      <p className="m-0 text-[12px] text-[#9a9b95]">表单数据解析失败，聊天里会显示兜底文本。</p>
+    );
+  }
+  return (
+    <SlotFormCard
+      form={{ ...form, subtitle: typeof data.subtitle === 'string' ? data.subtitle : undefined }}
+      onSubmit={() => {}}
+      disabled
+      // `hideHeader`：预览外层已有分组标题，再叠一层卡头会出现两个标题。
+      hideHeader
+    />
+  );
+}
+
+/* ============================================================
+   胶囊预览（输入框上方那颗入口按钮）
+   ============================================================ */
+
+/**
+ * 聊天输入框上方那颗场景胶囊。
+ *
+ * 逐值复刻 `SceneChips.tsx` 的 `CHIP_CLASS`（视觉契约 §6）：圆角 full、
+ * `px-[11px] py-[5px]`、11.5px、`#ded7cc` 描边。**故意不 import 那个组件**：
+ * 它会自己发请求取胶囊列表，预览里只需要画一颗按钮。
+ *
+ * 样式漂移的风险由专门的测试盯着（`ScenePreviewCard.test.tsx` 里断言关键类名
+ * 与 `SceneChips` 一致）——不靠「记得同步」。
+ */
+export function SceneChipPreview({
+  icon,
+  label,
+  showCaption = true,
+}: {
+  icon?: string;
+  label: string;
+  showCaption?: boolean;
+}) {
+  const text = String(label ?? '').trim() || '这个场景';
+  return (
+    <div className="rounded-[12px] border border-dashed border-[#cfc5b7] bg-[#fbfaf6] p-[10px]">
+      {showCaption && (
+        <p className="m-0 mb-[8px] text-[10.5px] text-[#9a9b95]">
+          入口胶囊 · 员工在输入框上方点它
+        </p>
+      )}
+      <span
+        data-preview-chip
+        className={
+          'inline-flex items-center gap-[5px] rounded-full border border-[#ded7cc] '
+          + 'bg-white px-[11px] py-[5px] text-[11.5px] text-[#343633]'
+        }
+      >
+        {icon ? <span aria-hidden="true">{icon}</span> : null}
+        {text}
+      </span>
     </div>
   );
 }

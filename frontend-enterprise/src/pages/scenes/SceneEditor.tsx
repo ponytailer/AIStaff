@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { notify } from '@/components/ui/app-toast';
 import { StatusBadge } from '../scheduled-tasks/StatusBadge';
 import IconTrash from '../../assets/icons/trash.svg?react';
@@ -30,7 +30,7 @@ import {
   type SceneToolOption,
 } from '../../api/scenes';
 import type { SceneType } from '@/scenes/types';
-import { sceneTypeMeta, tableCountWarnings } from '@/scenes/types';
+import { sceneTypeMeta, effectiveNeedsTable, tableCountWarnings } from '@/scenes/types';
 import {
   SCENE_BTN_PRIMARY,
   SCENE_BTN_PRIMARY_SM,
@@ -58,7 +58,10 @@ import {
   statusMeta,
   visibleSteps,
 } from './sceneUtils';
-import ScenePreviewCard from './ScenePreviewCard';
+import ScenePreviewCard, {
+  SceneChipPreview,
+  SceneFormPreview,
+} from './ScenePreviewCard';
 
 /**
  * 场景定义器（**用户视角**，不是开发者视角）。
@@ -263,6 +266,15 @@ export default function SceneEditor({
   const [formSubtitle, setFormSubtitle] = useState('');
 
   /**
+   * 右栏当前 tab。
+   *
+   * 默认停在「预览」而不是「试跑」：用户进定义器十次有九次是来改文案/槽位的，
+   * 一进来就该看到「我改的东西长什么样」。试跑要求先保存，对新建场景还是
+   * 灰的 —— 默认停在试跑会给人一种「这里坏了」的错觉。
+   */
+  const [rightTab, setRightTab] = useState<'preview' | 'run'>('preview');
+
+  /**
    * 场景类型。决定「数据表 / 匹配策略 / 槽位」三个区块显不显（契约 §4.2）。
    *
    * 显隐必须是**不渲染**而不是置灰：类型创建后基本不变，置灰会让管理员
@@ -284,6 +296,28 @@ export default function SceneEditor({
    * 这页不再渲染任何参数输入框 —— 这是本次改造最核心的一条。
    */
   const [moduleParams, setModuleParams] = useState<Record<string, unknown>>({});
+  /**
+   * 预设侧的 `ui_config` 文案（`form_title` / `form_subtitle` / `fallback_text`）。
+   *
+   * ## 为什么定义器要自己存一份
+   *
+   * 后端聊天链路读的是 `effective_ui_config(scene, db)` —— 那是**按键合并**：
+   * 场景自己有值就用自己的，空的就回落到预设。而 `GET /scenes/{id}` 返回的
+   * `ui_config` 只有场景**自己**存的那份（多数场景 `form_subtitle` 是空串，
+   * 靠预设兜底）。
+   *
+   * 于是右栏预览如果只读 `row.ui_config`，就会显示代码里的兜底句
+   * 「填好这几项，我接着往下办」，而员工在聊天里实际看到的是预设的
+   * 「填好这几项，我按方案表逐条比对」—— 预览和实际不一致，正是这个
+   * 预览面板本来要解决的问题。
+   *
+   * 所以这里跟后端同一套三层回落：场景自己的值 → 预设的值 → 代码兜底。
+   * 只在**编辑已有场景**时拉一次（新建走 `applyPreset`，那里已经有一份）。
+   */
+  const [presetUiText, setPresetUiText] = useState<{
+    form_title?: string;
+    form_subtitle?: string;
+  }>({});
   /** UI 渲染不出来时的纯文本兜底。**必填**，但用户不填（来自预设）。 */
   const [fallbackText, setFallbackText] = useState('');
 
@@ -457,6 +491,32 @@ export default function SceneEditor({
         // 卡头副标题也要回填，理由同上一行：漏了就「打开已有场景 → 副标题变空
         // → 一保存就把它清掉」。它和 `fallback_text` / `form_title` 同级。
         setFormSubtitle(String(row.ui_config?.form_subtitle ?? ''));
+        /*
+          再拉一次预设，只为把**预览**要显示的文案补齐。
+
+          为什么不能省这一步：绝大多数场景的 `form_subtitle` 在库里是空串
+          （预设改了文案、场景没跟着写），聊天里后端 `effective_ui_config()`
+          会回落到预设那句，而 `GET /scenes/{id}` 只返回场景自己那份。
+          不补的话右栏预览会显示代码兜底句「填好这几项，我接着往下办」——
+          员工以为配的是这句，进聊天看到的是另一句。
+
+          失败时静默留空（走代码兜底），不弹 toast：预览文案拿不到不该
+          打断一个只想改名字的编辑操作。
+        */
+        if (row.module_key) {
+          void getScenePresetDefaults(row.module_key)
+            .then((defaults) => {
+              if (!alive) return;
+              const uiConfig = (defaults.ui_config ?? {}) as Record<string, unknown>;
+              setPresetUiText({
+                form_title: String(uiConfig.form_title ?? ''),
+                form_subtitle: String(uiConfig.form_subtitle ?? ''),
+              });
+            })
+            .catch(() => {
+              if (alive) setPresetUiText({});
+            });
+        }
         setTrigger({ ...DEFAULT_TRIGGER, ...row.trigger });
         setSlots(row.slots ?? []);
         setMatchAction({ ...DEFAULT_MATCH_ACTION, ...row.match_action });
@@ -638,6 +698,11 @@ export default function SceneEditor({
       // 卡头副标题来自预设（员工改过就不覆盖 —— 切类型是「换玩法」，
       // 但文案是员工自己斟酌过的，清掉比留着更烦）。
       setFormSubtitle((current) => current || String(uiConfig.form_subtitle ?? ''));
+      // 预览的三层回落要用的预设文案，与上面**同一次**响应里取，避免又多一个请求。
+      setPresetUiText({
+        form_title: String(uiConfig.form_title ?? ''),
+        form_subtitle: String(uiConfig.form_subtitle ?? ''),
+      });
       setTrigger({ ...DEFAULT_TRIGGER, ...(defaults.trigger as Partial<SceneTrigger>) });
       // 回答模板来自预设（用户不可见）。`intro` 之类后端会自己兜。
       setRespondTemplate(String((defaults as Record<string, unknown>).respond_template ?? ''));
@@ -1607,22 +1672,19 @@ export default function SceneEditor({
                       />
                     </Field>
                   ))}
-                  {/* 实时预览：改了字立刻能看到卡片变成什么样。
-                      不摆预览的话用户得保存 → 开聊天 → 点一次才知道改对没有。 */}
-                  <div className="mt-[2px]">
-                    <p className="m-0 mb-[6px] text-[11.5px] text-[#9a9a9f]">
-                      用户会看到这样一张卡片：
-                    </p>
-                    <ScenePreviewCard
-                      moduleKey={moduleKey}
-                      params={moduleParams}
-                      slotLabels={Object.fromEntries(
-                        slots
-                          .filter((slot) => slot.key && (slot.label ?? '').trim())
-                          .map((slot) => [slot.key, (slot.label ?? '').trim()]),
-                      )}
-                    />
-                  </div>
+                  {/*
+                    这里**不再**画一张预览卡。
+
+                    预览搬到右栏常驻后，同一张卡会在同一屏出现两次：一次在这里、
+                    一次在右栏第三段。改一个字两处同时变，看起来像「有两张卡要维
+                    护」，而且左栏本来就要向下滚很久 —— 多一张 300px 高的卡片只会
+                    让「匹配策略」更难找。
+
+                    留一句指路即可：用户知道去哪看，也知道改完立刻能看到。
+                  */}
+                  <p className="m-0 text-[11px] leading-[16px] text-[#9a9a9f]">
+                    改完看右栏「预览」第 3 段，卡片会跟着这行字实时变化。
+                  </p>
                 </Section>
               )}
 
@@ -1694,51 +1756,277 @@ export default function SceneEditor({
               <div className="h-[40px]" />
             </div>
 
-            {/* 右：试跑面板 */}
+            {/*
+              右栏：预览 / 试跑 双 tab。
+
+              ## 为什么把预览提到右栏常驻
+
+              原先预览嵌在「回复用户」区块的最底部（`replyParams` 之后）。
+              两个问题：
+
+              1. 它只在「回复用户」区块展开时可见。而用户改槽位（第 3 区块）、
+                 改名称图标（第 1 区块）时**看不到任何视觉反馈** —— 那些恰恰
+                 是「我配的东西长什么样」最主要的来源；
+              2. 预览只有结果卡，没有表单。用户调槽位 label / 单位 / 必填，
+                 预览纹丝不动，只能保存 → 开聊天 → 点一次才知道效果。
+
+              所以右栏常驻预览，且覆盖胶囊 / 表单 / 结果三段。左侧任何改动
+              都立刻反映到这里 —— 这就是用户要的「左侧改好，右侧实时渲染」。
+
+              ## 为什么和「试跑」共用右栏、做成 tab
+
+              试跑面板本来就在右栏。两个都全屏占右栏会互相挤（360px 宽塞不下
+              卡片 + 参数表单 + 结果漏斗）。做成 tab 后各自都有完整高度，
+              且「看样式」与「验数据」是两种不同的动作，不会同时需要。
+            */}
             <aside className="flex w-[360px] shrink-0 flex-col border-l border-[rgba(24,24,26,0.14)] bg-white">
-              <div className="flex items-center gap-[8px] border-b border-[rgba(24,24,26,0.10)] px-[18px] py-[14px]">
-                <span className="text-[13px] font-medium text-[#18181a]">试跑</span>
-                <span className="text-[11px] text-[#9a9a9f]">用这组条件查一次表</span>
-                <button
-                  onClick={() => void handleRun()}
-                  disabled={running || isNew}
-                  title={isNew ? '先保存再试跑' : undefined}
-                  className={`ml-auto ${SCENE_BTN_PRIMARY_SM}`}
-                >
-                  <IconRefresh className="size-3" />
-                  {running ? '查表中…' : '试跑'}
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-[10px] px-[18px] py-[14px]">
-                {slots.length === 0 && <p className="m-0 text-[12px] text-[#9a9a9f]">先配槽位。</p>}
-                {slots.map((slot) => (
-                  <label key={slot.key} className="flex items-center gap-[8px]">
-                    <span className="w-[52px] shrink-0 text-[12px] text-[#6d6d72]">
-                      {slot.label ?? slot.key}
-                    </span>
-                    <input
-                      value={runSlots[slot.key] ?? ''}
-                      onChange={(event) =>
-                        setRunSlots({ ...runSlots, [slot.key]: event.target.value })
-                      }
-                      inputMode="numeric"
-                      placeholder={slot.unit ? `单位：${slot.unit}` : ''}
-                      className={`${INPUT_CLASS} flex-1`}
-                    />
-                  </label>
+              <div
+                className="flex shrink-0 items-center gap-[2px] border-b border-[rgba(24,24,26,0.10)] px-[14px] py-[10px]"
+                role="tablist"
+                aria-label="右侧面板"
+              >
+                {(['preview', 'run'] as const).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={rightTab === key}
+                    onClick={() => setRightTab(key)}
+                    className={`rounded-[7px] px-[10px] py-[5px] text-[12.5px] transition-colors ${
+                      rightTab === key
+                        ? 'bg-[rgba(17,17,17,0.06)] font-medium text-[#18181a]'
+                        : 'text-[#6d6d72] hover:bg-[rgba(17,17,17,0.035)]'
+                    }`}
+                  >
+                    {key === 'preview' ? '预览' : '试跑'}
+                  </button>
                 ))}
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-[18px]">
-                {runResult && (
-                  <RunResultPanel result={runResult} columnKeys={columnKeys} />
+                {rightTab === 'run' && (
+                  <button
+                    onClick={() => void handleRun()}
+                    disabled={running || isNew}
+                    title={isNew ? '先保存再试跑' : undefined}
+                    className={`ml-auto ${SCENE_BTN_PRIMARY_SM}`}
+                  >
+                    <IconRefresh className="size-3" />
+                    {running ? '查表中…' : '试跑'}
+                  </button>
+                )}
+                {rightTab === 'preview' && (
+                  <span className="ml-auto text-[11px] text-[#9a9a9f]">实时</span>
                 )}
               </div>
+
+              {rightTab === 'preview' ? (
+                <ScenePreviewPanel
+                  moduleKey={moduleKey}
+                  moduleSummary={selectedModuleMeta?.summary}
+                  params={moduleParams}
+                  slots={slots}
+                  sceneName={name}
+                  icon={icon}
+                  presetTitle={presetUiText.form_title}
+                  presetSubtitle={presetUiText.form_subtitle}
+                  formSubtitle={formSubtitle}
+                  hasTable={
+                    effectiveNeedsTable(sceneType, selectedModuleMeta?.needs_table) !== 'none'
+                  }
+                />
+              ) : (
+                <>
+                  <div className="flex flex-col gap-[10px] px-[18px] py-[14px]">
+                    {slots.length === 0 && <p className="m-0 text-[12px] text-[#9a9a9f]">先配槽位。</p>}
+                    {slots.map((slot) => (
+                      <label key={slot.key} className="flex items-center gap-[8px]">
+                        <span className="w-[52px] shrink-0 text-[12px] text-[#6d6d72]">
+                          {slot.label ?? slot.key}
+                        </span>
+                        <input
+                          value={runSlots[slot.key] ?? ''}
+                          onChange={(event) =>
+                            setRunSlots({ ...runSlots, [slot.key]: event.target.value })
+                          }
+                          inputMode="numeric"
+                          placeholder={slot.unit ? `单位：${slot.unit}` : ''}
+                          className={`${INPUT_CLASS} flex-1`}
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-[18px]">
+                    {runResult && (
+                      <RunResultPanel result={runResult} columnKeys={columnKeys} />
+                    )}
+                  </div>
+                </>
+              )}
             </aside>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * 右栏「预览」tab：把场景在聊天里的**三段形态**按用户实际顺序画一遍。
+ *
+ * ## 顺序为什么是 胶囊 → 表单 → 结果
+ *
+ * 这就是员工在聊天里的真实路径：输入框上方看到一颗胶囊 → 点开放出表单 →
+ * 填完提交 → 收到结果卡。定义器要回答的问题是「我配的东西，用户会依次看到
+ * 什么」，所以按这个顺序竖排，而不是按「哪个更好看」排。
+ *
+ * ## 每一段都带一句「这是什么阶段」的说明
+ *
+ * 只画卡片不说明的话，三个区块并排会让人以为「同一个东西有三种样式」。
+ * 加上小标题后语义变成「第 1 步 / 第 2 步 / 第 3 步」。
+ *
+ * ## 查表型场景才画表单
+ *
+ * `tool_submit` / `script` 这类不需要用户填条件（要么直接调接口、要么固定话术），
+ * 硬画一个表单预览会让人以为自己漏配了槽位。所以表单段只在
+ * 「有表且配了槽位」时出现；没有就显示一句说明，而不是空白。
+ */
+function ScenePreviewPanel({
+  moduleKey,
+  moduleSummary,
+  params,
+  slots,
+  sceneName,
+  icon,
+  formTitle,
+  presetTitle,
+  presetSubtitle,
+  formSubtitle,
+  hasTable,
+}: {
+  moduleKey: string;
+  moduleSummary?: string;
+  params: Record<string, unknown>;
+  slots: SceneSlot[];
+  sceneName: string;
+  icon: string;
+  formTitle?: string;
+  /** 预设里的 `form_title`（见 `presetUiText` 的注释）。 */
+  presetTitle?: string;
+  /** 预设里的 `form_subtitle`。 */
+  presetSubtitle?: string;
+  formSubtitle: string;
+  hasTable: boolean;
+}) {
+  const slotLabels = useMemo(
+    () => Object.fromEntries(
+      slots
+        .filter((slot) => slot.key && (slot.label ?? '').trim())
+        .map((slot) => [slot.key, (slot.label ?? '').trim()]),
+    ),
+    [slots],
+  );
+  /**
+   * 表单标题 / 副标题：复刻后端的三层兜底（`channels.py::_slot_form_block`
+   * 配 `effective_ui_config` 的按键合并）。
+   *
+   * 顺序必须是：**场景自己存的值 → 预设的值 → 代码兜底**。
+   *
+   * - 场景自己的值来自 `row.ui_config`（`formTitle` / `formSubtitle`）；
+   * - 预设值来自 `presetUiText` —— 这一步不能省：库里多数场景的
+   *   `form_subtitle` 是空串，聊天里靠预设兜底才有一句话。少了它，
+   *   预览会显示代码兜底句，而员工在聊天里看到的是另一句；
+   * - 代码兜底分两支：标题用「场景名 · 请补充条件」（带场景名才对得上
+   *   「我点的那条」），副标题按场景类型给中性句。
+   *
+   * `params.form_title` / `params.form_subtitle` 也读，是为了存量场景
+   * ——`form_title` 是本次预设改造新增的位置，老场景把它存在 `params` 里。
+   */
+  const resolvedFormTitle = (
+    (formTitle ?? '').trim()
+    || String(params.form_title ?? '').trim()
+    || (presetTitle ?? '').trim()
+    || (sceneName.trim() ? `${sceneName.trim()} · 请补充条件` : '请补充以下信息')
+  );
+  const resolvedSubtitle = (
+    formSubtitle.trim()
+    || String(params.form_subtitle ?? '').trim()
+    || (presetSubtitle ?? '').trim()
+    || (hasTable ? '填好这几项，我按方案表逐条比对' : '填好这几项，我接着往下办')
+  );
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-[16px] pb-[20px] pt-[14px]">
+      {/* 统一说明：三段都是样例，避免被误认成真结果 */}
+      <p className="m-0 mb-[12px] rounded-[8px] bg-[#fbfaf6] px-[10px] py-[7px] text-[11px] leading-[16px] text-[#9a9b95]">
+        用样例数据渲染，和员工在聊天里看到的一致。左侧改动会立刻反映到这里。
+      </p>
+
+      <PreviewStage index={1} label="员工在输入框上方看到这个入口">
+        <SceneChipPreview icon={icon} label={sceneName} showCaption={false} />
+      </PreviewStage>
+
+      <PreviewStage
+        index={2}
+        label="点开先填条件"
+        note={hasTable && slots.length === 0 ? '还没配槽位' : undefined}
+      >
+        {slots.length > 0 ? (
+          <SceneFormPreview
+            moduleKey={moduleKey}
+            slots={slots}
+            title={resolvedFormTitle}
+            subtitle={resolvedSubtitle}
+            showCaption={false}
+          />
+        ) : (
+          <p className="m-0 rounded-[10px] bg-[#fbfaf6] px-[12px] py-[10px] text-[11.5px] leading-[17px] text-[#9a9b95]">
+            这个场景不问条件，点开就直接处理。
+          </p>
+        )}
+      </PreviewStage>
+
+      <PreviewStage index={3} label="处理完返回结果">
+        <ScenePreviewCard
+          moduleKey={moduleKey}
+          params={params}
+          slotLabels={slotLabels}
+          showCaption={false}
+        />
+        {moduleSummary && (
+          <p className="m-0 mt-[7px] text-[10.5px] leading-[15px] text-[#b3b4ae]">
+            {moduleSummary}
+          </p>
+        )}
+      </PreviewStage>
+    </div>
+  );
+}
+
+/** 预览里的一「段」：序号 + 阶段说明 + 内容。序号用来表达先后顺序。 */
+function PreviewStage({
+  index,
+  label,
+  note,
+  children,
+}: {
+  index: number;
+  label: string;
+  note?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mb-[16px] last:mb-0">
+      <div className="mb-[7px] flex items-center gap-[6px]">
+        <span className="grid size-[16px] shrink-0 place-items-center rounded-full bg-[#efeee9] text-[10px] font-medium text-[#6d6d72]">
+          {index}
+        </span>
+        <span className="text-[11.5px] text-[#6d6d72]">{label}</span>
+        {note && (
+          <span className="ml-auto shrink-0 rounded-full bg-[#fff2e5] px-[7px] py-[1px] text-[10px] text-[#b45309]">
+            {note}
+          </span>
+        )}
+      </div>
+      {children}
     </div>
   );
 }
